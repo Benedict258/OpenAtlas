@@ -381,3 +381,8 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
 
 - The language menu now lists Hausa first (it was Yoruba), so the demo opens in Hausa. Yoruba is still offered.
 - Why: live checks found Yoruba chat replies sometimes degenerate into repeated syllables ("afẹ́fẹ́fẹ́…"). This is a stopgap while that is open; see deploy/REPORT.md, KI-2.
+
+## All pages: N-ATLaS attribution; API examples show real model IDs
+
+- Every page footer now carries the attribution N-ATLaS's terms require in all public use: "N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies." The site had none before.
+- The Product page code sample and the Docs return-value rows now show `model: "NCAIR1/N-ATLaS"` and `attribution: "Powered by Awarri"`, matching the API. The API no longer renames the models (`n-atlas-llm`, `n-atlas-asr-*`), because the terms require renamed models to carry "Powered by Awarri".

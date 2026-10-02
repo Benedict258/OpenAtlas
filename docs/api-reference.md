@@ -16,7 +16,7 @@ Base URL: the gateway URL. Auth: `Authorization: Bearer <OpenAtlas key>`. Bodies
 | `temperature` | number | no | Default 0.1 |
 | `user` | string | **yes** | Stable, opaque end-user ID, max 256 chars. Hashed and used only for license-cap counting |
 
-Response `200`: `{ "content": string, "model": "n-atlas-llm", "usage": { prompt_tokens, completion_tokens, total_tokens } }`
+Response `200`: `{ "content": string, "model": "NCAIR1/N-ATLaS", "attribution": "Powered by Awarri", "usage": { prompt_tokens, completion_tokens, total_tokens } }`. `usage` is present only when the backend reports it.
 
 The gateway also sends N-ATLaS two settings that the caller doesn't control. Both come from the earlier Colab deployment, which was tested against the real weights:
 - `repetition_penalty: 1.12`
@@ -30,7 +30,9 @@ The gateway also sends N-ATLaS two settings that the caller doesn't control. Bot
 | `language` | `"en-ng"\|"ha"\|"yo"\|"ig"` | yes | Selects the ASR model |
 | `user` | string | **yes** | As above |
 
-Response `200`: `{ "text": string, "language": string, "model": "n-atlas-asr-<language>" }`
+Response `200`: `{ "text": string, "language": string, "model": "NCAIR1/Hausa-ASR" | "NCAIR1/Yoruba-ASR" | "NCAIR1/Igbo-ASR" | "NCAIR1/NigerianAccentedEnglish", "attribution": "Powered by Awarri" }`
+
+Models are named by their Hugging Face IDs, not renamed. `attribution` is the "Powered by Awarri" credit that N-ATLaS's terms require; show it wherever you show model output.
 
 ### `POST /v1/issues`
 

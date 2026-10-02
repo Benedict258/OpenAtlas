@@ -29,12 +29,18 @@ export interface ChatParams {
 
 export interface ChatResponse {
   content: string;
+  /** The model's Hugging Face ID: "NCAIR1/N-ATLaS". */
   model: string;
+  /** "Powered by Awarri", the attribution N-ATLaS's terms require. Show it where you show model output. */
+  attribution: string;
   usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
 }
 
-/** Raw audio bytes, or a base64 string (no `data:` prefix). Any format ffmpeg can decode: wav, mp3, ogg, webm, m4a. */
-/** Raw bytes, a base64 string (a `data:` URL prefix is stripped), or a Blob/File (e.g. a browser recording). */
+/**
+ * Raw bytes, a base64 string (a `data:` URL prefix is stripped), or a Blob/File (e.g. a browser recording).
+ * Which formats decode depends on the backend: wav, flac, ogg and mp3 always; webm/m4a only on a backend
+ * that decodes through ffmpeg (deploy/server/natlas_server.py does; the Colab notebook does not).
+ */
 export type AudioInput = Uint8Array | ArrayBuffer | string | Blob;
 
 export interface TranscribeParams {
@@ -47,7 +53,10 @@ export interface TranscribeParams {
 export interface TranscribeResponse {
   text: string;
   language: TranscribeLanguage;
+  /** The ASR model's Hugging Face ID, e.g. "NCAIR1/Hausa-ASR". */
   model: string;
+  /** "Powered by Awarri", the attribution N-ATLaS's terms require. */
+  attribution: string;
 }
 
 export interface ReportIssueParams {

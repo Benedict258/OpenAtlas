@@ -63,11 +63,11 @@ Full details: [docs/api-reference.md](docs/api-reference.md).
 | `maxRetries` | `2` | Retries network errors and 502/503 only |
 | `normalize` | `false` | Apply `normalizeText()` to chat messages, replies and transcripts automatically |
 
-### `client.chat({ messages, user, language?, max_tokens?, temperature? })` → `{ content, model, usage }`
+### `client.chat({ messages, user, language?, max_tokens?, temperature? })` → `{ content, model, attribution, usage }`
 
 Text generation with the N-ATLaS LLM. `language` (`en`, `ha`, `yo`, `ig`) adds a "Respond in …" instruction; it doesn't switch models.
 
-### `client.transcribe({ audio, language, user })` → `{ text, language, model }`
+### `client.transcribe({ audio, language, user })` → `{ text, language, model, attribution }`
 
 Speech-to-text with the N-ATLaS ASR model for `language`. `audio` is raw bytes (`Uint8Array`/`ArrayBuffer`/`Buffer`) or a base64 string, in any common format (wav, mp3, ogg, webm, m4a). Maximum about 7 MB.
 

@@ -27,6 +27,17 @@ export interface Env {
 
 const CHAT_LANGUAGE_NAMES: Record<string, string> = { en: "English", ha: "Hausa", yo: "Yoruba", ig: "Igbo" };
 const ASR_LANGUAGES = new Set(["en-ng", "ha", "yo", "ig"]);
+// Responses name the models by their own Hugging Face IDs. N-ATLaS's terms require any renamed
+// N-ATLaS model to carry "Powered by Awarri", so we don't rename them, and every model response
+// carries the attribution as well.
+const LLM_MODEL = "NCAIR1/N-ATLaS";
+const ASR_MODELS: Record<string, string> = {
+  ha: "NCAIR1/Hausa-ASR",
+  yo: "NCAIR1/Yoruba-ASR",
+  ig: "NCAIR1/Igbo-ASR",
+  "en-ng": "NCAIR1/NigerianAccentedEnglish",
+};
+const ATTRIBUTION = "Powered by Awarri";
 // RunPod rejects /run payloads over 10 MB; base64 adds ~33%.
 const MAX_AUDIO_BASE64_CHARS = 9_500_000;
 // Free-plan Workers allow 50 subrequests per request; keep polling well under that.
@@ -282,7 +293,7 @@ async function chat(req: Request, env: Env, keyId: string) {
   // OpenAI shape ({choices}) or a plain {content} body; backends may answer with either.
   const content = output?.choices?.[0]?.message?.content ?? output?.content;
   if (typeof content !== "string") throw new HttpError(502, "unexpected_upstream_shape", "LLM response had no message content.");
-  return { content: content.trim(), model: "n-atlas-llm", usage: output.usage };
+  return { content: content.trim(), model: LLM_MODEL, attribution: ATTRIBUTION, usage: output.usage };
 }
 
 async function transcribe(req: Request, env: Env, keyId: string) {
@@ -296,7 +307,7 @@ async function transcribe(req: Request, env: Env, keyId: string) {
 
   const output: any = await backendTranscribe(env, { audio_base64: body.audio, language: body.language });
   if (typeof output?.text !== "string") throw new HttpError(502, "unexpected_upstream_shape", "ASR response had no text.");
-  return { text: output.text, language: body.language, model: output.model ?? `n-atlas-asr-${body.language}` };
+  return { text: output.text, language: body.language, model: ASR_MODELS[body.language], attribution: ATTRIBUTION };
 }
 
 async function createKey(env: Env, label: string) {

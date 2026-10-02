@@ -49,7 +49,8 @@ await check("invalid OpenAtlas key → 401 invalid_api_key", async () => {
 await check("chat() returns the backend's reply (runpod kind: via queued → polled → completed)", async () => {
   const res = await client.chat({ messages: [{ role: "user", content: "Sannu" }], user: "user-1" });
   assert.match(res.content, /^\[MOCK/);
-  assert.equal(res.model, "n-atlas-llm");
+  assert.equal(res.model, "NCAIR1/N-ATLaS");
+  assert.equal(res.attribution, "Powered by Awarri");
 });
 
 await check("chat() with language adds a system instruction", async () => {
@@ -60,7 +61,8 @@ await check("chat() with language adds a system instruction", async () => {
 await check("transcribe() routes audio to the ASR endpoint", async () => {
   const res = await client.transcribe({ audio: new Uint8Array(1234), language: "ig", user: "user-1" });
   assert.match(res.text, /1234 bytes of ig audio/);
-  assert.equal(res.model, "n-atlas-asr-ig");
+  assert.equal(res.model, "NCAIR1/Igbo-ASR");
+  assert.equal(res.attribution, "Powered by Awarri");
 });
 
 await check("gateway requires `user` (400 missing_user), even when the SDK is bypassed", async () => {
