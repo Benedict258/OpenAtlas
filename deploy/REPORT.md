@@ -116,7 +116,35 @@ Why small windows fail: one Yoruba syllable such as "fẹ́" is 3 tokens, so the
 
 The same replay over the 3 logged English, Hausa and Igbo replies showed no changes at 10. That is a small sample.
 
-**Status: not yet verified live.** It needs the notebook re-run in Colab, then repeated Yoruba runs through the gateway. If loops persist, Hausa becomes the first option in the Citizen Services language menu as a stopgap, and this fix stays open.
+**Result: did not fix it.** See section 7.
+
+### 7. Yoruba loop fix, live re-test: FAIL, stopgap applied
+
+Backend: a fresh Colab run (`breakfast-rom-released-replied.trycloudflare.com`) with the n-gram guard added to the loaded model by a patch cell.
+
+**Guard active?** Yes, confirmed directly on the backend. "Write the word hello 25 times" returned 11 × "hello", then a forced "hi", then 9 more. A 10-token repeat was blocked exactly where expected.
+
+**Re-test:** the same Yoruba prompt 12 times through SDK → gateway, max 200 tokens.
+
+| | Runs | Full loop | Stutter ("fẹ́" ×3 or more) | Time |
+|---|---|---|---|---|
+| Before guard (section 6) | 11 | 1 | 2 | 11.4–19.6 s |
+| With guard | 12 | 1 (run 9) | 3 (runs 4, 8, 9) | 7.5–17.3 s |
+
+The guard blocks *exact* repeats, but the model escapes it by mutating the syllable. Run 9, verbatim excerpt:
+
+> "…Nínú irú àyíká bẹ́ẹ̀, afẹ́fẹ́fẹ́fẹ́fúnni tí a fẹ́fẹ́fẹ́fúnfúnfúnfúnfúnfúnni tí afẹ́fẹ́fẹ́típẹ̀fẹ́fẹ́fẹ́ tí afẹ́fẹ́fẹ́tẹ́fẹ́fẹ́fụ́fẹ́fẹ́fẹ̀fẹ́fẹ́fẹnukonu le fa"
+
+Run 4, verbatim excerpt: "…pẹ̀lú afẹ́fẹ́fẹ́fẹ́fọ́fẹ́fẹ́fẹ̀fẹ́fẹ́fẹ́."
+
+Every failure in both runs starts at the word "afẹ́fẹ́" (air). The test prompt's likely misreading (section 6) steers replies towards weather and air, so it probably triggers that word unusually often.
+
+The other 9 replies have no loop. They are fluent Yoruba, with mixed tone-mark use and off-topic content as before.
+
+**Decision:**
+- The fallback is applied: the Citizen Services language menu now lists Hausa first, live on site version `a5b4ade5`. Yoruba is still selectable.
+- KI-2 stays open.
+- The guard is still in the notebook and server. It did not measurably help, and it does change some output: forced word swaps such as "hello" → "hi" in deliberately repetitive text.
 
 ---
 
@@ -125,7 +153,7 @@ The same replay over the 3 logged English, Hausa and Igbo replies showed no chan
 | ID | Issue | Status |
 |---|---|---|
 | KI-1 | Citizen Services: on a question outside the demo notes (Hausa airfare), N-ATLaS gave general advice instead of saying the notes don't cover it. It ignores the "answer only from the notes" system instruction. | Open. Tracked, not being fixed yet. |
-| KI-2 | Yoruba chat can fall into a repetition loop ("afẹ́fẹ́fẹ́…") until the token limit: 1 in 11 runs, plus 2 stutters that recovered. | Fix applied (`no_repeat_ngram_size = 10`); live verification pending. |
+| KI-2 | Yoruba chat can degenerate into repeated or mutated syllables around "afẹ́fẹ́" ("afẹ́fẹ́fẹ́…", "fúnfúnfún…"). Before the guard: 1 full loop and 2 stutters in 11 runs. With `no_repeat_ngram_size = 10`: 1 full loop and 3 stutters in 12 runs. | **Open.** The n-gram guard did not help. Stopgap: Citizen Services opens in Hausa (site version `a5b4ade5`); Yoruba is still offered. |
 | KI-3 | Yoruba is the weakest language so far: most tone marks missing in chat replies, invented details, 74% WER on the one ASR clip, and the slowest chat (11–23 s vs 4–8 s for the other languages). | Known limitation of the current models; stated as a caveat. |
 | KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | Open. Must be listed in the final pre-submission status. |
 | KI-5 | Before the Customer Service demo goes live: the notebook can't decode browser voice recordings (webm), and it has no GPU lock, so two requests at once can overlap on the GPU. | Deferred until Customer Service. |

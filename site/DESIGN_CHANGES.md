@@ -376,3 +376,8 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
 - The Education and Customer Service windows show a "Paused" badge and a "Live demo paused" note in place of their controls, and their scripts are not loaded. Their API routes on the site Worker answer 503.
 - Why: a demo goes live only after its full pipeline has been verified against the live N-ATLaS model. Citizen Services is checked first.
 - Switch: `site/live-kits.mjs` (`LIVE_KITS`), read by both `site/build.mjs` and `site/src/worker.mjs`.
+
+## Starter kits page: Citizen Services defaults to Hausa
+
+- The language menu now lists Hausa first (it was Yoruba), so the demo opens in Hausa. Yoruba is still offered.
+- Why: live checks found Yoruba chat replies sometimes degenerate into repeated syllables ("afẹ́fẹ́fẹ́…"). This is a stopgap while that is open; see deploy/REPORT.md, KI-2.
