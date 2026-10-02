@@ -2,8 +2,9 @@
 // Reads test-audio/eval/manifest.json (dev/fetch-asr-eval.mjs, then dev/resample-eval.py) and reports
 // corpus WER per language, both with diacritics (tone marks count) and without them.
 //
-// Usage (repo root): node --env-file=.env deploy/asr-eval.mjs
-// Each clip's result is appended to deploy/smoke-results.jsonl (gitignored) with tag "asr-eval".
+// Usage (repo root): node --env-file=.env deploy/asr-eval.mjs [language]
+//   MIN_SECONDS=30 runs only clips longer than that; TAG names the run (default "asr-eval").
+// Each clip's result is appended to deploy/smoke-results.jsonl (gitignored) with that tag.
 
 import { appendFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -16,7 +17,7 @@ const gateway = process.env.OPENATLAS_BASE_URL;
 const client = new OpenAtlas({ apiKey: process.env.OPENATLAS_TEST_KEY, baseURL: gateway, maxRetries: 1 });
 const health = await fetch(`${gateway}/v1/health`).then((r) => r.json());
 if (health.backend?.mock) throw new Error("Gateway is pointed at the MOCK backend; this script is for real runs only.");
-const run = { at: new Date().toISOString(), tag: "asr-eval", gateway, backend_host: health.backend?.host };
+const run = { at: new Date().toISOString(), tag: process.env.TAG || "asr-eval", gateway, backend_host: health.backend?.host };
 console.log("backend:", run.backend_host);
 
 const words = (s, keepMarks) => {
@@ -38,7 +39,8 @@ function edits(r, h) {
 const clips = JSON.parse(readFileSync(join(evalDir, "manifest.json"), "utf8"));
 const only = process.argv[2];
 const results = [];
-for (const clip of clips.filter((c) => !only || c.language === only)) {
+const minSeconds = Number(process.env.MIN_SECONDS ?? 0);
+for (const clip of clips.filter((c) => (!only || c.language === only) && c.measured_s > minSeconds)) {
   const t0 = Date.now();
   try {
     const r = await client.transcribe({ audio: readFileSync(join(evalDir, clip.file_16k)), language: clip.language, user: "owner-asr-eval" });
