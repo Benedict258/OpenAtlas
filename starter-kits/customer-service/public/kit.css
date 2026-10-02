@@ -1,0 +1,24 @@
+/* Starter-kit window styles, taken from the OpenAtlas design (Starter kits page). */
+:root{--bg:#FAFAF7;--ink:#111411;--muted:#4A524C;--line:#D9DCD4;--green:#0A6B3B;--green-d:#064D2A;--paper:#FFFFFF}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Hanken Grotesk',system-ui,sans-serif;font-size:17px;line-height:1.6}
+.page{max-width:640px;margin:48px auto;padding:0 20px;display:flex;flex-direction:column;gap:20px}
+.attr{font-size:13px;color:var(--muted)}
+.badge{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#FCE6D8;color:#8A3300}
+.demo{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#E4EEE8;color:#064D2A}
+.win{border:1px solid var(--line);background:#fff;border-radius:10px;overflow:hidden}
+.wbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);font-weight:600;font-size:15px;background:#F1F2EC}
+.wbody{padding:24px;display:flex;flex-direction:column;gap:18px}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;flex:1 1 160px}
+.wbody select,.wbody textarea{font:inherit;font-weight:400;font-size:16px;padding:12px 14px;border:1px solid #9AA297;border-radius:6px;background:#fff;color:var(--ink);min-height:48px;width:100%}
+.wbody textarea{min-height:96px;resize:none}
+.rowf{display:flex;flex-wrap:wrap;gap:16px}
+.out{border:1px dashed #B9BFB5;border-radius:6px;padding:16px;background:#FAFAF7;color:var(--muted);font-size:15.5px;display:flex;flex-direction:column;gap:6px;white-space:pre-wrap}
+.out b{color:var(--ink);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.wbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border-radius:6px;font:inherit;font-weight:600;font-size:16px;border:1.5px solid var(--green);background:var(--green);color:#fff;align-self:flex-start;cursor:pointer}
+.wbtn.sec{background:#fff;color:var(--green-d)}
+.wbtn.dash{border-style:dashed;background:#fff;color:var(--muted);border-color:#9AA297}
+.wbtn:disabled{opacity:.6;cursor:progress}
+.wbtn.dash:disabled{opacity:1;cursor:not-allowed}
+.hint{font-size:14px;font-weight:400;color:var(--muted)}

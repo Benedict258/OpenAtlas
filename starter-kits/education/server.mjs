@@ -1,16 +1,13 @@
-// Education starter kit: tutoring-style explanations at a chosen level, via chat();
-// wrong answers are flagged back to OpenAtlas with reportIssue().
+// Education starter kit: serves the demo page and its API. The kit logic is in kit.mjs.
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
-import { OpenAtlas, OpenAtlasError } from "openatlas";
+import { readFile } from "node:fs/promises";
+import { extname } from "node:path";
+import { OpenAtlas } from "openatlas";
+import { explain, report } from "./kit.mjs";
 
 const client = new OpenAtlas();
-const page = readFileSync(new URL("./index.html", import.meta.url));
-const LANGUAGES = new Set(["en", "ha", "yo", "ig"]);
-const LEVELS = {
-  primary: "a primary-school pupil (about 8–11 years old). Use very simple words, short sentences and one everyday example.",
-  secondary: "a secondary-school student (about 12–17 years old). Explain the key idea clearly, define any technical terms, and give one worked example.",
-};
+const ROUTES = { "POST /api/education/explain": explain, "POST /api/education/report": report };
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 
 async function readJson(req) {
   // Concatenate bytes before decoding so multi-byte characters split across chunks survive.
@@ -25,37 +22,23 @@ const send = (res, status, body) => {
 };
 
 createServer(async (req, res) => {
+  const route = `${req.method} ${req.url}`;
   try {
-    if (req.method === "GET" && req.url === "/") {
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      return res.end(page);
-    }
-    if (req.method === "GET" && req.url === "/api/status") {
+    if (ROUTES[route]) return send(res, 200, await ROUTES[route](client, await readJson(req)));
+    if (route === "GET /api/status") {
       const health = await fetch(`${client.baseURL}/v1/health`).then((r) => r.json());
       return send(res, 200, { mock: health.backend?.mock === true });
     }
-    if (req.method === "POST" && req.url === "/api/explain") {
-      const { question, language, level, user } = await readJson(req);
-      if (!question || !LANGUAGES.has(language) || !LEVELS[level]) return send(res, 400, { error: "question, language and level are required" });
-      // Same chat() call as every other kit; only the instructional framing changes.
-      const response = await client.chat({
-        messages: [
-          { role: "system", content: `You are a patient tutor. Explain the student's question for ${LEVELS[level]}` },
-          { role: "user", content: question },
-        ],
-        language,
-        user,
-      });
-      return send(res, 200, { explanation: response.content, model: response.model });
-    }
-    if (req.method === "POST" && req.url === "/api/report") {
-      const { question, explanation, correction, language, user } = await readJson(req);
-      if (!question || !explanation || !correction) return send(res, 400, { error: "question, explanation and correction are required" });
-      const report = await client.reportIssue({ kind: "chat", input: question, output: explanation, correction, language, user });
-      return send(res, 200, report);
+    if (req.method === "GET") {
+      const file = req.url === "/" ? "index.html" : req.url.slice(1);
+      if (!/^[\w-]+\.(html|js|css)$/.test(file)) return send(res, 404, { error: "not found" });
+      const body = await readFile(new URL(`./public/${file}`, import.meta.url)).catch(() => null);
+      if (!body) return send(res, 404, { error: "not found" });
+      res.writeHead(200, { "Content-Type": TYPES[extname(file)] });
+      return res.end(body);
     }
     send(res, 404, { error: "not found" });
   } catch (err) {
-    send(res, 502, { error: err instanceof OpenAtlasError ? err.message : String(err) });
+    send(res, err.status ?? 502, { error: err.message });
   }
 }).listen(Number(process.env.PORT ?? 3002), () => console.log(`Education demo on http://localhost:${process.env.PORT ?? 3002}`));

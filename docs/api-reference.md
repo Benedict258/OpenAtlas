@@ -1,6 +1,6 @@
 # OpenAtlas API reference
 
-There are two ways to use it: the TypeScript SDK (recommended) and the HTTP API it wraps. Both talk to the OpenAtlas gateway, never to the GPU host directly. `normalizeText()` is SDK-only: it runs locally and has no HTTP route.
+There are two ways to use it: the TypeScript SDK (recommended) and the HTTP API it wraps. Both talk to the OpenAtlas gateway, never to the GPU host directly. `normalizeText()` is SDK-only: it runs locally and has no HTTP route. It repairs corrupted characters (encoding damage, look-alike letters, invisible characters, NFC; Hausa apostrophe spellings opt-in). It does **not** restore tone marks that were never typed; N-ATLaS-based tone restoration is a roadmap item only.
 
 ## HTTP API
 
@@ -59,6 +59,8 @@ With `kind: "runpod"` (fallback): `backend` is `{ kind, mock, llm_configured, as
 
 - `POST /v1/admin/keys` with `{ "label": string }` returns `201 { id, label, key }`. The key is shown once and stored only as a SHA-256 hash.
 - `GET /v1/usage` returns `{ window_days, cap, active_users, requests_in_window, by_key: [{label, active_users}] }`.
+- `POST /v1/key-requests` (no auth): the website's request form. `{ name, email, project, use_case, expected_users?, accept_terms: true }` returns `201 { id, status: "pending" }`; `409 request_pending` if that email already has one pending.
+- `GET /v1/admin/key-requests?status=pending|approved|declined` lists requests. `POST /v1/admin/key-requests/decide` with `{ id, decision: "approve" | "decline" }`: approving issues a key (returned once, labelled with the requester's email and project). `deploy/key-requests.mjs` wraps both.
 - `GET /v1/admin/issues?since=<ms>&limit=<1-500>&audio=1` exports issue reports, oldest first: `{ issues: [...], next_since }`. Without `audio=1`, each row has `has_audio` instead of the clip. Page by passing `next_since` back as `since`.
 
 ### Errors

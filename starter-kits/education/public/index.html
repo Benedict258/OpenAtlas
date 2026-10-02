@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAtlas — Education Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<main class="page">
+<!-- window:education -->
+<div class="win" data-kit="education">
+<div class="wbar"><span>OpenAtlas — Education Demo</span><span style="display:flex;gap:8px;flex:none"><span class="badge" data-mock hidden>Mock backend</span><span class="demo">Sample only</span></span></div>
+<div class="wbody">
+<div class="rowf">
+<div class="fld"><label for="el">Language</label><select id="el"><option value="ha">Hausa</option><option value="yo">Yoruba</option><option value="ig">Igbo</option><option value="en">English</option></select></div>
+<div class="fld"><label for="ev">Level</label><select id="ev"><option value="primary">Primary</option><option value="secondary">Secondary</option></select></div>
+</div>
+<div class="fld"><label for="eq">Ask something to learn…</label><textarea id="eq" placeholder="What would you like explained?"></textarea></div>
+<button class="wbtn" type="button" id="e-go">Explain</button>
+<div class="out"><b>Explanation</b><span id="e-out">The N-ATLaS explanation appears here.</span></div>
+<button class="wbtn sec" type="button" id="e-report" hidden>Report a wrong answer</button>
+<div class="fld" id="e-fix" hidden><label for="e-fix-text">What should the answer have said?</label><textarea id="e-fix-text"></textarea><span class="hint">Your question, this answer and your correction are sent to OpenAtlas as a correction for N-ATLaS (reportIssue()). Nothing else is stored.</span></div>
+<button class="wbtn" type="button" id="e-send" hidden>Send correction</button>
+<span class="hint" id="e-status"></span>
+</div>
+</div>
+<!-- /window:education -->
+<p class="attr">N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies. Reference implementation for non-commercial use under the N-ATLaS Terms of Use (max 1,000 active end-users per rolling 30 days).</p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

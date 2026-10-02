@@ -1,0 +1,23 @@
+name = "openatlas-site"
+main = "src/worker.mjs"
+compatibility_date = "2026-09-01"
+
+# Copies pages + the starter kits' live windows into ./dist before dev and deploy.
+[build]
+command = "node build.mjs"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+html_handling = "auto-trailing-slash"
+
+# The gateway Worker, called directly (Worker-to-Worker fetches over workers.dev are blocked: error 1042).
+[[services]]
+binding = "GATEWAY"
+service = "openatlas-gateway"
+
+[vars]
+OPENATLAS_BASE_URL = "https://openatlas-gateway.isaacbenedict001.workers.dev"
+
+# Secret (wrangler secret put OPENATLAS_API_KEY, or .dev.vars locally):
+#   OPENATLAS_API_KEY  the key the website's live kit demos use (label it "website-demos")

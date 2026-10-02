@@ -7,12 +7,14 @@
     "gateway",
     "starter-kits/citizen-services",
     "starter-kits/education",
-    "starter-kits/customer-service"
+    "starter-kits/customer-service",
+    "site"
   ],
   "scripts": {
     "build": "npm run build -w openatlas",
     "test": "npm test -w openatlas",
     "dev:mock-backend": "node dev/mock-backend/server.mjs",
-    "dev:gateway": "npm run dev -w openatlas-gateway"
+    "dev:gateway": "npm run dev -w openatlas-gateway",
+    "dev:site": "npm run dev -w openatlas-site"
   }
 }

@@ -281,10 +281,7 @@ async function transcribe(req: Request, env: Env, keyId: string) {
   return { text: output.text, language: body.language, model: output.model ?? `n-atlas-asr-${body.language}` };
 }
 
-async function issueKey(req: Request, env: Env) {
-  requireAdmin(req, env);
-  const body = await readJson(req).catch(() => ({}));
-  const label = typeof body?.label === "string" && body.label ? body.label.slice(0, 100) : "unlabelled";
+async function createKey(env: Env, label: string) {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
   const key = "oa_" + [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
   const id = crypto.randomUUID();
@@ -292,6 +289,65 @@ async function issueKey(req: Request, env: Env) {
     .bind(id, await sha256(key), label, Date.now())
     .run();
   return { id, label, key, note: "Store this key now; it is not shown again." };
+}
+
+async function issueKey(req: Request, env: Env) {
+  requireAdmin(req, env);
+  const body = await readJson(req).catch(() => ({}));
+  return createKey(env, typeof body?.label === "string" && body.label ? body.label.slice(0, 100) : "unlabelled");
+}
+
+function requiredText(v: unknown, field: string, max: number): string {
+  const text = optionalText(typeof v === "string" ? v.trim() : v, field, max);
+  if (!text) throw new HttpError(400, "invalid_key_request", `\`${field}\` is required.`);
+  return text;
+}
+
+/** Public: the website's "Request an API key" form. Keys are issued by hand after review. */
+async function createKeyRequest(req: Request, env: Env) {
+  const body = await readJson(req);
+  const name = requiredText(body?.name, "name", 100);
+  const email = requiredText(body?.email, "email", 200).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "invalid_key_request", "`email` doesn't look like an email address.");
+  const project = requiredText(body?.project, "project", 200);
+  const useCase = requiredText(body?.use_case, "use_case", 2_000);
+  const expectedUsers = optionalText(body?.expected_users, "expected_users", 50);
+  if (body?.accept_terms !== true) {
+    throw new HttpError(400, "invalid_key_request", "You must accept the N-ATLaS Terms of Use (non-commercial, 1,000 active users per 30 days).");
+  }
+  const pending = await env.DB.prepare("SELECT id FROM key_requests WHERE email = ? AND status = 'pending'").bind(email).first();
+  if (pending) throw new HttpError(409, "request_pending", "There is already a pending request for this email. You'll hear back once it's reviewed.");
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    "INSERT INTO key_requests (id, created_at, name, email, project, use_case, expected_users) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  )
+    .bind(id, Date.now(), name, email, project, useCase, expectedUsers)
+    .run();
+  return { id, status: "pending" };
+}
+
+async function listKeyRequests(req: Request, env: Env) {
+  requireAdmin(req, env);
+  const status = new URL(req.url).searchParams.get("status") ?? "pending";
+  const rows = await env.DB.prepare("SELECT * FROM key_requests WHERE status = ? ORDER BY created_at ASC LIMIT 200").bind(status).all();
+  return { requests: rows.results };
+}
+
+/** Admin: approve (issues a key, returned once) or decline a request. */
+async function decideKeyRequest(req: Request, env: Env) {
+  requireAdmin(req, env);
+  const body = await readJson(req);
+  if (body?.decision !== "approve" && body?.decision !== "decline") {
+    throw new HttpError(400, "invalid_decision", '`decision` must be "approve" or "decline".');
+  }
+  const request = await env.DB.prepare("SELECT * FROM key_requests WHERE id = ?").bind(body.id).first<{ email: string; project: string; status: string }>();
+  if (!request) throw new HttpError(404, "not_found", "No key request with that id.");
+  if (request.status !== "pending") throw new HttpError(409, "already_decided", `Request is already ${request.status}.`);
+  const issued = body.decision === "approve" ? await createKey(env, `${request.email} · ${request.project}`.slice(0, 100)) : null;
+  await env.DB.prepare("UPDATE key_requests SET status = ?, key_id = ?, decided_at = ? WHERE id = ?")
+    .bind(body.decision === "approve" ? "approved" : "declined", issued?.id ?? null, Date.now(), body.id)
+    .run();
+  return { id: body.id, email: request.email, status: body.decision === "approve" ? "approved" : "declined", ...(issued ? { key: issued.key, note: issued.note } : {}) };
 }
 
 async function usage(req: Request, env: Env) {
@@ -428,6 +484,15 @@ export default {
         case "POST /v1/audio/transcriptions":
           keyId = await authenticate(req, env);
           response = json(200, await transcribe(req, env, keyId));
+          break;
+        case "POST /v1/key-requests":
+          response = json(201, await createKeyRequest(req, env));
+          break;
+        case "GET /v1/admin/key-requests":
+          response = json(200, await listKeyRequests(req, env));
+          break;
+        case "POST /v1/admin/key-requests/decide":
+          response = json(200, await decideKeyRequest(req, env));
           break;
         case "POST /v1/admin/keys":
           response = json(201, await issueKey(req, env));

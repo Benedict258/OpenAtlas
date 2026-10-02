@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAtlas — Citizen Services Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<main class="page">
+<!-- window:citizen -->
+<div class="win" data-kit="citizen">
+<div class="wbar"><span>OpenAtlas — Citizen Services Demo</span><span style="display:flex;gap:8px;flex:none"><span class="badge" data-mock hidden>Mock backend</span><span class="demo">Demo dataset</span></span></div>
+<div class="wbody">
+<div class="fld"><label for="cl">Language</label><select id="cl"><option value="yo">Yoruba</option><option value="ha">Hausa</option><option value="ig">Igbo</option><option value="en">English</option></select></div>
+<div class="fld"><label for="cq">Ask a question about…</label><textarea id="cq" placeholder="Type your question"></textarea></div>
+<button class="wbtn" type="button" id="c-ask">Ask</button>
+<div class="out"><b>Response</b><span id="c-out">The N-ATLaS answer appears here.</span></div>
+<div class="out" id="c-norm" hidden><b>Question after normalizeText()</b><span id="c-norm-text"></span></div>
+</div>
+</div>
+<!-- /window:citizen -->
+<p class="attr">N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies. Reference implementation for non-commercial use under the N-ATLaS Terms of Use (max 1,000 active end-users per rolling 30 days).</p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
