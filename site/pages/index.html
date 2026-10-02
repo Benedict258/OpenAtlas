@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAtlas</title>
+<link rel="stylesheet" href="/fonts.css">
+<style>
+:root{--bg:#FAFAF7;--ink:#111411;--muted:#4A524C;--line:#D9DCD4;--green:#0A6B3B;--green-d:#064D2A;--orange:#E8590C;--dark:#111411;--dark-2:#1B201C;--on-dark:#ECEFE8;--on-dark-m:#A9B0A6;--paper:#FFFFFF}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Hanken Grotesk',system-ui,sans-serif;font-size:17px;line-height:1.6}
+a{color:inherit;text-decoration:none}
+h1,h2,h3,h4,p,ul{margin:0}
+ul{padding:0;list-style:none}
+p{text-wrap:pretty}
+.wrap{max-width:1200px;margin:0 auto;padding:0 32px}
+.nav{position:sticky;top:0;z-index:10;background:rgba(250,250,247,.94);border-bottom:1px solid var(--line)}
+.navin{display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:72px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:21px;letter-spacing:-.01em}
+.links{display:flex;gap:32px;font-size:15px;font-weight:500}
+.links a{padding:12px 0;color:var(--muted)}
+.links a:hover,.links a.on{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:6px;font-weight:600;font-size:16px;border:1.5px solid transparent;cursor:pointer;font-family:inherit;line-height:1}
+.btn-primary{background:var(--green);color:#fff}
+.btn-primary:hover{background:var(--green-d)}
+.btn-ghost{border-color:var(--ink);color:var(--ink);background:transparent}
+.btn-ghost:hover{background:var(--ink);color:#fff}
+.btn-light{background:#fff;color:var(--green-d)}
+.btn-light:hover{background:var(--on-dark)}
+.btn-ghost-d{border-color:var(--on-dark);color:var(--on-dark)}
+.btn-ghost-d:hover{background:var(--on-dark);color:var(--ink)}
+.eyebrow{font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green)}
+.h2{font-size:clamp(32px,4vw,52px);line-height:1.08;letter-spacing:-.02em;font-weight:500}
+.lead{font-size:19px;color:var(--muted);max-width:680px}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.sec{padding:112px 0}
+.sechead{display:flex;flex-direction:column;gap:16px;margin-bottom:56px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.cell{background:var(--paper);padding:36px 32px;display:flex;flex-direction:column;gap:12px}
+.cell .n{font-size:14px;color:var(--muted)}
+.cell h3{font-size:22px;font-weight:600;letter-spacing:-.01em}
+.cell p{color:var(--muted);font-size:16px}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:36px;padding:0 14px;border:1px solid var(--line);border-radius:999px;background:var(--paper);font-size:15px;font-weight:500}
+.chip b{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:500;color:var(--green)}
+.badge{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#FCE6D8;color:#8A3300}
+.codebox{background:#0E120F;border-radius:10px;overflow:hidden;border:1px solid #243026}
+.codebar{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid #243026;color:#A9B0A6;font-size:13px}
+.codebar i{width:10px;height:10px;border-radius:50%;background:#2E3830;display:block}
+.code{margin:0;padding:24px;font-size:14.5px;line-height:1.75;color:#ECEFE8;overflow-x:auto;white-space:pre}
+.k{color:#7FD8A0}.s{color:#F2B27A}.c{color:#8C968D}.f{color:#9CC7FF}
+.tabs{display:flex;overflow-x:auto}
+.tab{display:flex;align-items:center;gap:10px;padding:22px 32px;min-height:64px;font-family:inherit;font-size:17px;font-weight:500;background:transparent;border:1px solid transparent;border-bottom:none;color:var(--muted);cursor:pointer;white-space:nowrap;margin-bottom:-1px}
+.tab:hover{color:var(--ink)}
+.tab.on{background:var(--paper);border-color:var(--line);color:var(--ink)}
+.tab .n{font-size:14px;color:var(--muted)}
+.panel{background:var(--paper);border:1px solid var(--line);padding:40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr));gap:48px}
+.panel h3{font-size:28px;font-weight:600;letter-spacing:-.015em;line-height:1.2;margin-bottom:16px}
+.panel .sub{font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin:28px 0 12px}
+.panel li{padding:12px 0;border-top:1px solid var(--line);color:var(--muted);font-size:16px}
+.panel li:last-child{border-bottom:1px solid var(--line)}
+.card{border:1px solid var(--line);border-radius:8px;padding:24px 28px;background:#fff}
+.card h4{font-size:17px;font-weight:600;margin-bottom:8px}
+.card p{font-size:16px;color:var(--muted)}
+.card-dark{background:var(--dark);border-color:var(--dark);margin-top:24px}
+.card-dark p{color:var(--on-dark-m)}
+.card-dark h4{color:#fff}
+.flowrow{display:flex;flex-direction:column;gap:12px;padding:28px 0;border-top:1px solid var(--line)}
+.flowrow:last-child{border-bottom:1px solid var(--line)}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.step{flex:1 1 170px;border:1px solid var(--line);background:var(--paper);padding:14px 18px;border-radius:6px;display:flex;flex-direction:column;gap:2px}
+.step small{font-size:13px;color:var(--muted)}
+.step b{font-size:16px;font-weight:600}
+.step.core{border-color:var(--green);background:#EAF4EE}
+.step.opt{border-style:dashed}
+.arr{color:var(--muted);display:flex}
+.dark{background:var(--dark);color:var(--on-dark)}
+.dcard{border:1px solid #2C352E;background:var(--dark-2);border-radius:8px;padding:36px;display:flex;flex-direction:column;gap:20px}
+.dcard h3{font-size:18px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange)}
+.dcard li{display:flex;gap:14px;align-items:flex-start;color:var(--on-dark);font-size:17px}
+.dcard li svg{flex:none;margin-top:4px}
+.ok{color:#5FD08A}.no{color:#A9B0A6}
+.row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:32px;padding:28px 0;border-top:1px solid var(--line)}
+.row:last-child{border-bottom:1px solid var(--line)}
+.row h3{font-size:20px;font-weight:600}
+.row p{color:var(--muted)}
+.cta{background:var(--green-d);color:#fff}
+.foot{background:var(--dark);color:var(--on-dark-m);font-size:15px}
+.foot h4{color:#fff;font-size:14px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px}
+.foot li{padding:6px 0}
+.foot a:hover{color:#fff}
+@media(max-width:760px){.links{display:none}.wrap{padding:0 20px}.sec{padding:72px 0}.panel{padding:24px}.row{grid-template-columns:1fr;gap:8px}.dcard{padding:24px} }
+
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div>
+<header class="nav">
+<div class="wrap navin">
+<a class="brand" href="/">
+<svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="#0A6B3B" stroke-width="2" aria-hidden="true"><circle cx="15" cy="15" r="12"></circle><ellipse cx="15" cy="15" rx="5" ry="12"></ellipse><path d="M3 15h24"></path></svg>
+OpenAtlas
+</a>
+<nav class="links" aria-label="Primary">
+<a class="on" href="/">Product</a>
+<a href="/docs">Docs</a>
+<a href="/starter-kits">Starter kits</a>
+<a href="/architecture">Architecture</a>
+</nav>
+<a class="btn btn-primary" href="/request-key">Get an API key</a>
+</div>
+</header>
+
+<main>
+<section class="sec" style="padding-top:88px;padding-bottom:72px">
+<div class="wrap" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(460px,100%),1fr));gap:56px;align-items:center">
+<div style="display:flex;flex-direction:column;gap:28px">
+<p class="eyebrow">NAIC 2026 · Developer Infrastructure</p>
+<h1 style="font-size:clamp(44px,5.6vw,76px);line-height:1.02;letter-spacing:-.03em;font-weight:500">N-ATLaS, one import away.</h1>
+<p class="lead">OpenAtlas is a single TypeScript SDK for N-ATLaS. Call Nigeria's sovereign LLM and its four local-language speech models without a GPU, a quantization step or five separate interfaces.</p>
+<div style="display:flex;flex-wrap:wrap;gap:12px">
+<a class="btn btn-primary" href="/request-key">Get an API key</a>
+<a class="btn btn-ghost" href="/docs">Read the quickstart</a>
+</div>
+<div class="mono" style="display:inline-flex;align-self:flex-start;align-items:center;gap:12px;padding:12px 18px;border:1px solid var(--line);background:#fff;border-radius:6px;font-size:15px"><span style="color:var(--green)">$</span> npm install openatlas</div>
+</div>
+<div class="codebox">
+<div class="codebar"><i></i><i></i><i></i><span class="mono" style="margin-left:6px">quickstart.ts</span></div>
+<pre class="mono code"><span class="k">import</span> { OpenAtlas } <span class="k">from</span> <span class="s">"openatlas"</span>;
+
+<span class="k">const</span> client = <span class="k">new</span> <span class="f">OpenAtlas</span>({ apiKey: process.env.OPENATLAS_API_KEY });
+
+<span class="k">const</span> response = <span class="k">await</span> client.<span class="f">chat</span>({
+  messages: [{ role: <span class="s">"user"</span>, content: <span class="s">"Ṣe o le ṣàlàyé ìdí tí ọ̀run fi jẹ́ búlúù?"</span> }],
+  user: <span class="s">"your-end-user-id"</span>, <span class="c">// required: one ID per end user</span>
+});
+
+console.<span class="f">log</span>(response.content);
+<span class="c">// → { content: string, model: "n-atlas-llm" }</span></pre>
+</div>
+</div>
+</section>
+
+<section style="padding:0 0 96px">
+<div class="wrap" style="display:flex;flex-wrap:wrap;align-items:center;gap:12px 14px;padding-top:28px;border-top:1px solid var(--line)">
+<span style="font-size:15px;color:var(--muted);margin-right:8px">One client. Four language codes.</span>
+<span class="chip"><b>ha</b> Hausa</span>
+<span class="chip"><b>yo</b> Yoruba</span>
+<span class="chip"><b>ig</b> Igbo</span>
+<span class="chip"><b>en-ng</b> Nigerian-accented English</span>
+</div>
+</section>
+
+<section class="sec" id="gap" style="background:#F1F2EC;padding-top:104px">
+<div class="wrap">
+<div class="sechead">
+<p class="eyebrow">The gap</p>
+<h2 class="h2">A model is not an ecosystem.</h2>
+<p class="lead">N-ATLaS is open and downloadable. Between the Hugging Face page and a working app sits infrastructure work every developer ends up repeating.</p>
+</div>
+<div class="grid3">
+<div class="cell"><span class="n mono">01</span><h3>No persistent endpoint</h3><p>You find a GPU, quantize an 8B-parameter model and keep it running yourself.</p></div>
+<div class="cell"><span class="n mono">02</span><h3>No single client library</h3><p>One LLM and four ASR checkpoints, each with its own interface, for you to stitch together.</p></div>
+<div class="cell"><span class="n mono">03</span><h3>No starter templates</h3><p>Nothing to copy for the obvious first builds: a citizen chatbot, a classroom tool, a customer-service line.</p></div>
+</div>
+</div>
+</section>
+
+<section class="sec" id="what">
+<div class="wrap">
+<div class="sechead">
+<p class="eyebrow">What OpenAtlas is</p>
+<h2 class="h2">The missing layer between the model and your app.</h2>
+<p class="lead">Not a new model, and not another app on top of N-ATLaS. Three parts that make building on it fast.</p>
+</div>
+<div class="tabs" role="group" aria-label="OpenAtlas parts">
+<button class="tab on" aria-pressed="true" data-tab="0"><span class="n mono">01</span> TypeScript SDK</button>
+<button class="tab" aria-pressed="false" data-tab="1"><span class="n mono">02</span> Starter kits</button>
+<button class="tab" aria-pressed="false" data-tab="2"><span class="n mono">03</span> Gateway and hosting</button>
+</div>
+<div class="panel">
+<div data-panel="0">
+<h3>One client for five models.</h3>
+<p style="color:var(--muted)">A single npm package routes chat() to the LLM and transcribe() to the right ASR model by language code, with typed errors, retries and timeouts. It also repairs broken Nigerian-language text with normalizeText() and sends corrections back with reportIssue().</p>
+<p class="sub" style="color:var(--green)">Method surface</p>
+<ul>
+<li class="mono" style="font-size:15px">chat({ messages, user, language? })</li>
+<li class="mono" style="font-size:15px">transcribe({ audio, language, user })</li>
+<li class="mono" style="font-size:15px">normalizeText(text, { language? })</li>
+<li class="mono" style="font-size:15px">reportIssue({ kind, output, correction })</li>
+<li class="mono" style="font-size:15px">speak({ text, language }) — stretch</li>
+</ul>
+</div>
+<div data-panel="0">
+<div class="card"><h4>Why TypeScript first</h4><p>It matches the stack of the starter kits and the gateway, and ships the inference settings already tested against the real N-ATLaS weights. A Python port is a roadmap item, not part of this submission.</p></div>
+<div class="card card-dark"><h4>Design principle</h4><p>One consistent interface, whichever N-ATLaS model actually answers.</p></div>
+</div>
+<div data-panel="1" hidden>
+<h3>Three runnable reference apps.</h3>
+<p style="color:var(--muted)">Citizen services, education and customer service. Each is a minimal page or script that sends a real request through the SDK to the hosted endpoint and back.</p>
+<p class="sub" style="color:var(--green)">What each proves</p>
+<ul>
+<li>Citizen Services — normalizeText() and chat() over a small demo civic dataset</li>
+<li>Education — chat() reframed by level and language, with reportIssue() for wrong answers</li>
+<li>Customer Service — transcribe() chained into chat(), with transcript corrections via reportIssue()</li>
+</ul>
+</div>
+<div data-panel="1" hidden>
+<div class="card"><h4>Run one</h4><p>npm install &amp;&amp; npm start, pointed at the live endpoint with a single environment variable.</p></div>
+<div class="card card-dark"><h4>Labeled honestly</h4><p>Demo datasets and shortcuts are marked as demo inside the interface itself.</p></div>
+</div>
+<div data-panel="2" hidden>
+<h3>One gateway in front of N-ATLaS. No GPU on your side.</h3>
+<p style="color:var(--muted)">The OpenAtlas gateway issues your key, counts active users against the licence cap and forwards each call to a GPU host serving the N-ATLaS LLM and all four ASR models. You never provision hardware or manage weights just to try the model.</p>
+<p class="sub" style="color:var(--green)">What's served</p>
+<ul>
+<li>N-ATLaS LLM — a Llama-3 8B fine-tune, quantized as needed for the GPU tier</li>
+<li>ASR for Hausa, Yoruba, Igbo and Nigerian-accented English</li>
+<li>One base URL, a distinct endpoint path for each model</li>
+</ul>
+</div>
+<div data-panel="2" hidden>
+<div class="card"><h4>Who it's for</h4><p>Nigerian and West African developers, academic and research teams, and anyone building civic, education or support tools in local languages.</p></div>
+<div class="card card-dark"><h4>Honest scope</h4><p>New infrastructure built for this submission. Not load-tested, with no uptime or SLA claim. The GPU host can change behind the gateway without any change to your code, and first-call latency while models load is documented up front.</p></div>
+</div>
+</div>
+</div>
+</section>
+
+<section class="sec" id="sdk" style="background:#F1F2EC">
+<div class="wrap">
+<div class="sechead">
+<p class="eyebrow">The API</p>
+<h2 class="h2">Five methods. That's the whole surface.</h2>
+<p class="lead">Request and response shapes echo familiar chat-completion conventions to lower the learning curve. Every model call except the optional speech one is served by an N-ATLaS model.</p>
+</div>
+<div class="grid3">
+<div class="cell"><span class="mono" style="color:var(--green);font-size:18px">client.chat()</span><h3>Text reasoning</h3><p>Messages in, N-ATLaS LLM completion out. Optional language hint.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">POST /v1/chat/completions</p></div>
+<div class="cell"><span class="mono" style="color:var(--green);font-size:18px">client.transcribe()</span><h3>Speech to text</h3><p>Audio plus a language code, routed to the matching N-ATLaS ASR model.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">POST /v1/audio/transcriptions</p></div>
+<div class="cell"><span class="mono" style="color:var(--green);font-size:18px">normalizeText()</span><h3>Text repair</h3><p>Fixes Nigerian-language characters broken by typing or scraping, such as Æ™asa to ƙasa. Runs locally. It does not add tone marks that were never typed.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">Local · no request</p></div>
+<div class="cell"><span class="mono" style="color:var(--green);font-size:18px">client.reportIssue()</span><h3>Corrections</h3><p>Flag a wrong N-ATLaS output with its correction. Every app becomes an opt-in source of corrected local-language data.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">POST /v1/issues</p></div>
+<div class="cell"><span class="mono" style="color:var(--green);font-size:18px">client.speak()</span><div><span class="badge">Stretch</span></div><h3>Audio rendering</h3><p>The ElevenLabs gap for Nigerian languages: final-stage rendering of text N-ATLaS already produced. Ships only if NAIC confirms the pairing.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">POST /v1/audio/speech</p></div>
+</div>
+<p style="margin-top:24px"><a href="/docs#api" style="font-weight:600;color:var(--green);border-bottom:1.5px solid var(--green)">Full API reference →</a></p>
+</div>
+</section>
+
+<section class="sec" id="pipeline">
+<div class="wrap">
+<div class="sechead">
+<p class="eyebrow">How it flows</p>
+<h2 class="h2">Show the pipeline. Don't hide it.</h2>
+<p class="lead">Every starter kit displays each intermediate step, such as the transcript before the reply, so you can see N-ATLaS doing the work.</p>
+</div>
+<div class="flowrow">
+<h3 style="font-size:18px;font-weight:600">Customer Service</h3>
+<div class="flow">
+<div class="step"><small>Input</small><b>Voice note</b></div>
+<span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
+<div class="step core"><small class="mono">transcribe()</small><b>N-ATLaS ASR, by language</b></div>
+<span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
+<div class="step"><small class="mono">normalizeText()</small><b>Repair broken characters</b></div>
+<span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
+<div class="step core"><small class="mono">chat()</small><b>N-ATLaS LLM drafts reply</b></div>
+<span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
+<div class="step opt"><small class="mono">speak() · stretch</small><b>Audio reply</b></div>
+</div>
+</div>
+<div class="flowrow">
+<h3 style="font-size:18px;font-weight:600">Citizen Services</h3>
+<div class="flow">
+<div class="step"><small>Input</small><b>Question in text</b></div>
+<span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
+<div class="step"><small class="mono">normalizeText()</small><b>Repair broken characters</b></div>
+<span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
+<div class="step core"><small class="mono">chat()</small><b>N-ATLaS LLM + civic context</b></div>
+<span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
+<div class="step"><small>Output</small><b>Response shown</b></div>
+</div>
+</div>
+<div class="flowrow">
+<h3 style="font-size:18px;font-weight:600">Education</h3>
+<div class="flow">
+<div class="step"><small>Input</small><b>Question in a local language</b></div>
+<span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
+<div class="step core"><small class="mono">chat()</small><b>N-ATLaS LLM + instructional framing</b></div>
+<span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
+<div class="step"><small>Output</small><b>Explanation shown</b></div>
+</div>
+</div>
+</div>
+</section>
+
+<section class="sec dark" id="genuine">
+<div class="wrap">
+<div class="sechead" style="align-items:center;text-align:center;margin-bottom:56px">
+<p class="eyebrow" style="color:var(--orange)">Built on N-ATLaS</p>
+<h2 class="h2" style="color:#fff">What's in the critical path</h2>
+<p class="lead" style="color:var(--on-dark-m)">NAIC requires genuine N-ATLaS integration. OpenAtlas has no general-purpose model anywhere in the reasoning or transcription path.</p>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:24px">
+<div class="dcard">
+<h3>In the path</h3>
+<ul style="display:flex;flex-direction:column;gap:18px">
+<li><svg class="ok" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10.5l4 4 8-9"></path></svg>The N-ATLaS LLM handles every reasoning call</li>
+<li><svg class="ok" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10.5l4 4 8-9"></path></svg>N-ATLaS ASR handles every transcription</li>
+<li><svg class="ok" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10.5l4 4 8-9"></path></svg>Text-to-speech, if shipped, only renders audio from text N-ATLaS already wrote</li>
+<li><svg class="ok" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 10.5l4 4 8-9"></path></svg>Demos run against the live endpoint, never mocks</li>
+</ul>
+</div>
+<div class="dcard">
+<h3>Out of scope</h3>
+<ul style="display:flex;flex-direction:column;gap:18px">
+<li><svg class="no" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"></path></svg>A general-purpose model standing in for N-ATLaS</li>
+<li><svg class="no" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"></path></svg>Fine-tuning or retraining any N-ATLaS model</li>
+<li><svg class="no" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"></path></svg>Commercial positioning, given the model's non-commercial licence</li>
+<li><svg class="no" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15"></path></svg>Uptime, SLA or multi-tenant scale claims</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+
+<section class="sec" id="kits">
+<div class="wrap">
+<div class="sechead">
+<p class="eyebrow">Starter kits</p>
+<h2 class="h2">Pick a niche. Swap in your content.</h2>
+<p class="lead">Reference implementations, not finished products. No persistence layer, no auth, no dataset beyond a labeled demo fixture.</p>
+</div>
+<div class="grid3">
+<div class="cell"><span class="n mono">01</span><h3>Citizen Services</h3><p>Local-language Q&amp;A over a small civic-info dataset, such as how to renew an ID.</p><p class="mono" style="font-size:13.5px;color:var(--green)">normalizeText() → chat()</p></div>
+<div class="cell"><span class="n mono">02</span><h3>Education</h3><p>Tutoring-style explanations in Hausa, Yoruba or Igbo, reframed by level.</p><p class="mono" style="font-size:13.5px;color:var(--green)">chat() · reportIssue()</p></div>
+<div class="cell"><span class="n mono">03</span><h3>Customer Service</h3><p>A voice note is transcribed, then a reply is drafted for the support team.</p><p class="mono" style="font-size:13.5px;color:var(--green)">transcribe() → normalizeText() → chat()</p></div>
+</div>
+<p style="margin-top:24px"><a href="/starter-kits" style="font-weight:600;color:var(--green);border-bottom:1.5px solid var(--green)">See all three interfaces →</a></p>
+</div>
+</section>
+
+<section class="sec" id="limits" style="background:#F1F2EC">
+<div class="wrap">
+<div class="sechead">
+<p class="eyebrow">Known limitations</p>
+<h2 class="h2">Read this before you build.</h2>
+<p class="lead">Stated plainly, not buried in a footnote.</p>
+</div>
+<div>
+<div class="row"><h3>First-call latency</h3><p>The first call after the backend starts takes longer while the models load. Expect it, and retry if a request times out.</p></div>
+<div class="row"><h3>Non-commercial licence</h3><p>N-ATLaS caps usage at 1,000 active users per 30 days and is non-commercial. The hosted endpoint is a developer and research resource, not a production SaaS.</p></div>
+<div class="row"><h3>No SLA</h3><p>This is new infrastructure and it has not been load-tested. No uptime or reliability claim is made.</p></div>
+<div class="row"><h3>Speech output is a stretch</h3><p>speak() depends on NAIC confirming the pairing is allowed. If not, it is dropped without weakening the core SDK.</p></div>
+<div class="row"><h3>No dashboard yet</h3><p>API keys are requested through a short form and issued by hand. There is no usage analytics or billing UI.</p></div>
+<div class="row"><h3>Text repair, not restoration</h3><p>normalizeText() fixes characters that were corrupted. It does not add tone marks that were never typed; N-ATLaS-based tone restoration is a roadmap item.</p></div>
+</div>
+</div>
+</section>
+
+<section class="sec cta" style="padding:96px 0">
+<div class="wrap" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:32px">
+<div style="display:flex;flex-direction:column;gap:12px;max-width:720px">
+<h2 class="h2" style="color:#fff">A real N-ATLaS response in five minutes.</h2>
+<p style="font-size:19px;color:#CFE6D8">That is the bar the quickstart is held to: copy, paste, run.</p>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:12px">
+<a class="btn btn-light" href="/request-key">Get an API key</a>
+<a class="btn btn-ghost-d" href="/docs">Read the docs</a>
+</div>
+</div>
+</section>
+</main>
+
+<footer class="foot">
+<div class="wrap" style="padding-top:72px;padding-bottom:40px">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:40px">
+<div style="display:flex;flex-direction:column;gap:12px;max-width:320px">
+<span style="display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:20px"><svg width="28" height="28" viewBox="0 0 30 30" fill="none" stroke="#5FD08A" stroke-width="2" aria-hidden="true"><circle cx="15" cy="15" r="12"></circle><ellipse cx="15" cy="15" rx="5" ry="12"></ellipse><path d="M3 15h24"></path></svg>OpenAtlas</span>
+<p>Open developer infrastructure for N-ATLaS.</p>
+</div>
+<div><h4>Product</h4><ul><li><a href="/#what">Hosted endpoint</a></li><li><a href="/#sdk">SDK</a></li><li><a href="/starter-kits">Starter kits</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="/docs#quickstart">Quickstart</a></li><li><a href="/docs#api">API reference</a></li><li><a href="/architecture">Architecture</a></li></ul></div>
+<div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Benedict Isaac</li></ul></div>
+</div>
+<p style="margin-top:56px;padding-top:24px;border-top:1px solid #2C352E;font-size:14px">A non-commercial developer and research resource.</p>
+</div>
+</footer>
+</div>
+<script src="/site.js"></script>
+</body>
+</html>

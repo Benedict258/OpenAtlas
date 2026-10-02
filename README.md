@@ -10,7 +10,7 @@ One TypeScript SDK for **N-ATLaS**: Nigeria's open LLM and its Hausa, Yoruba, Ig
 | `reportIssue()` | Flags a wrong N-ATLaS output with its correction: every app becomes an opt-in source of corrected local-language data |
 | `speak()` *(stretch)* | The ElevenLabs gap for Nigerian languages: spoken Hausa/Yoruba/Igbo/Pidgin. Not built; waiting on an NAIC eligibility answer |
 
-Plus three starter kits (citizen services, education, customer service) that use all of it.
+Plus three starter kits (citizen services, education, customer service) that use all of it, and a website with the kits running live: **https://openatlas-site.isaacbenedict001.workers.dev**.
 
 > N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies.
 >
@@ -39,7 +39,7 @@ console.log(response.content);
 await client.reportIssue({ kind: "chat", input: "…", output: response.content, correction: "…", language: "yo" });
 ```
 
-**Getting a key:** keys are issued by hand for this submission (there is no signup dashboard). Request one from the maintainer. The SDK points at the hosted gateway by default.
+**Getting a key:** request one with the form at [https://openatlas-site.isaacbenedict001.workers.dev/request-key](https://openatlas-site.isaacbenedict001.workers.dev/request-key). Keys are reviewed and issued by hand (there is no signup dashboard). The SDK points at the hosted gateway by default.
 
 **Not published to npm yet.** Until it is, install from this repo: `npm install ./packages/sdk` (after `npm run build`).
 
@@ -79,7 +79,7 @@ Local, no network (also available as `client.normalizeText`). Repairs:
 - **Invisible characters** (zero-width spaces, BOM, soft hyphens) and Unicode composition (NFC)
 - **Hausa apostrophe spellings** (opt-in, `hausaApostrophes: true`): `k'asa` → `ƙasa`, `d'aya` → `ɗaya`
 
-It does **not** add tone marks that were never typed. That needs a trained model and is on the roadmap.
+It does **not** add tone marks that were never typed: missing marks stay missing. Restoring them needs a model; N-ATLaS-based tone restoration is a roadmap item only.
 
 ### `client.reportIssue({ kind, output, correction, input?, language?, note?, audio?, user? })` → `{ id, received_at }`
 
@@ -137,6 +137,8 @@ Repo map:
 - [`gateway`](gateway/): Worker and D1 schema
 - [`deploy/server`](deploy/server/): the backend server (`natlas_server.py`) and the notebook generator
 - [`deploy/set-backend.mjs`](deploy/set-backend.mjs), [`deploy/smoke-gateway.mjs`](deploy/smoke-gateway.mjs): point the gateway at a backend, then run real calls through it
+- [`site`](site/): the website (Cloudflare Worker + static pages converted from the Claude Design file). Its Starter kits page runs the kits' own `kit.mjs` and window markup; see [`site/DESIGN_CHANGES.md`](site/DESIGN_CHANGES.md) for every copy change from the design
+- [`deploy/key-requests.mjs`](deploy/key-requests.mjs): list, approve (issues a key) or decline requests from the website form
 - [`dev/mock-backend`](dev/mock-backend/): **mock** backend for local development only. Every output is prefixed `[MOCK — not N-ATLaS output]`, and `/v1/health` reports `"mock": true`
 - [`dev/fetch-test-audio.mjs`](dev/fetch-test-audio.mjs): real speech clips with human reference transcripts, for testing `transcribe()`
 

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAtlas — Customer Service Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<main class="page">
+<!-- window:support -->
+<div class="win" data-kit="support">
+<div class="wbar"><span>OpenAtlas — Customer Service Demo</span><span style="display:flex;gap:8px;flex:none"><span class="badge" data-mock hidden>Mock backend</span><span class="demo">Sample only</span></span></div>
+<div class="wbody">
+<div class="rowf" style="align-items:center">
+<button class="wbtn" type="button" id="s-rec"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="7" y="2" width="6" height="10" rx="3"></rect><path d="M4 9a6 6 0 0012 0M10 15v3"></path></svg><span id="s-rec-label">Record voice note</span></button>
+<button class="wbtn sec" type="button" id="s-upload">Upload audio file</button>
+<input type="file" id="s-file" accept="audio/*" hidden>
+</div>
+<div class="fld"><label for="sl">Language</label><select id="sl"><option value="ig">Igbo</option><option value="ha">Hausa</option><option value="yo">Yoruba</option><option value="en-ng">Nigerian English</option></select></div>
+<span class="hint" id="s-status" hidden></span>
+<div class="out"><b>Transcribed</b><span id="s-transcript">The N-ATLaS ASR transcript appears here.</span></div>
+<div class="out"><b>Drafted response</b><span id="s-draft">The N-ATLaS LLM draft appears here.</span></div>
+<button class="wbtn sec" type="button" id="s-report" hidden>Correct this transcript</button>
+<div class="fld" id="s-fix" hidden><label for="s-fix-text">Corrected transcript</label><textarea id="s-fix-text"></textarea><span class="hint">Your voice note and the corrected text are sent to OpenAtlas as a correction for N-ATLaS speech recognition (reportIssue()). Audio paired with a human-checked transcript is the data Nigerian-language speech recognition is shortest of.</span></div>
+<button class="wbtn" type="button" id="s-send" hidden>Send correction</button>
+<span class="hint" id="s-fix-status"></span>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button class="wbtn dash" type="button" disabled title="speak() ships only if NAIC confirms the TTS pairing">Play response audio</button><span class="badge">Stretch</span></div>
+</div>
+</div>
+<!-- /window:support -->
+<p class="attr">N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies. Reference implementation for non-commercial use under the N-ATLaS Terms of Use (max 1,000 active end-users per rolling 30 days).</p>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

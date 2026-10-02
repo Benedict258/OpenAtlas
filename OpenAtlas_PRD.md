@@ -76,7 +76,7 @@ The service behind the SDK (a gateway issuing OpenAtlas keys, measuring the lice
   3. **Invisible characters** — zero-width spaces/joiners, BOM, soft hyphens.
   4. **Unicode composition** — NFC, so the same word compares equal however it was typed.
   5. **Hausa ASCII conventions** (opt-in, `hausaApostrophes: true`) — `b'`/`d'`/`k'` before a vowel → `ɓ`/`ɗ`/`ƙ`. Opt-in because apostrophes also appear as quotes.
-- **Not in scope:** restoring tone marks or dot-below marks that were never typed. That needs a trained model (the cited work uses seq2seq and n-gram models) and is a roadmap item.
+- **Not in scope (final for this build):** restoring tone marks or dot-below marks that were never typed. That needs a model (the cited work uses seq2seq and n-gram models). N-ATLaS-based tone restoration (asking N-ATLaS itself to re-add missing marks) is a roadmap item only, not part of this build.
 
 ### 2.4 `reportIssue()`
 - `client.reportIssue({ kind: "chat" | "transcription", input, output, correction, language?, note?, audio?, user? })` → `{ id, received_at }`.
@@ -109,7 +109,7 @@ Each ships with a short README stating what it proves and what it deliberately d
 
 - Production-grade uptime, scaling, or multi-tenant load handling.
 - A Python (or any non-TypeScript) SDK — roadmap only.
-- Model-based diacritic/tone restoration in `normalizeText()` — roadmap only.
+- Tone/diacritic restoration of any kind in `normalizeText()`, including N-ATLaS-based restoration — roadmap only.
 - Deployment-ready applications in any of the three niches.
 - Fine-tuning or retraining any N-ATLaS model.
 - Any commercial positioning, given the model's non-commercial license and 1,000-active-user / 30-day cap (measured and enforced by the gateway).

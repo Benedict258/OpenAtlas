@@ -43,7 +43,7 @@ Hausa, Yoruba, and Igbo are written with characters most keyboards and pipelines
 
 `normalizeText()` repairs the corruption that can be repaired deterministically: encoding damage, look-alike substitutions, invisible characters, Unicode composition, and (opt-in, Hausa) the common ASCII apostrophe conventions for hooked letters (`k'asa` → `ƙasa`).
 
-**Honest boundary:** restoring tone marks to text where they were never typed is a modelling problem — both papers above solve it with trained models — and `normalizeText()` does not attempt it. It cleans what is there; it does not guess what is missing.
+**Honest boundary:** restoring tone marks to text where they were never typed is a modelling problem — both papers above solve it with trained models — and `normalizeText()` does not attempt it. It cleans what is there; it does not guess what is missing. N-ATLaS-based tone restoration (asking N-ATLaS itself to re-add missing marks) is a roadmap item only, not part of this build.
 
 ### 3.3 `reportIssue()` — the data bottleneck
 

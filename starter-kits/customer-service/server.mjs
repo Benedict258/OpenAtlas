@@ -1,21 +1,13 @@
-// Customer Service starter kit: voice note → transcribe() → normalizeText() → chat() (triage + draft reply).
-// A wrong transcript can be corrected and sent back with its audio via reportIssue().
+// Customer Service starter kit: serves the demo page and its API. The kit logic is in kit.mjs.
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
-import { OpenAtlas, OpenAtlasError, normalizeText } from "openatlas";
+import { readFile } from "node:fs/promises";
+import { extname } from "node:path";
+import { OpenAtlas } from "openatlas";
+import { ticket, report } from "./kit.mjs";
 
 const client = new OpenAtlas();
-const page = readFileSync(new URL("./index.html", import.meta.url));
-// ASR language code → chat language code (Nigerian-accented English replies in English).
-const CHAT_LANGUAGE = { ha: "ha", yo: "yo", ig: "ig", "en-ng": "en" };
-
-const TRIAGE_PROMPT = [
-  "You are a customer-support assistant for a small Nigerian business.",
-  "Read the customer's message and reply in exactly this format:",
-  "Category: <billing | delivery | product issue | account | other>",
-  "Urgency: <low | medium | high>",
-  "Draft reply: <a short, polite reply to the customer>",
-].join("\n");
+const ROUTES = { "POST /api/support/ticket": ticket, "POST /api/support/report": report };
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 
 async function readJson(req) {
   // Concatenate bytes before decoding so multi-byte characters split across chunks survive.
@@ -30,49 +22,23 @@ const send = (res, status, body) => {
 };
 
 createServer(async (req, res) => {
+  const route = `${req.method} ${req.url}`;
   try {
-    if (req.method === "GET" && req.url === "/") {
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      return res.end(page);
-    }
-    if (req.method === "GET" && req.url === "/api/status") {
+    if (ROUTES[route]) return send(res, 200, await ROUTES[route](client, await readJson(req)));
+    if (route === "GET /api/status") {
       const health = await fetch(`${client.baseURL}/v1/health`).then((r) => r.json());
       return send(res, 200, { mock: health.backend?.mock === true });
     }
-    if (req.method === "POST" && req.url === "/api/ticket") {
-      const { audio, language, user } = await readJson(req);
-      if (!audio || !CHAT_LANGUAGE[language]) return send(res, 400, { error: "audio and a valid language are required" });
-
-      // Step 1: speech → text with the matching N-ATLaS ASR model.
-      const transcript = await client.transcribe({ audio, language, user });
-      const text = normalizeText(transcript.text, { language });
-      // Step 2: triage + draft with the N-ATLaS LLM.
-      const draft = await client.chat({
-        messages: [
-          { role: "system", content: TRIAGE_PROMPT },
-          { role: "user", content: text },
-        ],
-        language: CHAT_LANGUAGE[language],
-        user,
-      });
-      return send(res, 200, {
-        transcript: text,
-        asrModel: transcript.model,
-        draft: draft.content,
-        llmModel: draft.model,
-      });
-    }
-    if (req.method === "POST" && req.url === "/api/report") {
-      const { audio, transcript, correction, language, user } = await readJson(req);
-      if (!transcript || !correction || !CHAT_LANGUAGE[language]) return send(res, 400, { error: "transcript, correction and language are required" });
-      // Audio paired with a human-corrected transcript is the most useful contribution, but reports
-      // are capped at ~1 MB of base64 audio; longer clips are reported as text only.
-      const clip = audio && audio.length <= 1_400_000 ? audio : undefined;
-      const report = await client.reportIssue({ kind: "transcription", output: transcript, correction, language, audio: clip, user });
-      return send(res, 200, { ...report, audio_included: Boolean(clip) });
+    if (req.method === "GET") {
+      const file = req.url === "/" ? "index.html" : req.url.slice(1);
+      if (!/^[\w-]+\.(html|js|css)$/.test(file)) return send(res, 404, { error: "not found" });
+      const body = await readFile(new URL(`./public/${file}`, import.meta.url)).catch(() => null);
+      if (!body) return send(res, 404, { error: "not found" });
+      res.writeHead(200, { "Content-Type": TYPES[extname(file)] });
+      return res.end(body);
     }
     send(res, 404, { error: "not found" });
   } catch (err) {
-    send(res, 502, { error: err instanceof OpenAtlasError ? err.message : String(err) });
+    send(res, err.status ?? 502, { error: err.message });
   }
 }).listen(Number(process.env.PORT ?? 3003), () => console.log(`Customer Service demo on http://localhost:${process.env.PORT ?? 3003}`));

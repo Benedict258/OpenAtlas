@@ -1,22 +1,13 @@
-// Citizen Services starter kit: local-language Q&A over a small demo dataset, via normalizeText() + chat().
+// Citizen Services starter kit: serves the demo page and its API. The kit logic is in kit.mjs.
 import { createServer } from "node:http";
-import { readFileSync } from "node:fs";
-import { OpenAtlas, OpenAtlasError, normalizeText } from "openatlas";
-import { DEMO_DATASET } from "./demo-dataset.mjs";
+import { readFile } from "node:fs/promises";
+import { extname } from "node:path";
+import { OpenAtlas } from "openatlas";
+import { ask } from "./kit.mjs";
 
 const client = new OpenAtlas();
-const page = readFileSync(new URL("./index.html", import.meta.url));
-const LANGUAGE_NAMES = { en: "English", ha: "Hausa", yo: "Yoruba", ig: "Igbo" };
-
-const systemPrompt = () =>
-  [
-    "You are a helpful assistant answering questions from Nigerian citizens about public services.",
-    "Answer ONLY from the reference notes below. If the notes do not cover the question, say so and suggest contacting the relevant agency.",
-    "Keep answers short and practical.",
-    "",
-    "Reference notes (demo dataset):",
-    ...DEMO_DATASET.map((d) => `- ${d.topic}: ${d.fact}`),
-  ].join("\n");
+const ROUTES = { "POST /api/citizen/ask": ask };
+const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 
 async function readJson(req) {
   // Concatenate bytes before decoding so multi-byte characters split across chunks survive.
@@ -31,32 +22,23 @@ const send = (res, status, body) => {
 };
 
 createServer(async (req, res) => {
+  const route = `${req.method} ${req.url}`;
   try {
-    if (req.method === "GET" && req.url === "/") {
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      return res.end(page);
-    }
-    if (req.method === "GET" && req.url === "/api/status") {
+    if (ROUTES[route]) return send(res, 200, await ROUTES[route](client, await readJson(req)));
+    if (route === "GET /api/status") {
       const health = await fetch(`${client.baseURL}/v1/health`).then((r) => r.json());
-      return send(res, 200, { mock: health.backend?.mock === true, dataset: DEMO_DATASET.map((d) => d.topic) });
+      return send(res, 200, { mock: health.backend?.mock === true });
     }
-    if (req.method === "POST" && req.url === "/api/ask") {
-      const { question, language, user } = await readJson(req);
-      if (!question || !LANGUAGE_NAMES[language]) return send(res, 400, { error: "question and a valid language are required" });
-      // Pasted or scraped text often has broken special characters (e.g. "Æ™" for "ƙ"); repair them first.
-      const cleaned = normalizeText(question, { language });
-      const response = await client.chat({
-        messages: [
-          { role: "system", content: systemPrompt() },
-          { role: "user", content: cleaned },
-        ],
-        language,
-        user,
-      });
-      return send(res, 200, { answer: response.content, model: response.model, normalized: cleaned !== question ? cleaned : null });
+    if (req.method === "GET") {
+      const file = req.url === "/" ? "index.html" : req.url.slice(1);
+      if (!/^[\w-]+\.(html|js|css)$/.test(file)) return send(res, 404, { error: "not found" });
+      const body = await readFile(new URL(`./public/${file}`, import.meta.url)).catch(() => null);
+      if (!body) return send(res, 404, { error: "not found" });
+      res.writeHead(200, { "Content-Type": TYPES[extname(file)] });
+      return res.end(body);
     }
     send(res, 404, { error: "not found" });
   } catch (err) {
-    send(res, 502, { error: err instanceof OpenAtlasError ? err.message : String(err) });
+    send(res, err.status ?? 502, { error: err.message });
   }
 }).listen(Number(process.env.PORT ?? 3001), () => console.log(`Citizen Services demo on http://localhost:${process.env.PORT ?? 3001}`));

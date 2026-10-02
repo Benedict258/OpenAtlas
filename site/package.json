@@ -1,0 +1,16 @@
+{
+  "name": "openatlas-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "dev": "wrangler dev --local --port 8790",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "openatlas": "*"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

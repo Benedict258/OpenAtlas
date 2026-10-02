@@ -46,3 +46,19 @@ CREATE TABLE IF NOT EXISTS issue_reports (
   audio_base64  TEXT                    -- optional clip for transcription issues (<= ~1 MB)
 );
 CREATE INDEX IF NOT EXISTS idx_issue_reports_created ON issue_reports (created_at);
+
+-- API key requests from the website form. Approved by hand: POST /v1/admin/key-requests/approve
+-- issues a key (api_keys) and marks the request approved. The key itself is never stored here.
+CREATE TABLE IF NOT EXISTS key_requests (
+  id              TEXT PRIMARY KEY,
+  created_at      INTEGER NOT NULL,
+  name            TEXT NOT NULL,
+  email           TEXT NOT NULL,
+  project         TEXT NOT NULL,
+  use_case        TEXT NOT NULL,
+  expected_users  TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending',   -- 'pending' | 'approved' | 'declined'
+  key_id          TEXT,
+  decided_at      INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_key_requests_status ON key_requests (status, created_at);

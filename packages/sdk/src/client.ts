@@ -58,7 +58,8 @@ export class OpenAtlas {
     this.baseURL = baseURL.replace(/\/+$/, "");
     this.timeoutMs = options.timeoutMs ?? 300_000;
     this.maxRetries = options.maxRetries ?? 2;
-    this.fetchImpl = options.fetch ?? globalThis.fetch;
+    // Wrapped so fetch is never called with the client as `this` (Workers and browsers throw "Illegal invocation").
+    this.fetchImpl = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
     this.normalize = options.normalize ?? false;
   }
 

@@ -69,7 +69,8 @@ Hosting is in flux during the build (see §5): Colab today, NiHub expected immin
 | **Backend server (`http` kind)** | Python, FastAPI + `transformers` (`deploy/server/natlas_server.py`) | Implements the backend contract (§3.2). The same file runs on Colab and on NiHub |
 | **Backend (`runpod` kind, fallback)** | RunPod's vLLM worker image (LLM) + `workers/asr/` (ASR) | Same contract semantics via RunPod's job API |
 | **TTS (stretch)** | sorotts / MMS-TTS on the same backend | Final audio rendering only; gated on NAIC eligibility |
-| **Starter kits (x3)** | Node + a single HTML page each | Reference apps exercising the full SDK |
+| **Starter kits (x3)** | Node; `kit.mjs` (logic) + `public/` (page from the design) each | Reference apps exercising the full SDK |
+| **Website** | Cloudflare Worker + static assets (`site/`), from the Claude Design file | Product, Docs, Starter kits (the three kits running live, same `kit.mjs`), Architecture, and the API key request form. Holds its own OpenAtlas key (`website-demos`); reaches the gateway through a Service Binding (Worker-to-Worker fetches over workers.dev are blocked) |
 | **Docs** | README, `docs/api-reference.md`, TSDoc | Quickstart and API reference |
 
 ---
@@ -82,7 +83,7 @@ Hosting is in flux during the build (see §5): Colab today, NiHub expected immin
 |---|---|---|
 | `chat({ messages, user, language?, max_tokens?, temperature? })` → `{ content, model, usage }` | yes | `POST /v1/chat/completions` |
 | `transcribe({ audio, language, user })` → `{ text, language, model }` | yes | `POST /v1/audio/transcriptions` |
-| `normalizeText(text, { language?, hausaApostrophes? })` → `string` | **no** — local | — |
+| `normalizeText(text, { language?, hausaApostrophes? })` → `string` — character repair only; does **not** restore tone marks that were never typed (N-ATLaS-based restoration: roadmap only) | **no** — local | — |
 | `reportIssue({ kind, input, output, correction, language?, note?, audio?, user? })` → `{ id, received_at }` | yes | `POST /v1/issues` |
 | `speak({ text, language })` *(stretch, not built)* | yes | `POST /v1/audio/speech` |
 
@@ -109,6 +110,9 @@ GET  /v1/health          (no auth)  gateway status, backend kind, backend reacha
 GET  /v1/usage           (admin)    active users in window vs cap
 POST /v1/admin/keys      (admin)    issue an OpenAtlas key (shown once, stored hashed)
 GET  /v1/admin/issues    (admin)    export issue reports (?since=<ms>&limit=)
+POST /v1/key-requests     (no auth)  website form: { name, email, project, use_case, expected_users?, accept_terms }
+GET  /v1/admin/key-requests          (admin) list requests (?status=pending|approved|declined)
+POST /v1/admin/key-requests/decide   (admin) { id, decision: approve|decline }; approve issues a key, shown once
 
 POST /v1/audio/speech    (stretch, not built)
 ```

@@ -46,7 +46,7 @@ This is the single most important UX artifact in the whole project: it has to be
 
 Setting `new OpenAtlas({ normalize: true })` applies `normalizeText()` automatically to chat inputs/outputs and transcripts.
 
-`normalizeText()` cleans what is there; it does not add tone marks that were never typed (that needs a trained model — roadmap). The docs say so next to the method, so a developer isn't surprised.
+`normalizeText()` cleans what is there; it does not add tone marks that were never typed. The docs say so next to the method, so a developer isn't surprised. N-ATLaS-based tone restoration (asking N-ATLaS itself to re-add missing marks) is a roadmap item only, not part of this build.
 
 ### 1.4 Error Handling UX
 - Errors are typed and human-readable (`OpenAtlasAPIError`, `OpenAtlasTimeoutError`), not raw HTTP stack traces — a developer debugging a cold-start timeout should immediately understand what happened and what to do (retry, or expect first-call latency), not guess.
