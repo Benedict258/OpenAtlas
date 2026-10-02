@@ -234,6 +234,35 @@ The level does change the answer: primary is much shorter and simpler. But the s
 
 A live chat also confirmed the new response fields: `model: "NCAIR1/N-ATLaS"`, `attribution: "Powered by Awarri"`.
 
+### 11. Long-clip re-test with 30 s chunking: 10/10 transcribed (KI-7 fixed); long audio loses words
+
+Backend: a fresh Colab run (`figure-changelog-inc-granted.trycloudflare.com`), with ASR chunking applied once (`chunk_length_s=30, batch_size=8`).
+
+**Short clips first, to confirm transcription works again:** 4/4 OK, one per language (2.1–26.7 s, 1.8–5.8 s each). The transcripts match those from 2026-10-02.
+
+**The 10 clips over 30 s: 10/10 transcribed, no errors.**
+
+| Clip | Audio | Time | WER | Words, reference → transcript |
+|---|---|---|---|---|
+| ha-12 | 30.5 s | 8.6 s | 25% | 56 → 55 |
+| ha-26 | 30.3 s | 5.4 s | 55% | 40 → 42 |
+| ha-29 | 44.1 s | 7.9 s | 68% | 131 → 57 |
+| yo-2 | 38.3 s | 8.1 s | 71% | 99 → 89 |
+| yo-14 | 37.9 s | 8.6 s | 81% | 90 → 35 |
+| yo-17 | 54.3 s | 9.8 s | 55% | 95 → 58 |
+| yo-19 | 48.2 s | 16.7 s | 45% | 182 → 144 |
+| yo-34 | 122.6 s | 24.1 s | 65% | 332 → 213 |
+| yo-44 | 89.3 s | 22.1 s | 77% | 254 → 153 |
+| yo-46 | 90.6 s | 39.6 s | 51% | 215 → 142 |
+
+Corpus WER for these long clips: Hausa 55.1% (3 clips); Yoruba 63.0%, or 54.2% ignoring tone marks (7 clips). Both are worse than the same languages' clips of 30 s or less in section 8 (41.1% and 56.2%).
+
+**Finding: long audio loses words.**
+- For clips of 30 s or less (section 8, Hausa and Yoruba), the transcript has a median 91% as many words as the reference.
+- For clips longer than about 37 s, it has only 39–79%. Whole stretches of speech are missing, not just misrecognised.
+- The cause is not established. Candidates are the chunking boundaries (the default overlap between chunks), and the fine-tuned models skipping speech in long free-form recordings.
+- Logged as KI-11. **For now, the reliable range for `transcribe()` is up to about 30 s per request.**
+
 ---
 
 ## Known issues
@@ -246,7 +275,8 @@ A live chat also confirmed the new response fields: `model: "NCAIR1/N-ATLaS"`, `
 | KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | Open. Must be listed in the final pre-submission status. |
 | KI-5 | Before the Customer Service demo goes live: the notebook can't decode browser voice recordings (webm), and it has no GPU lock, so two requests at once can overlap on the GPU. | Deferred until Customer Service. |
 | KI-6 | The Colab notebook's chat reply has no token `usage` field, so the smoke test prints `undefined` for it. | Cosmetic. |
-| KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | **Open.** Fix is in `natlas_colab.ipynb`. The live session's patch cell ran twice and broke all ASR (section 9). Chunking itself is not yet tested live. |
+| KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | **Fixed.** With `chunk_length_s=30`, 10/10 long clips transcribe (section 11). The earlier 0/10 was a patch cell run twice (section 9). |
 | KI-8 | ASR accuracy on conversational speech is modest: corpus WER Hausa 41%, Yoruba 56% (45% ignoring tone marks), Igbo 60–101% on a tone-marked multi-dialect benchmark, Nigerian English 26% (section 8). | Known limitation of the models; stated as a caveat. |
 | KI-9 | The gateway reported a backend 500 as `503 backend_unavailable`, and the SDK retried it. | **Fixed.** Deployed; confirmed live on 2026-10-03 (`502 backend_error`, not retried). |
 | KI-10 | Education kit: at secondary level, N-ATLaS still answers in a young-child register, with a factual slip (glucose as "a sweet drink"). Primary level works as intended. | Known model behaviour; stated as a caveat. |
+| KI-11 | Audio longer than about 30 s transcribes, but loses words: transcripts are 39–79% of reference length on clips over ~37 s, against a median 91% for clips of 30 s or less. | Open. Cause not established. Documented limit: about 30 s per request for reliable results. |
