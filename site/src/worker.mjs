@@ -5,6 +5,7 @@ import { OpenAtlas } from "openatlas";
 import { ask } from "../../starter-kits/citizen-services/kit.mjs";
 import { explain, report as reportExplanation } from "../../starter-kits/education/kit.mjs";
 import { ticket, report as reportTranscript } from "../../starter-kits/customer-service/kit.mjs";
+import { LIVE_KITS } from "../live-kits.mjs";
 
 const ROUTES = {
   "/api/citizen/ask": ask,
@@ -46,6 +47,10 @@ export default {
 
       const handler = ROUTES[pathname];
       if (!handler) return json(404, { error: "Not found." });
+      const kit = pathname.split("/")[2];
+      if (!LIVE_KITS.includes(kit)) {
+        return json(503, { error: "This demo is paused until its pipeline has been verified against the live N-ATLaS model." });
+      }
       const client = new OpenAtlas({ apiKey: env.OPENATLAS_API_KEY, baseURL: gateway, fetch: gatewayFetch });
       return json(200, await handler(client, body));
     } catch (err) {

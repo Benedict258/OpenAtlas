@@ -370,3 +370,9 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
 - **Why:** to make the site responsive on every screen size, with a hamburger menu.
 - **Also fixed:** the Docs header's "Get an API key" linked to the page's own quickstart section; it now opens /request-key like every other page.
 
+
+## Starter kits page: Education and Customer Service demos paused
+
+- The Education and Customer Service windows show a "Paused" badge and a "Live demo paused" note in place of their controls, and their scripts are not loaded. Their API routes on the site Worker answer 503.
+- Why: a demo goes live only after its full pipeline has been verified against the live N-ATLaS model. Citizen Services is checked first.
+- Switch: `site/live-kits.mjs` (`LIVE_KITS`), read by both `site/build.mjs` and `site/src/worker.mjs`.
