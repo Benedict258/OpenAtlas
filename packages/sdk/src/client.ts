@@ -4,11 +4,8 @@ import type { AudioInput, ChatParams, ChatResponse, TranscribeParams, Transcribe
 const CHAT_LANGUAGES = new Set(["en", "ha", "yo", "ig"]);
 const TRANSCRIBE_LANGUAGES = new Set(["en-ng", "ha", "yo", "ig"]);
 
-/**
- * Public gateway URL. Filled in once the gateway is deployed; until then pass `baseURL`
- * or set `OPENATLAS_BASE_URL`.
- */
-export const DEFAULT_BASE_URL: string | undefined = undefined;
+/** Public OpenAtlas gateway (Cloudflare Worker). Override with `baseURL` or `OPENATLAS_BASE_URL`. */
+export const DEFAULT_BASE_URL: string | undefined = "https://openatlas-gateway.isaacbenedict001.workers.dev";
 
 export interface OpenAtlasOptions {
   /** Defaults to `process.env.OPENATLAS_API_KEY`. */

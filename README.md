@@ -6,7 +6,7 @@ Developer infrastructure for **N-ATLaS**, Nigeria's open LLM plus its Hausa, Yor
 >
 > OpenAtlas is a **non-commercial developer and research resource**. N-ATLaS's Terms of Use cap usage at **1,000 active end-users per rolling 30 days**; the hosted gateway enforces that cap. Not a production or commercial service.
 
-> **Status (2026-10-02): the hosted endpoint is not live yet.** The SDK, gateway and starter kits run locally against a clearly labeled mock upstream. The real RunPod deployment is pending account funding (LLM) and Hugging Face access approval (ASR). This notice will be replaced with the live URL once a real request has gone end to end.
+> **Status (2026-10-02): the gateway is live, but N-ATLaS isn't connected yet.** The gateway at `https://openatlas-gateway.isaacbenedict001.workers.dev` answers requests. Calls to `chat()` and `transcribe()` currently return `503 upstream_not_configured` until the RunPod model endpoints are deployed. This notice will be updated once a real N-ATLaS request has gone end to end.
 
 ## Quickstart
 
@@ -27,7 +27,7 @@ const response = await client.chat({
 console.log(response.content);
 ```
 
-**Getting a key:** API keys are issued by hand for this submission (there is no signup dashboard). Request one from the maintainer. Until the hosted gateway URL is published in the SDK, also set `OPENATLAS_BASE_URL`.
+**Getting a key:** API keys are issued by hand for this submission (there is no signup dashboard). Request one from the maintainer. The SDK points at the hosted gateway, `https://openatlas-gateway.isaacbenedict001.workers.dev`, by default.
 
 **Not published to npm yet.** Until it is, install from this repo: `npm install ./packages/sdk` (after `npm run build`).
 
