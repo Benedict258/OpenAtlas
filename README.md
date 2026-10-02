@@ -152,6 +152,7 @@ Repo map:
 - **`normalizeText()` repairs; it doesn't restore.** Missing tone marks stay missing.
 - **`reportIssue()` collects; it doesn't deliver yet.** There's no agreed channel to the N-ATLaS maintainers yet.
 - **Context length:** about 8k tokens. **Audio:** about 7 MB per request.
+- **Shared demo key is not rate-limited.** The website's live demos use one OpenAtlas key (`website-demos`). Anyone could send made-up user IDs through it and use up the 1,000-user licence cap. Its usage is visible on its own in the gateway's `/v1/usage` report; per-IP limits are not built.
 - **No uptime or SLA claims.**
 - **`speak()` isn't included.** It's an optional, separate text-to-speech renderer, not N-ATLaS, and isn't built yet.
 

@@ -21,6 +21,8 @@
 <input type="file" id="s-file" accept="audio/*" hidden>
 </div>
 <div class="fld"><label for="sl">Language</label><select id="sl"><option value="ig">Igbo</option><option value="ha">Hausa</option><option value="yo">Yoruba</option><option value="en-ng">Nigerian English</option></select></div>
+<div class="out" id="s-review" hidden><b>Voice note ready</b><span id="s-review-label"></span><audio id="s-review-audio" controls preload="metadata" style="width:100%"></audio></div>
+<div class="rowf" id="s-review-actions" hidden><button class="wbtn" type="button" id="s-send-note">Send voice note</button><button class="wbtn sec" type="button" id="s-discard">Discard</button></div>
 <span class="hint" id="s-status" hidden></span>
 <div class="out"><b>Transcribed</b><span id="s-transcript">The N-ATLaS ASR transcript appears here.</span></div>
 <div class="out"><b>Drafted response</b><span id="s-draft">The N-ATLaS LLM draft appears here.</span></div>
