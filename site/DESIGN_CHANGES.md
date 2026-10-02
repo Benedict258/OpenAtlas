@@ -358,3 +358,8 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
 - **Now:** Dated plan Oct 2 → Oct 12 (from the Architecture doc §7)
 - **Why:** The day plan said 'ported from natlas.ts' and 'Set up RunPod', both false.
 
+## Starter kits (Customer Service window)
+
+- **Was:** no Submit control in the design.
+- **Now:** after recording or choosing a file, a "Voice note ready" block (the design's `.out` style) with playback, plus **Send voice note** (`.wbtn`) and **Discard** (`.wbtn.sec`). Nothing is sent until Send is pressed.
+- **Why:** your decision: a review step before a voice note is sent.

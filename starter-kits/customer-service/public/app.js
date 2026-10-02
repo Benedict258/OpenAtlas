@@ -1,6 +1,7 @@
 // Customer Service window: voice note → POST /api/support/ticket (transcribe() → normalizeText() → chat());
 // transcript corrections → /api/support/report (reportIssue() with the audio).
-// A note is sent as soon as recording stops or a file is chosen, in the selected language.
+// A recorded or chosen note is staged for review (play it back, change the language) and only sent
+// when the user presses "Send voice note".
 (() => {
   const $ = (id) => document.getElementById(id);
   // Stable, anonymous per-browser ID, sent as `user` so the license cap counts real end users.
@@ -34,6 +35,40 @@
 
   let last = null;
   let busy = false;
+
+  // Review step: nothing is sent until the user confirms.
+  let pending = null;
+  const clearPending = () => {
+    if (pending) URL.revokeObjectURL(pending.url);
+    pending = null;
+    $("s-review-audio").removeAttribute("src");
+    $("s-review").hidden = $("s-review-actions").hidden = true;
+  };
+  function stage(blob, label) {
+    clearPending();
+    pending = { blob, label, url: URL.createObjectURL(blob) };
+    $("s-review-audio").src = pending.url;
+    $("s-review-label").textContent = `${label} · ${(blob.size / 1024).toFixed(0)} KB. Play it back, check the language, then send.`;
+    $("s-review").hidden = $("s-review-actions").hidden = false;
+    status("");
+  }
+  $("s-review-audio").onloadedmetadata = (e) => {
+    const secs = e.target.duration;
+    if (pending && Number.isFinite(secs)) {
+      $("s-review-label").textContent = `${pending.label} · ${secs.toFixed(1)} s. Play it back, check the language, then send.`;
+    }
+  };
+  $("s-discard").onclick = () => {
+    clearPending();
+    status("Voice note discarded.");
+  };
+  $("s-send-note").onclick = () => {
+    if (!pending) return;
+    const { blob, label } = pending;
+    clearPending();
+    submit(blob, label);
+  };
+
   async function submit(blob, label) {
     if (busy) return;
     busy = true;
@@ -77,8 +112,9 @@
     recorder.onstop = () => {
       stream.getTracks().forEach((t) => t.stop());
       $("s-rec-label").textContent = "Record voice note";
-      submit(new Blob(chunks, { type: recorder.mimeType }), "Voice note");
+      stage(new Blob(chunks, { type: recorder.mimeType }), "Voice note");
     };
+    clearPending();
     recorder.start();
     $("s-rec-label").textContent = "Stop recording";
     status("Recording… press Stop recording when you're done.");
@@ -88,7 +124,7 @@
   $("s-file").onchange = (e) => {
     const file = e.target.files[0];
     e.target.value = "";
-    if (file) submit(file, file.name);
+    if (file) stage(file, file.name);
   };
 
   $("s-report").onclick = () => {

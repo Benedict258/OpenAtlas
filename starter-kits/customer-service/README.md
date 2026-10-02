@@ -9,7 +9,7 @@ cp .env.example .env      # set OPENATLAS_API_KEY and OPENATLAS_BASE_URL
 npm install && npm start  # http://localhost:3003
 ```
 
-The call path is `public/index.html` (record or upload; a note is sent as soon as recording stops or a file is chosen) → `POST /api/support/ticket` → `kit.mjs` → `client.transcribe({ audio, language })` → `normalizeText(transcript)` → `client.chat({ messages: [triage prompt + transcript], language })` → OpenAtlas gateway → N-ATLaS ASR + LLM.
+The call path is `public/index.html` (record or upload, then review: play the note back, check the language, and press **Send voice note** or **Discard**) → `POST /api/support/ticket` → `kit.mjs` → `client.transcribe({ audio, language })` → `normalizeText(transcript)` → `client.chat({ messages: [triage prompt + transcript], language })` → OpenAtlas gateway → N-ATLaS ASR + LLM.
 
 **Correct this transcript** → `POST /api/support/report` → `client.reportIssue({ kind: "transcription", output, correction, audio })`. Clips over ~1 MB (base64) are reported as text only.
 
