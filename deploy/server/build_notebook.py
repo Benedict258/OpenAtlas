@@ -48,7 +48,7 @@ tunnel URL changes every run. After every (re)start, point the gateway at the ne
 """
     ),
     code("!nvidia-smi --query-gpu=name,memory.total --format=csv"),
-    code("!pip install -q -U transformers accelerate bitsandbytes fastapi uvicorn\n!which ffmpeg"),
+    code("!pip install -q -U transformers accelerate bitsandbytes fastapi uvicorn python-multipart\n!which ffmpeg"),
     code("%%writefile natlas_server.py\n" + SERVER),
     code(
         """
