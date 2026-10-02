@@ -1,0 +1,5 @@
+runpod>=1.7,<2
+# >=4.50 so pipeline(token=...) and current Whisper generation work; the repos ship
+# pytorch_model.bin (pickle), which recent transformers only loads with torch>=2.6.
+transformers>=4.50,<5
+accelerate>=1.0

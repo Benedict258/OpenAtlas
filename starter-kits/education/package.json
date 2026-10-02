@@ -1,0 +1,11 @@
+{
+  "name": "openatlas-starter-education",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs"
+  },
+  "dependencies": {
+    "openatlas": "*"
+  }
+}

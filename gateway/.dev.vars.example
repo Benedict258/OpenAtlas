@@ -1,0 +1,11 @@
+# Copy to .dev.vars for `wrangler dev`. Values below point at the MOCK RunPod server
+# (dev/mock-runpod). For the real thing, use your RunPod key and endpoint IDs and
+# remove RUNPOD_API_BASE.
+RUNPOD_API_BASE=http://127.0.0.1:8788/v2
+RUNPOD_API_KEY=mock-runpod-key
+LLM_ENDPOINT_ID=mock-llm
+ASR_ENDPOINT_ID=mock-asr
+ADMIN_TOKEN=local-admin-token-change-me
+UPSTREAM_TIMEOUT_MS=20000
+# Low cap so the license-cap refusal path can be exercised locally.
+ACTIVE_USER_CAP=5

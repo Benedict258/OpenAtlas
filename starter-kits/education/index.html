@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAtlas — Education Demo</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+  h1 { font-size: 1.3rem; }
+  .banner { padding: .6rem .8rem; border-radius: 6px; margin-bottom: 1rem; font-size: .9rem; }
+  .mock { background: #fde2e2; color: #8a1c1c; border: 1px solid #f0a5a5; }
+  label { display: block; margin: .8rem 0 .3rem; font-weight: 600; }
+  select, textarea, button { font: inherit; }
+  textarea { width: 100%; min-height: 5rem; box-sizing: border-box; }
+  button { margin-top: .8rem; padding: .5rem 1.2rem; }
+  .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .step { margin-top: 1.2rem; padding: .8rem; border: 1px solid #ddd; border-radius: 6px; white-space: pre-wrap; }
+  .step h2 { font-size: .85rem; margin: 0 0 .4rem; text-transform: uppercase; color: #666; }
+</style>
+</head>
+<body>
+<h1>OpenAtlas — Education Demo</h1>
+<div id="mock" class="banner mock" hidden>MOCK UPSTREAM — the gateway is connected to a local mock, not N-ATLaS. Responses below are placeholders.</div>
+
+<div class="row">
+  <div><label for="lang">Language</label>
+    <select id="lang"><option value="ha">Hausa</option><option value="yo">Yoruba</option><option value="ig">Igbo</option><option value="en">English</option></select></div>
+  <div><label for="level">Level</label>
+    <select id="level"><option value="primary">Primary</option><option value="secondary">Secondary</option></select></div>
+</div>
+<label for="q">Ask something to learn</label>
+<textarea id="q" placeholder="e.g. Why does the moon change shape?"></textarea>
+<button id="go">Explain</button>
+
+<div class="step"><h2>Explanation (N-ATLaS LLM via OpenAtlas chat())</h2><div id="out">—</div></div>
+
+<footer style="margin-top:2rem;font-size:.8rem;color:#666">N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies. Reference implementation for non-commercial use under the N-ATLaS Terms of Use (max 1,000 active end-users per rolling 30 days).</footer>
+
+<script>
+  // Stable, anonymous per-browser ID, sent as `user` so the license cap counts real end users.
+  let uid; try { uid = localStorage.oaUser || (localStorage.oaUser = crypto.randomUUID()); } catch { uid = crypto.randomUUID(); }
+  fetch("/api/status").then(r => r.json()).then(s => { document.getElementById("mock").hidden = s.upstream !== "mock"; });
+  document.getElementById("go").onclick = async () => {
+    const out = document.getElementById("out");
+    out.textContent = "Waiting for N-ATLaS… (the first request after idle can take a while: cold start)";
+    const r = await fetch("/api/explain", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question: document.getElementById("q").value, language: document.getElementById("lang").value, level: document.getElementById("level").value, user: uid }) });
+    const body = await r.json();
+    out.textContent = body.explanation ?? `Error: ${body.error}`;
+  };
+</script>
+</body>
+</html>
