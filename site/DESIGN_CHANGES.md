@@ -363,3 +363,10 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
 - **Was:** no Submit control in the design.
 - **Now:** after recording or choosing a file, a "Voice note ready" block (the design's `.out` style) with playback, plus **Send voice note** (`.wbtn`) and **Discard** (`.wbtn.sec`). Nothing is sent until Send is pressed.
 - **Why:** your decision: a review step before a voice note is sent.
+## All pages (responsive layer and mobile navigation)
+
+- **Was:** below 760px the design hid the nav links with no replacement, so phones had no navigation; desktop spacing (80–112px sections) on every screen; form fields stretched with tall empty gaps; a grid row that wasn't full showed a solid grey block.
+- **Now:** `site/pages/responsive.css`, loaded after each page's own styles and using only the design's tokens. At 900px and below, a hamburger button (✕ when open) opens a full-width menu with the four pages, the current one marked, and "Get an API key". It closes on a link tap, Escape, or tapping outside. Also: scaled section spacing, tabs that stack on phones, pipeline steps that read top to bottom, single-column cards, forms without stretched gaps, and grid dividers drawn as cell outlines.
+- **Why:** your request to make the site responsive on every screen size, with a hamburger menu.
+- **Also fixed:** the Docs header's "Get an API key" linked to the page's own quickstart section; it now opens /request-key like every other page.
+

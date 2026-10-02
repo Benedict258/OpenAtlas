@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>OpenAtlas — Starter kits</title>
 <link rel="stylesheet" href="/fonts.css">
 <style>
@@ -73,6 +73,7 @@ p{text-wrap:pretty}
 .hint{font-size:14px;font-weight:400;color:var(--muted)}
 
 </style>
+<link rel="stylesheet" href="/responsive.css">
 </head>
 <body>
 <div>
@@ -89,7 +90,17 @@ OpenAtlas
 <a href="/architecture">Architecture</a>
 </nav>
 <a class="btn btn-primary" href="/request-key">Get an API key</a>
+<button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mnav"><svg class="i-open" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h16M3 11h16M3 16h16"></path></svg><svg class="i-close" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l12 12M17 5L5 17"></path></svg></button>
 </div>
+<nav class="mnav" id="mnav" aria-label="Mobile">
+<div class="wrap">
+<a class="ml" href="/">Product</a>
+<a class="ml" href="/docs">Docs</a>
+<a class="ml on" href="/starter-kits" aria-current="page">Starter kits</a>
+<a class="ml" href="/architecture">Architecture</a>
+<a class="btn btn-primary" href="/request-key">Get an API key</a>
+</div>
+</nav>
 </header>
 
 <main>
