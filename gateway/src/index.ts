@@ -134,6 +134,7 @@ const backendBase = (env: Env) => (env.BACKEND_URL || "").replace(/\/+$/, "");
 
 /** POST to a host implementing the backend contract (deploy/server/natlas_server.py). */
 async function httpBackend(env: Env, path: string, payload: unknown): Promise<any> {
+  const isForm = payload instanceof FormData;
   if (!env.BACKEND_URL || !env.BACKEND_API_KEY) {
     throw new HttpError(503, "upstream_not_configured", "This gateway is not yet connected to an N-ATLaS backend.");
   }
@@ -141,8 +142,9 @@ async function httpBackend(env: Env, path: string, payload: unknown): Promise<an
   try {
     res = await fetch(backendBase(env) + path, {
       method: "POST",
-      headers: { Authorization: `Bearer ${env.BACKEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      // fetch sets the multipart boundary itself for FormData.
+      headers: isForm ? { Authorization: `Bearer ${env.BACKEND_API_KEY}` } : { Authorization: `Bearer ${env.BACKEND_API_KEY}`, "Content-Type": "application/json" },
+      body: isForm ? payload : JSON.stringify(payload),
       signal: AbortSignal.timeout(Number(env.UPSTREAM_TIMEOUT_MS)),
     });
   } catch (err) {
@@ -161,6 +163,7 @@ async function httpBackend(env: Env, path: string, payload: unknown): Promise<an
   if (res.ok && body) return body;
   const detail = typeof body?.detail === "string" ? body.detail : text.slice(0, 300);
   if (res.status === 400) throw new HttpError(400, "invalid_request", detail);
+  if (res.status === 404) throw new HttpError(502, "backend_route_missing", `The backend has no ${path} route (check BACKEND_URL has no extra path such as /v1).`);
   if (res.status === 401) throw new HttpError(502, "backend_auth_failed", "The gateway's backend credential was rejected (check BACKEND_API_KEY).");
   if (res.status === 503 || res.status >= 520 || !body) {
     throw new HttpError(503, "backend_unavailable", `The N-ATLaS backend is not serving right now (HTTP ${res.status}): ${detail}`);
@@ -177,7 +180,17 @@ async function backendChat(env: Env, openaiInput: Record<string, unknown>): Prom
 
 async function backendTranscribe(env: Env, input: { audio_base64: string; language: string }): Promise<any> {
   if (backendKind(env) === "runpod") return runJob(env, env.ASR_ENDPOINT_ID, input);
-  return httpBackend(env, "/v1/audio/transcriptions", input);
+  // Multipart upload (field `audio` + `language`), the usual shape for a transcription API.
+  let bytes: Uint8Array;
+  try {
+    bytes = Uint8Array.from(atob(input.audio_base64.replace(/^data:[^,]*,/, "")), (c) => c.charCodeAt(0));
+  } catch {
+    throw new HttpError(400, "invalid_audio", "`audio` is not valid base64.");
+  }
+  const form = new FormData();
+  form.append("audio", new Blob([bytes]), "audio");
+  form.append("language", input.language);
+  return httpBackend(env, "/v1/audio/transcriptions", form);
 }
 
 /** RunPod fallback: queue a job, then poll until it finishes or the time budget runs out. */
@@ -262,7 +275,8 @@ async function chat(req: Request, env: Env, keyId: string) {
     chat_template_kwargs: { date_string: today },
   });
 
-  const content = output?.choices?.[0]?.message?.content;
+  // OpenAI shape ({choices}) or a plain {content} body; backends may answer with either.
+  const content = output?.choices?.[0]?.message?.content ?? output?.content;
   if (typeof content !== "string") throw new HttpError(502, "unexpected_upstream_shape", "LLM response had no message content.");
   return { content: content.trim(), model: "n-atlas-llm", usage: output.usage };
 }

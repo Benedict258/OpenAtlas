@@ -127,10 +127,9 @@ GET  /health
 
 POST /v1/chat/completions          (OpenAI-compatible)
   { messages, max_tokens, temperature, repetition_penalty, chat_template_kwargs: { date_string } }
-  → { choices: [{ message: { content } }], usage }
+  → { choices: [{ message: { content } }], usage }     (a plain { content } body is also accepted)
 
-POST /v1/audio/transcriptions
-  { audio_base64, language }
+POST /v1/audio/transcriptions      multipart/form-data: audio (file), language
   → { text, language, model, inference_ms }
 ```
 

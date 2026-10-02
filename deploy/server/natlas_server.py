@@ -6,7 +6,8 @@ NiHub or any other GPU host, so moving hosts is a gateway config change only.
 
     GET  /health                    -> {"status": "ok"|"loading"|"error", "llm": bool, "asr": [...], ...}
     POST /v1/chat/completions       OpenAI-style request/response
-    POST /v1/audio/transcriptions   {"audio_base64", "language"} -> {"text", "language", "model", "inference_ms"}
+    POST /v1/audio/transcriptions   multipart (audio file + language), or JSON {"audio_base64", "language"}
+                                    -> {"text", "language", "model", "inference_ms"}
 
 Every route except /health requires `Authorization: Bearer $BACKEND_API_KEY`.
 
@@ -40,7 +41,8 @@ from typing import Dict, List, Optional
 
 import torch
 import uvicorn
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel
 
 LLM_REPO = "NCAIR1/N-ATLaS"
@@ -182,26 +184,32 @@ def chat(req: ChatReq, authorization: Optional[str] = Header(None)):
     }
 
 
-class AsrReq(BaseModel):
-    audio_base64: str
-    language: str
-
-
 @app.post("/v1/audio/transcriptions")
-def transcribe(req: AsrReq, authorization: Optional[str] = Header(None)):
+async def transcribe(request: Request, authorization: Optional[str] = Header(None)):
     check_auth(authorization)
-    if req.language not in ASR_REPOS:
+    # The gateway sends multipart (fields `audio`, `language`); JSON {audio_base64, language} also works.
+    if request.headers.get("content-type", "").startswith("multipart/form-data"):
+        form = await request.form()
+        upload, language = form.get("audio"), form.get("language")
+        audio = await upload.read() if hasattr(upload, "read") else b""
+    else:
+        try:
+            body = await request.json()
+            language = body.get("language")
+            audio = base64.b64decode(body.get("audio_base64") or "", validate=True)
+        except (binascii.Error, ValueError, AttributeError):
+            raise HTTPException(400, "Send multipart (audio, language) or JSON with valid audio_base64 and language")
+    if language not in ASR_REPOS:
         raise HTTPException(400, f"language must be one of {sorted(ASR_REPOS)}")
     require_ready("ASR")
-    if req.language not in asr:
-        raise HTTPException(503, f"ASR model for {req.language} is not loaded on this backend (ASR_LANGUAGES).")
-    try:
-        audio = base64.b64decode(req.audio_base64, validate=True)
-    except (binascii.Error, ValueError):
-        raise HTTPException(400, "audio_base64 is not valid base64")
+    if language not in asr:
+        raise HTTPException(503, f"ASR model for {language} is not loaded on this backend (ASR_LANGUAGES).")
     if not audio:
-        raise HTTPException(400, "audio_base64 is empty")
+        raise HTTPException(400, "audio is empty")
+    return await run_in_threadpool(run_asr, audio, language)
 
+
+def run_asr(audio: bytes, language: str):
     # The pipeline decodes through ffmpeg, so any common audio format works.
     with tempfile.NamedTemporaryFile(suffix=".audio", delete=False) as f:
         f.write(audio)
@@ -211,15 +219,15 @@ def transcribe(req: AsrReq, authorization: Optional[str] = Header(None)):
         with gpu_lock:
             # No forced language token: each fine-tune's own generation_config decides
             # (Igbo isn't a base Whisper language, so forcing one would be wrong there).
-            result = asr[req.language](path, chunk_length_s=30, batch_size=8)
+            result = asr[language](path, chunk_length_s=30, batch_size=8)
     except Exception as e:
         raise HTTPException(400, f"Could not transcribe this audio: {type(e).__name__}: {e}")
     finally:
         os.unlink(path)
     return {
         "text": result["text"].strip(),
-        "language": req.language,
-        "model": f"n-atlas-asr-{req.language}",
+        "language": language,
+        "model": f"n-atlas-asr-{language}",
         "inference_ms": int((time.time() - started) * 1000),
     }
 
