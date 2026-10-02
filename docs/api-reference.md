@@ -1,6 +1,6 @@
 # OpenAtlas API reference
 
-There are two ways to use it: the TypeScript SDK (recommended) and the HTTP API it wraps. Both talk to the OpenAtlas gateway, never to RunPod directly.
+There are two ways to use it: the TypeScript SDK (recommended) and the HTTP API it wraps. Both talk to the OpenAtlas gateway, never to the GPU host directly. `normalizeText()` is SDK-only: it runs locally and has no HTTP route.
 
 ## HTTP API
 
@@ -32,14 +32,34 @@ The gateway also sends N-ATLaS two settings that the caller doesn't control. Bot
 
 Response `200`: `{ "text": string, "language": string, "model": "n-atlas-asr-<language>" }`
 
+### `POST /v1/issues`
+
+Records a wrong N-ATLaS output with its correction (`reportIssue()` in the SDK). Only what you send here is stored.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `kind` | `"chat"\|"transcription"` | yes | |
+| `output` | string | yes | What N-ATLaS returned. Max 8,000 chars |
+| `correction` | string | yes | What it should have been. Max 8,000 chars |
+| `input` | string | for `chat` | The prompt. Max 8,000 chars |
+| `language` | `"en"\|"en-ng"\|"ha"\|"yo"\|"ig"` | no | |
+| `note` | string | no | Max 2,000 chars |
+| `audio` | base64 string | no | `transcription` only. Max ~1 MB once encoded |
+| `user` | string | no | Hashed before storage |
+
+Response `201`: `{ "id": string, "received_at": ISO-8601 string }`
+
 ### `GET /v1/health` (no auth)
 
-`{ "status": "ok", "upstream": "runpod" | "mock", "llm_configured": bool, "asr_configured": bool }`
+`{ "status": "ok", "backend": { "kind": "http", "configured": bool, "host"?: string, "reachable"?: bool, "status"?: "ok"|"loading"|"error", "llm"?: bool, "asr"?: string[], "mock"?: bool } }`
+
+With `kind: "runpod"` (fallback): `backend` is `{ kind, mock, llm_configured, asr_configured }`.
 
 ### Admin (requires `Authorization: Bearer <ADMIN_TOKEN>`)
 
 - `POST /v1/admin/keys` with `{ "label": string }` returns `201 { id, label, key }`. The key is shown once and stored only as a SHA-256 hash.
 - `GET /v1/usage` returns `{ window_days, cap, active_users, requests_in_window, by_key: [{label, active_users}] }`.
+- `GET /v1/admin/issues?since=<ms>&limit=<1-500>&audio=1` exports issue reports, oldest first: `{ issues: [...], next_since }`. Without `audio=1`, each row has `has_audio` instead of the clip. Page by passing `next_since` back as `since`.
 
 ### Errors
 
@@ -47,18 +67,18 @@ Every error looks like `{ "error": { "code": string, "message": string, "job_id"
 
 | Status | `code` | Meaning |
 |---|---|---|
-| 400 | `invalid_json`, `invalid_messages`, `invalid_language`, `invalid_audio`, `missing_user` | Bad request |
+| 400 | `invalid_json`, `invalid_messages`, `invalid_language`, `invalid_audio`, `missing_user`, `invalid_issue`, `invalid_request` | Bad request |
 | 401 | `missing_api_key`, `invalid_api_key`, `invalid_admin_token` | Auth |
-| 413 | `audio_too_large` | Over ~7 MB of audio |
+| 413 | `audio_too_large`, `issue_too_large` | Over a size limit |
 | 429 | `license_cap_reached` | 1,000 active end-users reached; only new users are refused |
-| 502 | `upstream_error`, `upstream_failed`, `model_error`, `unexpected_upstream_shape` | RunPod or the model failed |
-| 503 | `upstream_not_configured` | Gateway not yet connected to a RunPod endpoint |
-| 504 | `upstream_timeout` | Didn't finish within the gateway's wait (default 300 s), usually a cold start |
+| 502 | `upstream_error`, `upstream_failed`, `model_error`, `unexpected_upstream_shape`, `backend_auth_failed` | The backend or the model failed |
+| 503 | `upstream_not_configured`, `backend_unavailable` | No backend connected, or it's down or still loading models |
+| 504 | `upstream_timeout` | Didn't finish within the gateway's wait (default 300 s) |
 
 ## SDK
 
 ```ts
-import { OpenAtlas, OpenAtlasAPIError, OpenAtlasTimeoutError } from "openatlas";
+import { OpenAtlas, OpenAtlasAPIError, OpenAtlasTimeoutError, normalizeText } from "openatlas";
 
 const client = new OpenAtlas({ apiKey, baseURL, timeoutMs: 300_000, maxRetries: 2 });
 
@@ -72,6 +92,16 @@ const { text } = await client.transcribe({
   audio: await fs.promises.readFile("note.ogg"),
   language: "ig",
   user: currentUser.id,
+});
+
+const clean = normalizeText(scrapedText, { language: "yo" }); // local, no request
+
+await client.reportIssue({
+  kind: "transcription",
+  output: text,
+  correction: "Nwoke ahụ bụ agbara.",
+  language: "ig",
+  audio: await fs.promises.readFile("note.ogg"),
 });
 ```
 

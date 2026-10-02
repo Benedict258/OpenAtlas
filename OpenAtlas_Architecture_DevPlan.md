@@ -1,61 +1,62 @@
 # OpenAtlas — System Architecture & Development Plan
 
-Companion document to OpenAtlas_PRD.md. This defines how OpenAtlas is built, not what it does.
+Companion document to OpenAtlas_PRD.md. This defines how OpenAtlas is built, not what it offers. The product is the SDK's capability surface (`chat`, `transcribe`, `normalizeText`, `reportIssue`, stretch `speak`); hosting is the implementation detail described here.
 
 ---
 
 ## 1. Architecture Pattern
 
-**Thin client, hosted-inference** — the opposite shape from Gemork's local-first design, and deliberately so: OpenAtlas's whole point is that a developer should *not* need local compute to use N-ATLaS. All model inference happens on a hosted GPU endpoint; everything a developer installs locally is a lightweight TypeScript client.
+**Thin client → gateway → swappable GPU backend.** A developer installs only a lightweight TypeScript client. All inference happens on a GPU host behind an OpenAtlas gateway. The gateway is the only public URL; the GPU host can change without any change to the SDK or to developers' code.
 
 ```
-┌───────────────────────────────────────────────────────────┐
-│                     DEVELOPER'S APPLICATION                  │
-│   (citizen-services app / education app / customer-service   │
-│    app / any custom app — the 3 starter kits are examples)   │
+┌──────────────────────────────────────────────────────────────┐
+│                    DEVELOPER'S APPLICATION                    │
+│  (the 3 starter kits, or any custom app)                      │
+│  import { OpenAtlas, normalizeText } from "openatlas"          │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ in-process
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  OPENATLAS SDK (npm: openatlas)               │
+│  chat() / transcribe() / reportIssue()  → network calls        │
+│  normalizeText()                        → local, no network    │
+│  speak() (stretch)                                             │
+│  Knows ONE gateway URL + ONE OpenAtlas key. Nothing about GPUs.│
+└──────────────────────────┬───────────────────────────────────┘
+                           │ HTTPS, Authorization: Bearer <OpenAtlas key>
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│            OPENATLAS GATEWAY (Cloudflare Worker + D1)         │
+│  - Issues and verifies OpenAtlas-scoped keys (stored hashed)   │
+│  - Counts distinct end users, rolling 30 days; refuses NEW     │
+│    users at the N-ATLaS license cap (1,000)                    │
+│  - Stores reportIssue() submissions (same D1 database)         │
+│  - Proxies to the backend named by config (BACKEND_KIND/URL)   │
+│  - Holds the backend credential; it never reaches developers   │
+└──────────────────────────┬───────────────────────────────────┘
+                           │ HTTPS, backend credential
+                           ▼
+┌──────────────────────────────────────────────────────────────┐
+│     GPU BACKEND — any host implementing the backend contract  │
 │                                                                │
-│   import { OpenAtlas } from "openatlas"                      │
-│   const client = new OpenAtlas({ apiKey })                   │
-│   client.chat(...) / client.transcribe(...) / client.speak(..)│
-└───────────────────────┬───────────────────────────────────┘
-                         │  in-process call
-                         ▼
-┌───────────────────────────────────────────────────────────┐
-│                   OPENATLAS SDK (npm package)                │
-│  - Single client class, one config object                    │
-│  - chat() / transcribe() / speak() (stretch)                  │
-│  - Typed request/response shapes and typed errors             │
-│  - Knows ONE base URL + ONE OpenAtlas key; no RunPod details  │
-└───────────────────────┬───────────────────────────────────┘
-                         │  HTTPS, OpenAtlas key (OpenAI-style REST)
-                         ▼
-┌───────────────────────────────────────────────────────────┐
-│             OPENATLAS GATEWAY (Cloudflare Worker + D1)        │
-│  - Verifies OpenAtlas keys (stored hashed)                    │
-│  - Counts distinct active users, rolling 30 days; refuses     │
-│    NEW users at the license cap (1,000)                       │
-│  - Holds the RunPod key; fans out to per-endpoint RunPod URLs │
-│  - Waits out cold starts (queue + poll) so the SDK doesn't    │
-└───────────────────────┬───────────────────────────────────┘
-                         │  HTTPS, RunPod key (never leaves the gateway)
-                         ▼
-┌───────────────────────────────────────────────────────────┐
-│              RUNPOD SERVERLESS (hosted inference)             │
-│  ┌─────────────────┐  ┌────────────────────────────────┐    │
-│  │ Endpoint 1:       │  │ Endpoint 2: N-ATLaS ASR x4       │    │
-│  │ N-ATLaS LLM       │  │ (one worker, 4 Whisper fine-     │    │
-│  │ (Llama-3 8B, vLLM)│  │  tunes, selected by language)    │    │
-│  └─────────────────┘  └────────────────────────────────┘    │
-│  ┌──────────────────────────────────────────────────────┐    │
-│  │ (Stretch) Self-hosted TTS — sorotts primary,            │    │
-│  │ MMS-TTS fallback — final audio rendering only           │    │
-│  └──────────────────────────────────────────────────────┘    │
-└───────────────────────────────────────────────────────────┘
+│  NOW:      Google Colab (interim dev/test only, T4, tunnel)    │
+│  INTENDED: NiHub persistent GPU (same server, persistent URL)  │
+│  FALLBACK: RunPod Serverless (vLLM worker + ASR worker)        │
+│                                                                │
+│  Serves: N-ATLaS LLM (Llama-3 8B fine-tune)                     │
+│          4 × N-ATLaS ASR (Whisper-small fine-tunes: ha/yo/ig/en-ng)│
+│          (stretch) TTS — final audio rendering only            │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-### Why this shape
-- The PRD's core value proposition is "no GPU required to use N-ATLaS." A local-first architecture (like Gemork's) would directly contradict that — so inference is centralized, and the client is deliberately thin.
-- RunPod Serverless was chosen over Modal because, at the expected bursty/low-baseline traffic of a hackathon-stage developer tool, Serverless's pay-per-active-second billing is cheaper than Modal's comparable tier, and over bare Colab notebooks because Colab sessions are not persistent (idle timeout, ~12-hour hard limit, URL changes every run) — unacceptable for something judges and other developers need to reach reliably during the evaluation window.
+### Why a gateway
+RunPod (and most GPU hosts) gives each endpoint its own URL and its own key; there is no single OpenAtlas base URL out of the box, and handing host credentials to developers would expose the account. A flat pass-through also could not enforce the N-ATLaS license: the cap is on **unique end users** (1,000 per rolling 30 days), while hosts like RunPod count only requests. The gateway therefore:
+1. issues OpenAtlas-scoped keys to developers,
+2. authenticates every request and proxies it to the real backend with a credential only the gateway holds,
+3. records a hashed (key, end-user) pair per request and refuses *new* users once the active count reaches the cap.
+
+### Why the backend is swappable
+Hosting is in flux during the build (see §5): Colab today, NiHub expected imminently, RunPod as fallback. The gateway reads the backend from configuration — `BACKEND_KIND` (`http` or `runpod`) plus `BACKEND_URL`/`BACKEND_API_KEY` (or RunPod endpoint IDs) — stored as Worker secrets. Moving hosts is `wrangler secret put` (scripted in `deploy/set-backend.mjs`), not a code change or redeploy.
 
 ---
 
@@ -63,111 +64,139 @@ Companion document to OpenAtlas_PRD.md. This defines how OpenAtlas is built, not
 
 | Component | Technology | Responsibility |
 |---|---|---|
-| **Inference host** | RunPod Serverless, two queue endpoints (scale-to-zero) | Endpoint 1 runs the N-ATLaS LLM; endpoint 2 runs all four ASR models |
-| **Model serving layer** | LLM: RunPod's official vLLM worker image (no custom code). ASR: a small custom worker (`workers/asr/`, Hugging Face `transformers` Whisper pipeline), deployed via RunPod's build-from-GitHub flow | Translates RunPod jobs into actual model forward passes |
-| **Gateway** | Cloudflare Worker + D1 (SQLite) | One public base URL and OpenAtlas-scoped keys for developers; active-user counting against the license cap; proxies to RunPod with the RunPod key, which never reaches the SDK or developer |
-| **TTS host (stretch)** | Same RunPod account, separate endpoint | Runs `sorotts` (primary) or MMS-TTS (fallback) for final audio rendering |
-| **OpenAtlas SDK** | TypeScript, published as an npm package | Single client talking to the gateway. Written fresh — there was no existing `natlas.ts` client to reuse (that earlier assumption was wrong). Seeded with the tested inference settings from the Safroi Colab *server* notebook: repetition penalty 1.12, current date passed to the chat template's `date_string`, 4-bit NF4 as the small-GPU fallback |
-| **Starter kits (x3)** | Node/TypeScript (citizen services, education), Node/TypeScript with basic audio handling (customer service) | Minimal reference apps proving the SDK works end-to-end for each niche |
-| **Docs** | Markdown README + inline TSDoc comments in the SDK | Quickstart + API reference |
+| **OpenAtlas SDK** | TypeScript, npm package `openatlas` | Single client talking to the gateway; `normalizeText()` runs locally. Written fresh — there was never a `natlas.ts` client to reuse (that earlier assumption was wrong). Seeded with the tested settings from the Safroi Colab server notebook: repetition penalty 1.12, current date into the chat template's `date_string`, 4-bit NF4 quantization |
+| **Gateway** | Cloudflare Worker + D1 (SQLite) | Keys, license-cap accounting, issue reports, proxying to the configured backend |
+| **Backend server (`http` kind)** | Python, FastAPI + `transformers` (`deploy/server/natlas_server.py`) | Implements the backend contract (§3.2). The same file runs on Colab and on NiHub |
+| **Backend (`runpod` kind, fallback)** | RunPod's vLLM worker image (LLM) + `workers/asr/` (ASR) | Same contract semantics via RunPod's job API |
+| **TTS (stretch)** | sorotts / MMS-TTS on the same backend | Final audio rendering only; gated on NAIC eligibility |
+| **Starter kits (x3)** | Node + a single HTML page each | Reference apps exercising the full SDK |
+| **Docs** | README, `docs/api-reference.md`, TSDoc | Quickstart and API reference |
 
 ---
 
 ## 3. API Surface
 
-The original plan assumed RunPod could serve every model as a path under one base URL. It can't: each RunPod Serverless endpoint has its own URL and is authenticated with a RunPod account key. So there are two layers — a public, developer-facing API served by the OpenAtlas gateway, and internal RunPod calls that only the gateway makes.
+### 3.1 SDK surface (what developers call)
 
-### 3.1 Public API (SDK ↔ Gateway) — the only thing developers see
+| Method | Network? | Gateway route |
+|---|---|---|
+| `chat({ messages, user, language?, max_tokens?, temperature? })` → `{ content, model, usage }` | yes | `POST /v1/chat/completions` |
+| `transcribe({ audio, language, user })` → `{ text, language, model }` | yes | `POST /v1/audio/transcriptions` |
+| `normalizeText(text, { language?, hausaApostrophes? })` → `string` | **no** — local | — |
+| `reportIssue({ kind, input, output, correction, language?, note?, audio?, user? })` → `{ id, received_at }` | yes | `POST /v1/issues` |
+| `speak({ text, language })` *(stretch, not built)* | yes | `POST /v1/audio/speech` |
 
-Base URL: the gateway's URL (one URL). Auth: `Authorization: Bearer <OpenAtlas key>`. Optional `user` field on every request: an opaque end-user ID used only for license-cap counting (hashed before storage).
+Client options: `apiKey`, `baseURL`, `timeoutMs`, `maxRetries`, `normalize` (apply `normalizeText()` to chat inputs/outputs and transcripts automatically).
+
+### 3.2 Public gateway API (SDK ↔ gateway)
+
+One base URL (the gateway). Auth: `Authorization: Bearer <OpenAtlas key>`. `user` (opaque end-user ID, hashed before storage) is required on `chat` and `transcribe` so the license cap counts real end users.
 
 ```
 POST /v1/chat/completions
-  { messages: [{role, content}], language?: "ha"|"yo"|"ig"|"en", max_tokens?, temperature?, user? }
-  → { content: string, model: "n-atlas-llm", usage: {...} }
+  { messages: [{role, content}], language?: "en"|"ha"|"yo"|"ig", max_tokens?, temperature?, user }
+  → { content, model: "n-atlas-llm", usage }
 
 POST /v1/audio/transcriptions
-  { audio: <base64>, language: "ha"|"yo"|"ig"|"en-ng", user? }
-  → { text: string, language: string, model: "n-atlas-asr-<lang>" }
+  { audio: <base64>, language: "ha"|"yo"|"ig"|"en-ng", user }
+  → { text, language, model: "n-atlas-asr-<lang>" }
 
-GET  /v1/health        (no auth) → gateway + upstream configuration status
-GET  /v1/usage         (admin)   → active users in the rolling 30-day window vs the cap
-POST /v1/admin/keys    (admin)   → issue an OpenAtlas key (shown once, stored hashed)
+POST /v1/issues
+  { kind: "chat"|"transcription", input, output, correction, language?, note?, audio?, user? }
+  → 201 { id, received_at }
 
-POST /v1/audio/speech   (stretch, not built — gated on NAIC eligibility)
-  { text: string, language: "ha"|"yo"|"ig"|"pcm" }
-  → { audio: <base64>, model: "sorotts" | "mms-tts-<lang>" }
+GET  /v1/health          (no auth)  gateway status, backend kind, backend reachability
+GET  /v1/usage           (admin)    active users in window vs cap
+POST /v1/admin/keys      (admin)    issue an OpenAtlas key (shown once, stored hashed)
+GET  /v1/admin/issues    (admin)    export issue reports (?since=<ms>&limit=)
+
+POST /v1/audio/speech    (stretch, not built)
 ```
 
-### 3.2 Internal fan-out (Gateway ↔ RunPod) — never exposed
+### 3.3 Backend contract (gateway ↔ GPU host) — never exposed to developers
+
+Any host that serves these routes can be the backend (`BACKEND_KIND=http`). Auth: `Authorization: Bearer <BACKEND_API_KEY>`.
 
 ```
-chat           → POST https://api.runpod.ai/v2/{LLM_ENDPOINT_ID}/openai/v1/chat/completions
-                 (vLLM worker's OpenAI-compatible route; gateway adds repetition_penalty
-                  and chat_template_kwargs.date_string)
-transcriptions → POST https://api.runpod.ai/v2/{ASR_ENDPOINT_ID}/run, then poll /status/{id}
-                 input { audio_base64, language } — the worker picks the matching Whisper model
+GET  /health
+  → { status: "ok", llm: bool, asr: ["ha","yo","ig","en-ng"] }
+
+POST /v1/chat/completions          (OpenAI-compatible)
+  { messages, max_tokens, temperature, repetition_penalty, chat_template_kwargs: { date_string } }
+  → { choices: [{ message: { content } }], usage }
+
+POST /v1/audio/transcriptions
+  { audio_base64, language }
+  → { text, language, model, inference_ms }
 ```
 
-ASR is one RunPod endpoint hosting all four models, not four endpoints: four endpoints would mean four separate cold starts and four idle timers for models that each fit comfortably alongside the others on one GPU. Routing by language still happens — inside the worker instead of in the URL.
+`deploy/server/natlas_server.py` implements this contract. The Colab notebook (`deploy/colab/openatlas_colab.ipynb`) is generated from the same file, so what is tested on Colab is exactly what will run on NiHub.
 
-These public shapes deliberately echo OpenAI's API conventions — not because OpenAtlas wraps a general-purpose model (it doesn't; every endpoint above is served by an N-ATLaS model, except the clearly-separate stretch TTS endpoint), but because a familiar request/response shape lowers the learning curve for developers who already know this pattern from elsewhere.
+For `BACKEND_KIND=runpod` (fallback), the gateway maps the same requests onto RunPod's job API: chat → the vLLM worker's OpenAI route (`/v2/{LLM_ENDPOINT_ID}/runsync` with `openai_route`), transcription → `/v2/{ASR_ENDPOINT_ID}/runsync` then `/status/{id}` polling.
+
+ASR is one backend process hosting all four models, routed by `language` inside the server: four Whisper-small models (~0.5 GB each in fp16) fit alongside the 4-bit LLM (~5.7 GB) on a single 15 GB T4.
 
 ---
 
 ## 4. Data Flow — Per Starter Kit
 
-**Citizen Services:**
-`user text/voice question → (optional transcribe) → chat() with civic-info context injected → N-ATLaS LLM response → displayed to user`
+**Citizen Services:** question → `normalizeText()` → `chat()` with demo civic context → N-ATLaS answer → shown.
 
-**Education:**
-`user question in local language → chat() with instructional framing → N-ATLaS LLM response → displayed to user`
+**Education:** question + level → `chat()` with instructional framing → explanation → (if wrong) `reportIssue()` with the user's correction.
 
-**Customer Service:**
-`user voice note → transcribe() (correct ASR model by language) → chat() to classify/draft response → N-ATLaS LLM response → (stretch) speak() to render reply as audio → returned to user`
+**Customer Service:** voice note → `transcribe()` (ASR model chosen by language) → `normalizeText()` → `chat()` to classify and draft → shown with the transcript → (if transcript wrong) `reportIssue()` with corrected text and the audio → (stretch) `speak()`.
 
-In every path, N-ATLaS (LLM and/or ASR) is the only model doing reasoning or transcription work. The stretch TTS step, when present, sits strictly after N-ATLaS's own output and touches only audio rendering of already-generated text — never reasoning, never transcription, never a substitute for N-ATLaS at any decision point.
+N-ATLaS is the only model doing reasoning or transcription in every path. `normalizeText()` is deterministic text processing. The stretch TTS step only renders already-generated text.
 
 ---
 
-## 5. Infrastructure & Deployment
+## 5. Infrastructure & Hosting
 
-- **Compute:** RunPod Serverless GPU endpoint(s) — one for LLM + ASR (can share a pod if VRAM allows; split if not), one optional for TTS.
-- **Model storage:** model weights pulled from Hugging Face at container build/cold-start time, cached on the RunPod volume to minimize repeated downloads.
-- **SDK distribution:** published to npm as `openatlas` (or nearest available name), source on GitHub.
-- **Gateway:** Cloudflare Worker with a D1 database for hashed API keys and active-user records. Free tier is sufficient at hackathon-stage volume.
-- **Secrets:** OpenAtlas keys are issued per developer by the gateway (stored as SHA-256 hashes, shown once). The RunPod API key and endpoint IDs are Worker secrets — they never reach the SDK or developers. Per-key quotas remain a roadmap item; the license-cap check is built.
-- **Starter kits:** each runnable locally with `npm install && npm start`, pointed at the live hosted endpoint via an env var — no separate deployment needed for the starter kits themselves.
+### 5.1 Hosting plan
+
+| Host | Role | Status (2026-10-02) |
+|---|---|---|
+| **Google Colab** (free T4 + Cloudflare quick tunnel) | **Interim dev/testing host only.** Lets the gateway and SDK be built and verified against real N-ATLaS today | Notebook written; must be run from the owner's Google account. **Not persistent:** idle disconnects, ~12 h session limit, and the tunnel URL changes every run, so the gateway's `BACKEND_URL` must be updated after each restart |
+| **NiHub** (persistent GPU, offered by NiHub) | **Intended host** for anything that must stay up through submission and judging | Servers expected ~2026-10-03; not yet confirmed live. Migration = run `natlas_server.py` there, then `deploy/set-backend.mjs <url> <key>` |
+| **RunPod Serverless** | Fallback if NiHub falls through | Scripts exist (`deploy/llm`, `deploy/asr`, `deploy/go-live-llm.sh`); **not deployed** — account unfunded; no spend until the owner says so |
+
+Colab is never the submission deployment. Any demo or judging-window URL must point at the persistent host.
+
+### 5.2 Other infrastructure
+- **Model weights:** pulled from Hugging Face on backend start (HF token with access to all five N-ATLaS repos — verified 2026-10-02).
+- **Gateway:** Cloudflare Worker + one D1 database holding hashed keys, active-user records, a minimal request log (no content), and issue reports. Free tier is sufficient at this volume.
+- **Secrets:** OpenAtlas keys issued per developer (SHA-256 hashes stored). Backend URL/credential are Worker secrets and never reach the SDK.
+- **SDK distribution:** npm as `openatlas` (or installable from the repo if publishing slips).
+- **Starter kits:** `npm install && npm start`, pointed at the gateway via env vars.
 
 ---
 
 ## 6. Security & Compliance Notes
 
-- **License compliance:** N-ATLaS's license caps usage at 1,000 active users per 30 days, non-commercial. The hosted endpoint is documented and positioned explicitly as a non-commercial developer/research resource for this reason — not a production SaaS offering — and the gateway counts distinct active users over a rolling 30-day window and refuses new users at the cap, so usage against it is measured, not assumed. The count is exact for developer keys; it covers an app's end users only when the app passes the SDK's `user` field.
-- **No credential storage of end-user data:** the starter kits handle demo-scale, ephemeral data only (no persistence layer is in scope for this submission).
-- **Transport security:** all SDK↔endpoint traffic over HTTPS.
+- **License compliance:** non-commercial; 1,000 active end users per rolling 30 days. The gateway measures this per hashed (key, `user`) pair and refuses new users at the cap. Known limitation: two brand-new users arriving simultaneously at exactly the cap can both be admitted (non-atomic check-then-insert).
+- **Attribution:** "N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies." shown in docs and starter kits.
+- **Data minimisation:** `chat()`/`transcribe()` content is never stored. Only `reportIssue()` submissions — explicitly sent by an app — are kept; end-user IDs are hashed.
+- **Transport:** HTTPS for SDK↔gateway and gateway↔backend (Colab via Cloudflare tunnel; NiHub endpoint must be HTTPS or tunnelled).
 
 ---
 
-## 7. Build Sequencing (10-Day Window)
+## 7. Build Sequencing (revised 2026-10-02, 10 days to deadline)
 
-Given the constraint stated explicitly by the project owner — "we don't have 10 days to build, we have 10 days to apply" — this sequencing assumes compressed, parallel work rather than a leisurely phase-by-phase build, and treats the NAIC eligibility email as a parallel track that does not block the core path.
-
-| Day(s) | Work | Notes |
+| When | Work | Notes |
 |---|---|---|
-| **Day 1** | Send NAIC eligibility clarification email (TTS pairing question). Stand up RunPod account/project, begin LLM deployment. | Email sent immediately so the answer has maximum time to arrive before the stretch component's go/no-go point. |
-| **Day 2–3** | Get N-ATLaS LLM serving on RunPod Serverless end-to-end (cold start, inference, response). Write the first version of the OpenAtlas SDK's `chat()` method (fresh — no prior client exists), seeded with the Safroi Colab notebook's tested inference settings. | The notebook's settings are real prior work; the client code is not. |
-| **Day 4–5** | Deploy all 4 ASR models on RunPod. Build SDK `transcribe()` method routing by language code. Begin Citizen Services and Education starter kits (both only need `chat()`). | These two starter kits can be built in parallel once `chat()` works. |
-| **Day 6–7** | Build Customer Service starter kit (needs both `transcribe()` and `chat()` chained). Begin documentation (README, quickstart, API reference). | Check for NAIC email response; decide TTS go/no-go. |
-| **Day 8** | **Go/no-go on TTS.** If confirmed: deploy `sorotts` (or MMS-TTS fallback) on RunPod, build SDK `speak()` method, wire into Customer Service starter kit. If not confirmed or no response: drop stretch component, reallocate time to hardening the core SDK and starter kits. | Decision point explicitly planned for, per the project owner's own conditional ("if confirmed we keep going, if not we remove it"). |
-| **Day 9** | End-to-end testing of every starter kit against the live hosted endpoint (no mocks). Fix any broken paths. Finalize documentation. | This is the honesty checkpoint — nothing ships into the submission that hasn't been run for real. |
-| **Day 10** | Package SDK for npm publish (or finalize as installable-from-repo if publishing isn't feasible in time). Write the submission's technical documentation and demo script. Submit. | Buffer day — if anything from Days 1–9 slipped, this is where it gets absorbed, not where new scope gets added. |
+| **Oct 2** | Docs updated to the Developer Tooling framing. Backend server + Colab notebook. Gateway made host-agnostic; `/v1/issues`. SDK `normalizeText()`, `reportIssue()`. | Gateway logic verified locally against a labelled stub backend until Colab is up |
+| **Oct 2–3** | Owner runs the Colab notebook → `set-backend.mjs` → real `chat()`/`transcribe()` through the public gateway | First real end-to-end verification |
+| **Oct 3–4** | NiHub live → same server there → swap backend config → re-verify everything | Explicitly reported to the owner when hosting moves off Colab |
+| **Oct 4–7** | Starter kits finished against the real SDK (all methods); docs | Check NAIC eligibility reply; TTS go/no-go by Oct 7 |
+| **Oct 8–9** | If TTS confirmed: `speak()`. Otherwise harden core. Full end-to-end run of every kit on the persistent host | Honesty checkpoint — nothing ships un-run |
+| **Oct 10–11** | npm publish, submission write-up, demo script | Buffer |
+| **Oct 12** | Submit | |
 
 ---
 
-## 8. Dependencies & Sequencing Notes
+## 8. Dependencies & Risks
 
-- The LLM deployment (Day 2–3) is the single hard dependency everything else sits behind — no starter kit, no SDK method beyond `chat()`, and no demo is possible until it's live. It is first in sequence for this reason.
-- ASR deployment and the Citizen Services/Education starter kits can proceed in parallel once the LLM path is proven, since they don't depend on each other.
-- The TTS stretch component is deliberately placed last and gated behind an explicit go/no-go checkpoint (Day 8) rather than being built speculatively — this protects the core, must-have deliverable from being put at risk by a component whose eligibility is still unconfirmed.
-- Documentation is started early (Day 6–7) rather than left to the last day, since a judge's ability to actually use the SDK themselves is part of the success criteria, not an afterthought.
+- **A real backend is the hard dependency.** Until Colab is running, `chat()`/`transcribe()` can only be verified against stubs, which do not count as done.
+- **Colab is fragile by design** (idle timeout, 12 h limit, changing URL). Any session loss is reported plainly, not papered over.
+- **NiHub timing is external.** If it slips past Oct 4, decide between RunPod (requires funding) and demoing on Colab with its limits disclosed.
+- **TTS** is gated and placed last so it cannot put the core at risk.

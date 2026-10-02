@@ -24,16 +24,14 @@ export class OpenAtlasAPIError extends OpenAtlasError {
 }
 
 /**
- * The request took longer than `timeoutMs`. On a scaled-to-zero endpoint the first
- * request after an idle period includes model loading, so this is usually a cold start:
- * retrying shortly afterwards normally hits a warm worker.
+ * The request took longer than `timeoutMs`. Usually the N-ATLaS backend was still loading
+ * its models (just started, or a cold start); retrying shortly afterwards normally succeeds.
  */
 export class OpenAtlasTimeoutError extends OpenAtlasError {
   constructor(timeoutMs: number) {
     super(
-      `No response within ${Math.round(timeoutMs / 1000)}s. The hosted N-ATLaS endpoint scales to zero when idle, ` +
-        `so the first request after a quiet period includes loading the model (a cold start). ` +
-        `Retry in a minute, or raise \`timeoutMs\`.`,
+      `No response within ${Math.round(timeoutMs / 1000)}s. The N-ATLaS backend may still be loading its models ` +
+        `(a cold start). Retry in a minute, or raise \`timeoutMs\`.`,
     );
   }
 }

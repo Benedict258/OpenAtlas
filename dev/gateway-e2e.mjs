@@ -1,8 +1,9 @@
-// Local end-to-end check: real SDK → real gateway (wrangler dev, local D1) → MOCK RunPod.
-// Verifies gateway logic (auth, license-cap accounting, cold-start polling, request shaping).
-// It does NOT verify N-ATLaS — the upstream is dev/mock-runpod.
+// Local end-to-end check: real SDK → real gateway (wrangler dev, local D1) → MOCK backend.
+// Verifies gateway logic (auth, license-cap accounting, request shaping, issue reports, and,
+// with BACKEND_KIND=runpod, cold-start polling). It does NOT verify N-ATLaS: the backend is
+// dev/mock-backend.
 //
-// Prereqs: `node dev/mock-runpod/server.mjs` and `npm run dev -w openatlas-gateway`
+// Prereqs: `node dev/mock-backend/server.mjs` and `npm run dev -w openatlas-gateway`
 // with gateway/.dev.vars copied from .dev.vars.example (ACTIVE_USER_CAP=5).
 // The cap test fills the local DB; before re-running, delete gateway/.wrangler/state and
 // re-run `npm run db:init:local -w openatlas-gateway`.
@@ -23,7 +24,8 @@ const check = async (name, fn) => {
 };
 
 const health = await fetch(`${GW}/v1/health`).then((r) => r.json());
-assert.equal(health.upstream, "mock", "refusing to run: gateway is not pointed at the mock upstream");
+assert.equal(health.backend?.mock, true, "refusing to run: gateway is not pointed at the mock backend");
+console.log("backend:", JSON.stringify(health.backend));
 
 const issued = await fetch(`${GW}/v1/admin/keys`, {
   method: "POST",
@@ -44,7 +46,7 @@ await check("invalid OpenAtlas key → 401 invalid_api_key", async () => {
   assert.equal(err.code, "invalid_api_key");
 });
 
-await check("chat() survives a simulated cold start (queued → polled → completed)", async () => {
+await check("chat() returns the backend's reply (runpod kind: via queued → polled → completed)", async () => {
   const res = await client.chat({ messages: [{ role: "user", content: "Sannu" }], user: "user-1" });
   assert.match(res.content, /^\[MOCK/);
   assert.equal(res.model, "n-atlas-llm");
@@ -101,7 +103,37 @@ await check("usage endpoint reports active users and request log", async () => {
   console.log("usage:", JSON.stringify(u));
 });
 
+await check("reportIssue() stores a chat correction; admin export returns it", async () => {
+  const before = Date.now() - 1;
+  const r = await client.reportIssue({ kind: "chat", input: "Fassara: hello", output: "wrong", correction: "Sannu", language: "ha", user: "user-1", note: "e2e" });
+  assert.match(r.id, /^[0-9a-f-]{36}$/);
+  const exp = await fetch(`${GW}/v1/admin/issues?since=${before}`, { headers: { Authorization: `Bearer ${ADMIN}` } }).then((x) => x.json());
+  const row = exp.issues.find((i) => i.id === r.id);
+  assert.ok(row, "report missing from export");
+  assert.equal(row.correction, "Sannu");
+  assert.equal(row.has_audio, 0);
+  assert.match(row.user_hash, /^[0-9a-f]{64}$/, "user must be stored hashed");
+});
+
+await check("reportIssue() stores audio for a transcription correction", async () => {
+  const before = Date.now() - 1;
+  const r = await client.reportIssue({ kind: "transcription", output: "bad", correction: "Ẹ kú àárọ̀", language: "yo", audio: new Uint8Array(2048) });
+  const exp = await fetch(`${GW}/v1/admin/issues?since=${before}&audio=1`, { headers: { Authorization: `Bearer ${ADMIN}` } }).then((x) => x.json());
+  const row = exp.issues.find((i) => i.id === r.id);
+  assert.equal(Buffer.from(row.audio_base64, "base64").length, 2048);
+  assert.equal(row.correction, "Ẹ kú àárọ̀");
+});
+
+await check("gateway rejects malformed issues (400) and needs auth (401)", async () => {
+  const post = (body, key = issued.key) =>
+    fetch(`${GW}/v1/issues`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  assert.equal((await post({ kind: "chat", output: "a", correction: "b" })).status, 400);
+  assert.equal((await post({ kind: "chat", input: "q", output: "a", correction: "b", audio: "AQID" })).status, 400);
+  assert.equal((await post({ kind: "chat", input: "q", output: "a", correction: "b" }, "oa_nope")).status, 401);
+  assert.equal((await fetch(`${GW}/v1/admin/issues`)).status, 401);
+});
+
 for (const r of results) console.log(r.join("  "));
 const failed = results.filter((r) => r[0] === "FAIL").length;
-console.log(`${results.length - failed}/${results.length} passed (upstream: MOCK — no N-ATLaS involved)`);
+console.log(`${results.length - failed}/${results.length} passed (backend: MOCK, kind=${health.backend.kind} — no N-ATLaS involved)`);
 process.exit(failed ? 1 : 0);

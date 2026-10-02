@@ -12,7 +12,7 @@
   "scripts": {
     "build": "npm run build -w openatlas",
     "test": "npm test -w openatlas",
-    "dev:mock-runpod": "node dev/mock-runpod/server.mjs",
+    "dev:mock-backend": "node dev/mock-backend/server.mjs",
     "dev:gateway": "npm run dev -w openatlas-gateway"
   }
 }

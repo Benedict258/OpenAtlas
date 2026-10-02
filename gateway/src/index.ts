@@ -1,18 +1,25 @@
-// OpenAtlas gateway: one public URL + OpenAtlas keys in front of the RunPod endpoints.
+// OpenAtlas gateway: one public URL + OpenAtlas keys in front of a swappable GPU backend.
 //
 // - Verifies OpenAtlas keys (stored as SHA-256 hashes in D1).
 // - Counts distinct active users over a rolling window and refuses NEW users at the
 //   N-ATLaS license cap, so compliance is measured rather than assumed.
-// - Holds the RunPod key and fans requests out to the per-endpoint RunPod URLs.
-// - Queues RunPod jobs and polls, so cold starts don't break the HTTP request.
+// - Stores reportIssue() submissions in the same D1 database.
+// - Proxies to whichever backend the config names, holding its credential:
+//     BACKEND_KIND=http    any host serving the backend contract (deploy/server/natlas_server.py):
+//                          Colab (interim) or NiHub. Set BACKEND_URL + BACKEND_API_KEY.
+//     BACKEND_KIND=runpod  RunPod Serverless (fallback): RUNPOD_API_KEY + LLM/ASR endpoint IDs.
+//   Switching hosts is `wrangler secret put` (deploy/set-backend.mjs), not a code change.
 
 export interface Env {
   DB: D1Database;
+  BACKEND_KIND: string;
+  BACKEND_URL: string;
+  BACKEND_API_KEY: string;
   RUNPOD_API_KEY: string;
   LLM_ENDPOINT_ID: string;
   ASR_ENDPOINT_ID: string;
-  ADMIN_TOKEN: string;
   RUNPOD_API_BASE: string;
+  ADMIN_TOKEN: string;
   ACTIVE_USER_CAP: string;
   ACTIVE_WINDOW_DAYS: string;
   UPSTREAM_TIMEOUT_MS: string;
@@ -24,6 +31,9 @@ const ASR_LANGUAGES = new Set(["en-ng", "ha", "yo", "ig"]);
 const MAX_AUDIO_BASE64_CHARS = 9_500_000;
 // Free-plan Workers allow 50 subrequests per request; keep polling well under that.
 const MAX_POLLS = 40;
+// reportIssue() limits. D1 rows max out at 2 MB.
+const MAX_ISSUE_TEXT = 8_000;
+const MAX_ISSUE_AUDIO_BASE64 = 1_400_000;
 
 class HttpError extends Error {
   constructor(readonly status: number, readonly code: string, message: string, readonly jobId?: string) {
@@ -119,7 +129,58 @@ async function trackActiveUser(env: Env, keyId: string, endUser: unknown) {
     .run();
 }
 
-/** Queue a RunPod job, then poll until it finishes or the time budget runs out. */
+const backendKind = (env: Env) => (env.BACKEND_KIND || "http").toLowerCase();
+const backendBase = (env: Env) => (env.BACKEND_URL || "").replace(/\/+$/, "");
+
+/** POST to a host implementing the backend contract (deploy/server/natlas_server.py). */
+async function httpBackend(env: Env, path: string, payload: unknown): Promise<any> {
+  if (!env.BACKEND_URL || !env.BACKEND_API_KEY) {
+    throw new HttpError(503, "upstream_not_configured", "This gateway is not yet connected to an N-ATLaS backend.");
+  }
+  let res: Response;
+  try {
+    res = await fetch(backendBase(env) + path, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.BACKEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(Number(env.UPSTREAM_TIMEOUT_MS)),
+    });
+  } catch (err) {
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      throw new HttpError(504, "upstream_timeout", "The N-ATLaS backend did not answer in time.");
+    }
+    throw new HttpError(503, "backend_unavailable", "The N-ATLaS backend is unreachable right now. Retry shortly.");
+  }
+  const text = await res.text();
+  let body: any = null;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    // Tunnels and proxies answer with HTML when the backend behind them is down.
+  }
+  if (res.ok && body) return body;
+  const detail = typeof body?.detail === "string" ? body.detail : text.slice(0, 300);
+  if (res.status === 400) throw new HttpError(400, "invalid_request", detail);
+  if (res.status === 401) throw new HttpError(502, "backend_auth_failed", "The gateway's backend credential was rejected (check BACKEND_API_KEY).");
+  if (res.status === 503 || res.status >= 520 || !body) {
+    throw new HttpError(503, "backend_unavailable", `The N-ATLaS backend is not serving right now (HTTP ${res.status}): ${detail}`);
+  }
+  throw new HttpError(502, "upstream_error", `Backend returned HTTP ${res.status}: ${detail}`);
+}
+
+async function backendChat(env: Env, openaiInput: Record<string, unknown>): Promise<any> {
+  if (backendKind(env) === "runpod") {
+    return runJob(env, env.LLM_ENDPOINT_ID, { openai_route: "/v1/chat/completions", openai_input: openaiInput });
+  }
+  return httpBackend(env, "/v1/chat/completions", openaiInput);
+}
+
+async function backendTranscribe(env: Env, input: { audio_base64: string; language: string }): Promise<any> {
+  if (backendKind(env) === "runpod") return runJob(env, env.ASR_ENDPOINT_ID, input);
+  return httpBackend(env, "/v1/audio/transcriptions", input);
+}
+
+/** RunPod fallback: queue a job, then poll until it finishes or the time budget runs out. */
 async function runJob(env: Env, endpointId: string, input: unknown): Promise<unknown> {
   if (!env.RUNPOD_API_KEY || !endpointId) {
     throw new HttpError(503, "upstream_not_configured", "This gateway is not yet connected to a RunPod endpoint.");
@@ -190,18 +251,15 @@ async function chat(req: Request, env: Env, keyId: string) {
   }
 
   const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Africa/Lagos" });
-  const output: any = await runJob(env, env.LLM_ENDPOINT_ID, {
-    openai_route: "/v1/chat/completions",
-    openai_input: {
-      model: "n-atlas-llm",
-      messages: finalMessages,
-      max_tokens: Math.min(Number(body.max_tokens) || 512, 1024),
-      temperature: typeof body.temperature === "number" ? body.temperature : 0.1,
-      // Carried over from the Safroi Colab notebook, tested against real N-ATLaS weights.
-      repetition_penalty: 1.12,
-      // N-ATLaS's chat template otherwise hard-codes "Today Date: 26 Jul 2024".
-      chat_template_kwargs: { date_string: today },
-    },
+  const output: any = await backendChat(env, {
+    model: "n-atlas-llm",
+    messages: finalMessages,
+    max_tokens: Math.min(Number(body.max_tokens) || 512, 1024),
+    temperature: typeof body.temperature === "number" ? body.temperature : 0.1,
+    // Carried over from the Safroi Colab notebook, tested against real N-ATLaS weights.
+    repetition_penalty: 1.12,
+    // N-ATLaS's chat template otherwise hard-codes "Today Date: 26 Jul 2024".
+    chat_template_kwargs: { date_string: today },
   });
 
   const content = output?.choices?.[0]?.message?.content;
@@ -218,7 +276,7 @@ async function transcribe(req: Request, env: Env, keyId: string) {
   }
   await trackActiveUser(env, keyId, body.user);
 
-  const output: any = await runJob(env, env.ASR_ENDPOINT_ID, { audio_base64: body.audio, language: body.language });
+  const output: any = await backendTranscribe(env, { audio_base64: body.audio, language: body.language });
   if (typeof output?.text !== "string") throw new HttpError(502, "unexpected_upstream_shape", "ASR response had no text.");
   return { text: output.text, language: body.language, model: output.model ?? `n-atlas-asr-${body.language}` };
 }
@@ -256,13 +314,91 @@ async function usage(req: Request, env: Env) {
   };
 }
 
-function health(env: Env) {
-  return {
-    status: "ok",
-    upstream: env.RUNPOD_API_BASE.startsWith("https://api.runpod.ai/") ? "runpod" : "mock",
-    llm_configured: Boolean(env.RUNPOD_API_KEY && env.LLM_ENDPOINT_ID),
-    asr_configured: Boolean(env.RUNPOD_API_KEY && env.ASR_ENDPOINT_ID),
-  };
+function optionalText(v: unknown, field: string, max = MAX_ISSUE_TEXT): string | null {
+  if (v === undefined || v === null || v === "") return null;
+  if (typeof v !== "string") throw new HttpError(400, "invalid_issue", `\`${field}\` must be a string.`);
+  if (v.length > max) throw new HttpError(413, "issue_too_large", `\`${field}\` is longer than ${max} characters.`);
+  return v;
+}
+
+/** reportIssue(): store a flagged N-ATLaS output with its correction. Only what the app sends is kept. */
+async function createIssue(req: Request, env: Env, keyId: string) {
+  const body = await readJson(req);
+  if (body?.kind !== "chat" && body?.kind !== "transcription") {
+    throw new HttpError(400, "invalid_issue", '`kind` must be "chat" or "transcription".');
+  }
+  const output = optionalText(body.output, "output");
+  const correction = optionalText(body.correction, "correction");
+  if (!output || !correction) {
+    throw new HttpError(400, "invalid_issue", "`output` (what N-ATLaS returned) and `correction` are required.");
+  }
+  const input = optionalText(body.input, "input");
+  if (body.kind === "chat" && !input) throw new HttpError(400, "invalid_issue", "`input` (the prompt) is required for chat issues.");
+  const language = optionalText(body.language, "language", 16);
+  if (language && !CHAT_LANGUAGE_NAMES[language] && !ASR_LANGUAGES.has(language)) {
+    throw new HttpError(400, "invalid_language", "`language` must be one of en, en-ng, ha, yo, ig.");
+  }
+  const note = optionalText(body.note, "note", 2_000);
+  const audio = optionalText(body.audio, "audio", MAX_ISSUE_AUDIO_BASE64);
+  if (audio && body.kind !== "transcription") {
+    throw new HttpError(400, "invalid_issue", "`audio` is only accepted for transcription issues.");
+  }
+  const user = optionalText(body.user, "user", 256);
+
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  await env.DB.prepare(
+    `INSERT INTO issue_reports (id, created_at, key_id, user_hash, kind, language, input, output, correction, note, audio_base64)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(id, now, keyId, user ? await sha256(`${keyId}:${user}`) : null, body.kind, language, input, output, correction, note, audio)
+    .run();
+  return { id, received_at: new Date(now).toISOString() };
+}
+
+/** Operator export of issue reports, oldest first. Page with ?since=<next_since>. */
+async function listIssues(req: Request, env: Env) {
+  requireAdmin(req, env);
+  const url = new URL(req.url);
+  const since = Number(url.searchParams.get("since")) || 0;
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 100, 1), 500);
+  const audioColumn = url.searchParams.get("audio") === "1" ? "r.audio_base64" : "r.audio_base64 IS NOT NULL AS has_audio";
+  const rows = await env.DB.prepare(
+    `SELECT r.id, r.created_at, k.label AS key_label, r.user_hash, r.kind, r.language, r.input, r.output, r.correction, r.note,
+            ${audioColumn}
+     FROM issue_reports r LEFT JOIN api_keys k ON k.id = r.key_id
+     WHERE r.created_at > ? ORDER BY r.created_at ASC LIMIT ?`,
+  )
+    .bind(since, limit)
+    .all<{ created_at: number }>();
+  return { issues: rows.results, next_since: rows.results.at(-1)?.created_at ?? since };
+}
+
+async function health(env: Env) {
+  const kind = backendKind(env);
+  if (kind === "runpod") {
+    return {
+      status: "ok",
+      backend: {
+        kind,
+        mock: !env.RUNPOD_API_BASE.startsWith("https://api.runpod.ai/"),
+        llm_configured: Boolean(env.RUNPOD_API_KEY && env.LLM_ENDPOINT_ID),
+        asr_configured: Boolean(env.RUNPOD_API_KEY && env.ASR_ENDPOINT_ID),
+      },
+    };
+  }
+  const backend: Record<string, unknown> = { kind, configured: Boolean(env.BACKEND_URL && env.BACKEND_API_KEY) };
+  if (env.BACKEND_URL) {
+    backend.host = new URL(env.BACKEND_URL).host;
+    try {
+      const res = await fetch(backendBase(env) + "/health", { signal: AbortSignal.timeout(8000) });
+      const h: any = await res.json();
+      Object.assign(backend, { reachable: true, status: h.status, stage: h.stage, llm: h.llm, asr: h.asr, mock: h.mock === true });
+    } catch {
+      backend.reachable = false;
+    }
+  }
+  return { status: "ok", backend };
 }
 
 export default {
@@ -276,7 +412,14 @@ export default {
     try {
       switch (route) {
         case "GET /v1/health":
-          response = json(200, health(env));
+          response = json(200, await health(env));
+          break;
+        case "POST /v1/issues":
+          keyId = await authenticate(req, env);
+          response = json(201, await createIssue(req, env, keyId));
+          break;
+        case "GET /v1/admin/issues":
+          response = json(200, await listIssues(req, env));
           break;
         case "POST /v1/chat/completions":
           keyId = await authenticate(req, env);

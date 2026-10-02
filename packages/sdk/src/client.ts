@@ -1,5 +1,14 @@
 import { OpenAtlasAPIError, OpenAtlasConnectionError, OpenAtlasError, OpenAtlasTimeoutError } from "./errors.js";
-import type { AudioInput, ChatParams, ChatResponse, TranscribeParams, TranscribeResponse } from "./types.js";
+import { normalizeText, type NormalizeOptions } from "./normalize.js";
+import type {
+  AudioInput,
+  ChatParams,
+  ChatResponse,
+  ReportIssueParams,
+  ReportIssueResponse,
+  TranscribeParams,
+  TranscribeResponse,
+} from "./types.js";
 
 const CHAT_LANGUAGES = new Set(["en", "ha", "yo", "ig"]);
 const TRANSCRIBE_LANGUAGES = new Set(["en-ng", "ha", "yo", "ig"]);
@@ -21,6 +30,11 @@ export interface OpenAtlasOptions {
   maxRetries?: number;
   /** Custom fetch implementation (tests, proxies). */
   fetch?: typeof fetch;
+  /**
+   * Run `normalizeText()` automatically on chat messages and replies and on transcripts.
+   * Default false.
+   */
+  normalize?: boolean;
 }
 
 const env = (name: string): string | undefined =>
@@ -32,6 +46,7 @@ export class OpenAtlas {
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly fetchImpl: typeof fetch;
+  private readonly normalize: boolean;
 
   constructor(options: OpenAtlasOptions = {}) {
     const apiKey = options.apiKey ?? env("OPENATLAS_API_KEY");
@@ -44,6 +59,7 @@ export class OpenAtlas {
     this.timeoutMs = options.timeoutMs ?? 300_000;
     this.maxRetries = options.maxRetries ?? 2;
     this.fetchImpl = options.fetch ?? globalThis.fetch;
+    this.normalize = options.normalize ?? false;
   }
 
   /** Text reasoning with the N-ATLaS LLM. */
@@ -55,7 +71,11 @@ export class OpenAtlas {
       throw new OpenAtlasError(`Unsupported chat language "${params.language}". Use one of: en, ha, yo, ig.`);
     }
     requireUser(params.user);
-    return this.post<ChatResponse>("/v1/chat/completions", params);
+    if (!this.normalize) return this.post<ChatResponse>("/v1/chat/completions", params);
+    const opts = { language: params.language };
+    const messages = params.messages.map((m) => ({ ...m, content: normalizeText(m.content, opts) }));
+    const res = await this.post<ChatResponse>("/v1/chat/completions", { ...params, messages });
+    return { ...res, content: normalizeText(res.content, opts) };
   }
 
   /** Speech-to-text with the N-ATLaS ASR model for `language`. */
@@ -64,11 +84,40 @@ export class OpenAtlas {
       throw new OpenAtlasError(`Unsupported transcription language "${params?.language}". Use one of: en-ng, ha, yo, ig.`);
     }
     requireUser(params.user);
-    return this.post<TranscribeResponse>("/v1/audio/transcriptions", {
+    const res = await this.post<TranscribeResponse>("/v1/audio/transcriptions", {
       audio: toBase64(params.audio),
       language: params.language,
       user: params.user,
     });
+    return this.normalize ? { ...res, text: normalizeText(res.text, { language: params.language }) } : res;
+  }
+
+  /** Repairs corrupted Nigerian-language characters. Local; same as the standalone `normalizeText()`. */
+  normalizeText(text: string, options?: NormalizeOptions): string {
+    return normalizeText(text, options);
+  }
+
+  /**
+   * Flag a wrong N-ATLaS output with its correction. Stored by OpenAtlas as an exportable
+   * correction dataset. Nothing is recorded unless you call this, so tell your users when you do.
+   */
+  async reportIssue(params: ReportIssueParams): Promise<ReportIssueResponse> {
+    if (params?.kind !== "chat" && params?.kind !== "transcription") {
+      throw new OpenAtlasError('reportIssue() needs `kind`: "chat" or "transcription".');
+    }
+    for (const field of ["output", "correction"] as const) {
+      if (typeof params[field] !== "string" || params[field].trim() === "") {
+        throw new OpenAtlasError(`reportIssue() needs \`${field}\` (a non-empty string).`);
+      }
+    }
+    if (params.kind === "chat" && !params.input) {
+      throw new OpenAtlasError("reportIssue() needs `input` (the prompt) for chat issues.");
+    }
+    if (params.audio !== undefined && params.kind !== "transcription") {
+      throw new OpenAtlasError("reportIssue() accepts `audio` only for transcription issues.");
+    }
+    const { audio, ...rest } = params;
+    return this.post<ReportIssueResponse>("/v1/issues", audio === undefined ? rest : { ...rest, audio: toBase64(audio) });
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {

@@ -1,6 +1,6 @@
 # OpenAtlas — Features & UI/UX Document
 
-Purpose: define what a developer and a judge actually see and interact with — the SDK's developer experience, the starter kits' interfaces, and the documentation surface. OpenAtlas is a developer-infrastructure product, so "UI/UX" here mostly means **developer experience (DX)**: what it feels like to install, call, and build on the SDK, plus the minimal end-user-facing screens of the three starter kits. This document excludes visual styling (colors/branding) for the starter kits, consistent with the convention used across this project's other UI/UX docs.
+Purpose: define what a developer and a judge actually see and interact with — the SDK's developer experience, the starter kits' interfaces, and the documentation surface. OpenAtlas is a developer-tooling product: what is judged is the SDK's capability surface (`chat`, `transcribe`, `normalizeText`, `reportIssue`, stretch `speak`), not where the models are hosted. Hosting appears nowhere in the developer experience — a developer holds one OpenAtlas key and one URL, and the GPU host behind them can change without them noticing (see Architecture §1). "UI/UX" here mostly means **developer experience (DX)**: what it feels like to install, call, and build on the SDK, plus the minimal end-user-facing screens of the three starter kits. This document excludes visual styling (colors/branding) for the starter kits, consistent with the convention used across this project's other UI/UX docs.
 
 ---
 
@@ -16,12 +16,15 @@ No account setup beyond requesting an API key (documented as a short, explicit s
 
 ### 1.2 Quickstart Shape (what the README shows first)
 ```ts
-import { OpenAtlas } from "openatlas";
+import { OpenAtlas, normalizeText } from "openatlas";
 
 const client = new OpenAtlas({ apiKey: process.env.OPENATLAS_API_KEY });
 
+// Repairs corrupted special characters (e.g. Turkish "ş" typed for Yoruba "ṣ") before sending.
+const question = normalizeText("Ṣe o le ṣàlàyé ìdí tí ọ̀run fi jẹ́ búlúù?", { language: "yo" });
+
 const response = await client.chat({
-  messages: [{ role: "user", content: "Ṣe o le ṣàlàyé ìdí tí ọ̀run fi jẹ́ búlúù?" }],
+  messages: [{ role: "user", content: question }],
   user: "your-end-user-id", // required: counts active users against the license cap
 });
 
@@ -33,23 +36,32 @@ This is the single most important UX artifact in the whole project: it has to be
 
 | Method | Purpose | Minimal required input |
 |---|---|---|
-| `client.chat({ messages, user, language? })` | Text reasoning via N-ATLaS LLM | A messages array + an end-user ID |
-| `client.transcribe({ audio, language, user })` | Speech-to-text via the matching N-ATLaS ASR model | Audio data + a language code + an end-user ID |
+| `client.chat({ messages, user, language? })` | N-ATLaS text generation in English or a Nigerian language — no model-format knowledge needed | A messages array + an end-user ID |
+| `client.transcribe({ audio, language, user })` | Speech-to-text, auto-routed to the right one of 4 N-ATLaS ASR models by language code | Audio + a language code + an end-user ID |
+| `normalizeText(text, { language? })` (also `client.normalizeText`) | Repairs corrupted Nigerian-language characters (encoding damage, look-alike letters, invisible characters). Local, no network | A string |
+| `client.reportIssue({ kind, input, output, correction })` | Flags a bad N-ATLaS output with a correction; contributes it to an exportable correction dataset | The original input, the bad output, the correction |
+| `client.speak({ text, language })` (stretch) | The ElevenLabs gap for Nigerian languages: spoken Hausa/Yoruba/Igbo/Pidgin from text | Text + a language code |
 
-`user` is required on every call. N-ATLaS's license counts *end users* (the people interacting with its output) against the 1,000-per-30-days cap, so the gateway needs a stable, opaque per-end-user ID to measure that honestly. It's hashed before storage.
-| `client.speak({ text, language })` (stretch) | Final-stage audio rendering of already-generated text | Text + a language code |
+`user` is required on `chat` and `transcribe`. N-ATLaS's license counts *end users* (the people interacting with its output) against a 1,000-per-30-days cap, so the gateway needs a stable, opaque per-end-user ID to measure that honestly. It is hashed before storage.
+
+Setting `new OpenAtlas({ normalize: true })` applies `normalizeText()` automatically to chat inputs/outputs and transcripts.
+
+`normalizeText()` cleans what is there; it does not add tone marks that were never typed (that needs a trained model — roadmap). The docs say so next to the method, so a developer isn't surprised.
 
 ### 1.4 Error Handling UX
 - Errors are typed and human-readable (`OpenAtlasAPIError`, `OpenAtlasTimeoutError`), not raw HTTP stack traces — a developer debugging a cold-start timeout should immediately understand what happened and what to do (retry, or expect first-call latency), not guess.
-- Cold-start latency on the hosted endpoint is documented up front in the README's "what to expect" section, not discovered the hard way.
+- First-request latency (model loading on the GPU host) is documented up front in the README's "what to expect" section, not discovered the hard way.
+- If the GPU backend is unreachable, the gateway returns a clear `backend_unavailable` error rather than a hang.
 
 ### 1.5 Documentation Structure
 1. **Quickstart** (copy-paste example, above)
 2. **Why OpenAtlas** (one paragraph — what gap this fills, linking back to the white paper's framing)
 3. **API Reference** (each method, parameters, return shape, example)
 4. **Language codes reference** (`ha`, `yo`, `ig`, `en-ng` — mapped clearly to which ASR model each one calls)
-5. **Starter kits** (links to all three, with a one-line description of what each demonstrates)
-6. **Known limitations** (cold starts, non-commercial license cap, TTS stretch-status) — stated plainly, not buried
+5. **Text normalization** (exactly what `normalizeText()` repairs, with before/after examples, and what it does not do)
+6. **Contributing corrections** (what `reportIssue()` stores, that it is opt-in, and how apps should tell their users)
+7. **Starter kits** (links to all three, with a one-line description of what each demonstrates)
+8. **Known limitations** (first-request latency, non-commercial license cap, `speak()` stretch status, `normalizeText()` scope) — stated plainly, not buried
 
 ---
 
@@ -75,6 +87,7 @@ Each starter kit is intentionally minimal — a single-screen or single-script i
 └────────────────────────────────────┘
 ```
 - Language selector drives both the prompt framing and which N-ATLaS language context is used.
+- The question is passed through `normalizeText()` before `chat()`, so pasted text with broken characters still matches the demo dataset.
 - A small, fixed demo dataset (e.g. 5–10 common civic questions and reference facts) is injected as context so the response isn't generic — this is clearly labeled in the UI as a "demo dataset," not a real civic-info system.
 
 ### 2.2 Education Starter Kit
@@ -94,6 +107,7 @@ Each starter kit is intentionally minimal — a single-screen or single-script i
 └────────────────────────────────────┘
 ```
 - A "Level" selector (e.g. primary / secondary) demonstrates that the same `chat()` call can be reframed by prompt context — showing the SDK's flexibility, not a new feature.
+- A **"Report a wrong answer"** link under each explanation opens a small box for the correct answer and calls `reportIssue()`. The UI states that the report (question, answer, correction) is sent to OpenAtlas as a correction for N-ATLaS.
 
 ### 2.3 Customer Service Starter Kit
 **Interface:** voice-note intake + drafted response.
@@ -111,10 +125,12 @@ Each starter kit is intentionally minimal — a single-screen or single-script i
 │  Drafted response:                   │
 │  "..."                               │
 │                                       │
+│  [ ✎ Correct this transcript ]       │
 │  (stretch) [ ▶ Play response audio ] │
 └────────────────────────────────────┘
 ```
 - This is the one starter kit that visibly chains `transcribe()` → `chat()` (and, if shipped, → `speak()`), making the full pipeline legible to a judge in one screen: raw voice in, transcript shown, draft response shown, optionally spoken back.
+- **"Correct this transcript"** lets the user fix the transcript and submit it with the audio via `reportIssue()` — the most valuable kind of contribution (audio paired with a human-corrected transcript), stated as such in the UI.
 - The "Play response audio" control only appears if the TTS stretch component is confirmed and shipped — its absence is not treated as a bug, just a feature that depends on NAIC's eligibility answer.
 
 ---

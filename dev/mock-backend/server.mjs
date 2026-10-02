@@ -1,20 +1,22 @@
-// MOCK RunPod Serverless API — for local development of the gateway and starter kits ONLY.
+// MOCK N-ATLaS backend — for local development of the gateway and starter kits ONLY.
 //
-// It imitates RunPod's queue API shape (/v2/{id}/runsync, /v2/{id}/status/{job}) and the
-// job I/O of the real workers, but it runs NO model. Every output is prefixed with
-// "[MOCK — not N-ATLaS output]" so it can never be mistaken for a real response, and the
-// gateway's /v1/health reports `upstream: "mock"` whenever it is pointed here.
+// Speaks both backend protocols the gateway supports, but runs NO model:
+//   - the http backend contract (GET /health, POST /v1/chat/completions,
+//     POST /v1/audio/transcriptions), like deploy/server/natlas_server.py
+//   - RunPod's queue API (/v2/{id}/runsync, /v2/{id}/status/{job}), like the RunPod workers
+// Every output is prefixed with "[MOCK — not N-ATLaS output]" so it can never be mistaken
+// for a real response, and the gateway's /v1/health reports `backend.mock: true`.
 //
 // The first job per endpoint simulates a cold start (IN_QUEUE → IN_PROGRESS → COMPLETED)
 // so the gateway's polling path is exercised too. The timing is arbitrary, not a measurement.
 //
-// Usage: node dev/mock-runpod/server.mjs   (listens on :8788, expects key "mock-runpod-key")
+// Usage: node dev/mock-backend/server.mjs   (listens on :8788, expects key "mock-backend-key")
 
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 
 const PORT = Number(process.env.PORT ?? 8788);
-const KEY = "mock-runpod-key";
+const KEY = "mock-backend-key";
 const PREFIX = "[MOCK — not N-ATLaS output]";
 const jobs = new Map();
 const warmed = new Set();
@@ -40,8 +42,28 @@ const send = (res, status, body) => {
   res.end(JSON.stringify(body));
 };
 
+const readJson = async (req) => {
+  const chunks = [];
+  for await (const chunk of req) chunks.push(chunk);
+  return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+};
+
 createServer(async (req, res) => {
-  if (req.headers.authorization !== `Bearer ${KEY}`) return send(res, 401, { error: "mock: bad key" });
+  if (req.method === "GET" && req.url === "/health") {
+    return send(res, 200, { status: "ok", stage: "ready", llm: true, asr: ["en-ng", "ha", "ig", "yo"], mock: true });
+  }
+  if (req.headers.authorization !== `Bearer ${KEY}`) return send(res, 401, { detail: "mock: bad key" });
+
+  // http backend contract
+  if (req.method === "POST" && req.url === "/v1/chat/completions") {
+    return send(res, 200, produceOutput("http", { openai_input: await readJson(req) })[0]);
+  }
+  if (req.method === "POST" && req.url === "/v1/audio/transcriptions") {
+    const out = produceOutput("http", await readJson(req));
+    return send(res, 200, { ...out, inference_ms: 0 });
+  }
+
+  // RunPod queue API
   const m = /^\/v2\/([^/]+)\/(runsync|run|status)(?:\/([^/]+))?$/.exec(req.url);
   if (!m) return send(res, 404, { error: "mock: no route" });
   const [, endpointId, action, jobId] = m;
@@ -54,9 +76,7 @@ createServer(async (req, res) => {
     return send(res, 200, { id: jobId, status: "COMPLETED", output: job.output, delayTime: 0, executionTime: 0 });
   }
 
-  const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
-  const { input } = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+  const { input } = await readJson(req);
   const id = randomUUID();
   const output = produceOutput(endpointId, input);
 
@@ -66,4 +86,4 @@ createServer(async (req, res) => {
     return send(res, 200, { id, status: "IN_QUEUE" });
   }
   send(res, 200, { id, status: "COMPLETED", output, delayTime: 0, executionTime: 0 });
-}).listen(PORT, () => console.log(`MOCK RunPod listening on http://127.0.0.1:${PORT} — NOT a real model`));
+}).listen(PORT, () => console.log(`MOCK N-ATLaS backend listening on http://127.0.0.1:${PORT} — NOT a real model`));
