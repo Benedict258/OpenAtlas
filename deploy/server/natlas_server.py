@@ -145,9 +145,6 @@ class ChatReq(BaseModel):
     max_tokens: Optional[int] = 512
     temperature: Optional[float] = 0.1
     repetition_penalty: Optional[float] = 1.12
-    # Stops stutter loops (seen in Yoruba: "afẹ́fẹ́fẹ́fẹ́…"). 10 tokens, not smaller: one Yoruba syllable
-    # like "fẹ́" is 3 tokens, so a smaller window also blocks normal repeats of words such as "afẹ́fẹ́".
-    no_repeat_ngram_size: Optional[int] = 10
     chat_template_kwargs: Optional[dict] = None
 
 
@@ -167,7 +164,6 @@ def chat(req: ChatReq, authorization: Optional[str] = Header(None)):
     gen = dict(
         max_new_tokens=min(req.max_tokens or 512, 1024),
         repetition_penalty=req.repetition_penalty or 1.12,
-        no_repeat_ngram_size=req.no_repeat_ngram_size or 0,
         use_cache=True,
         pad_token_id=tok.eos_token_id,
     )
