@@ -111,3 +111,24 @@ test("normalize: true cleans chat input/output and transcripts", async () => {
   const t = await c.transcribe({ audio: "AQID", language: "yo", user: "u" });
   assert.equal(t.text, "ṣé");
 });
+
+test("502 (backend failed on this request) is not retried", async () => {
+  const s = stub(json(502, { error: { code: "backend_error", message: "The N-ATLaS backend failed on this request (HTTP 500)" } }), json(200, { text: "never" }));
+  const err = await make(s.fetch, { maxRetries: 2 }).transcribe({ audio: "AQID", language: "ha", user: "u" }).catch((e) => e);
+  assert.ok(err instanceof OpenAtlasAPIError);
+  assert.equal(err.code, "backend_error");
+  assert.equal(s.calls.length, 1);
+});
+
+test("transcribe accepts a Blob (browser recording)", async () => {
+  const s = stub(json(200, { text: "ok", language: "ha", model: "n-atlas-asr-ha" }));
+  await make(s.fetch).transcribe({ audio: new Blob([new Uint8Array([1, 2, 3])], { type: "audio/webm" }), language: "ha", user: "u" });
+  assert.equal(s.calls[0].body.audio, "AQID");
+});
+
+test("transcribe rejects oversized or empty audio before sending anything", async () => {
+  const s = stub();
+  await assert.rejects(make(s.fetch).transcribe({ audio: new Uint8Array(7_200_000), language: "ha", user: "u" }), /limit is about 7 MB/);
+  await assert.rejects(make(s.fetch).transcribe({ audio: new Uint8Array(0), language: "ha", user: "u" }), /empty audio/);
+  assert.equal(s.calls.length, 0);
+});

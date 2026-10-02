@@ -34,7 +34,8 @@ export interface ChatResponse {
 }
 
 /** Raw audio bytes, or a base64 string (no `data:` prefix). Any format ffmpeg can decode: wav, mp3, ogg, webm, m4a. */
-export type AudioInput = Uint8Array | ArrayBuffer | string;
+/** Raw bytes, a base64 string (a `data:` URL prefix is stripped), or a Blob/File (e.g. a browser recording). */
+export type AudioInput = Uint8Array | ArrayBuffer | string | Blob;
 
 export interface TranscribeParams {
   audio: AudioInput;
