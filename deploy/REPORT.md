@@ -146,6 +146,52 @@ The other 9 replies have no loop. They are fluent Yoruba, with mixed tone-mark u
 - **The guard was tried and removed.** It made no measurable difference (1 loop in 11 runs before vs 1 in 12 with it; stutters 2 → 3), and it changes legitimately repetitive output: in the probe above, the model was forced to write "hi" instead of "hello". `natlas_colab.ipynb` and `deploy/server/natlas_server.py` are back to the earlier settings: temperature 0.1, repetition penalty 1.12, today's date in the template.
 - **KI-2 is closed as a known model limitation.** Yoruba works, with a documented intermittent failure. Hausa is the default because of it. No further fixes are planned before submission. The untried options were a reworded prompt from a native speaker and a stronger single-token penalty.
 
+### 8. `transcribe()` multi-clip evaluation: 80/90 transcribed; 10 failed on audio over 30 s
+
+**Setup:**
+- 90 real recordings with human reference transcripts, sent through SDK `transcribe()` → live gateway → Colab backend (`breakfast-rom-released-replied.trycloudflare.com`).
+- Fetched by `dev/fetch-asr-eval.mjs`, taking evenly spaced rows across each split so the clips cover different speakers.
+- Converted to 16 kHz mono WAV by `dev/resample-eval.py`, which is what Whisper uses internally anyway.
+- Scored by `deploy/asr-eval.mjs`.
+- WER is corpus-level: total word errors ÷ total reference words. It is reported twice:
+  - with tone marks and other diacritics counted;
+  - with them ignored.
+
+**Caveats:**
+- These are small samples (10–20 clips per source), not benchmarks.
+- The NCAIR1 model cards state only that training used "publicly available datasets", so overlap with these public clips cannot be ruled out.
+- No ASR WER is published on the model cards to compare against.
+
+| Language | Source (split) | Clips transcribed | WER, marks count | WER, marks ignored | Median request time |
+|---|---|---|---|---|---|
+| ha | SilencioNetwork/hausa-speech-transcribed (test) | 17/20 | 41.1% | 41.1% | 4.8 s |
+| yo | SilencioNetwork/yoruba-speech-transcribed (test) | 13/20 | 56.2% | 44.9% | 6.1 s |
+| ig | str20tbl/igbosyncorp-igbo-asr-benchmark | 20/20 | 101.1% | 60.5% | 1.8 s (all Igbo) |
+| ig | deepdml/igbo-dict-16khz | 10/10 | 26.2% | 23.0% | |
+| en-ng | benjaminogbonna/nigerian_accented_english_dataset (test) | 20/20 | 26.3% | 26.3% | 2.1 s |
+
+**What the numbers mean:**
+- **Hausa and Yoruba are worse than the one-clip spot checks suggested.** Hausa is 41% across 17 clips, against 26% on the single clip in section 4. These are conversational, free-speech recordings, 20–30 s long.
+- **Yoruba:** about 11 points of its 56% come from tone marks alone, as the gap to 45% shows.
+- **IgboSynCorp:** its references mark the tone of every syllable (e.g. "ẹ̀ẹ̀ ǹdéēwó nụ̀"). The model writes ordinary Igbo spelling ("ee, ndị ewu nri"), so with marks counted almost every word is wrong (101%). With marks ignored it is 60.5%. Its multi-dialect speech is also hard.
+- **Igbo dictionary set:** short single sentences, so it is much easier (23–26%).
+- **Nigerian English: 26%.** The errors are mostly near-misses, e.g. "Oil Rivers" → "oil reverse".
+
+**Failure found: audio over 30 seconds.** All 10 clips longer than 30 s failed with HTTP 500. That's 3 Hausa clips (30.3–44.1 s) and 7 Yoruba clips (37.9–122.6 s). Every clip of 30 s or less succeeded.
+- **Cause:** the backend log shows the notebook passes the audio to Whisper without chunking. Recent transformers versions then raise `ValueError: You have passed more than 3000 mel input features (> 30 seconds)…`.
+- **Fix:** `chunk_length_s=30`, which `deploy/server/natlas_server.py` already had. It is now added to `natlas_colab.ipynb`; on the running session it needs the patch cell. The long clips will be re-run after the fix (section 9).
+
+**A second problem found on the same failures:** the gateway reported the backend's 500 as `503 backend_unavailable` ("not serving right now"), and the SDK retried the upload. The fix:
+- The gateway now maps a backend 500 to `502 backend_error`.
+- The SDK retries only 503 and network errors.
+
+Verified locally: the SDK test suite (23/23) and the gateway mock suite (12/12). Against a throwaway server that always returns 500, the request was sent once, with an accurate message.
+
+**SDK changes from the same review:**
+- `transcribe()` accepts a `Blob`/`File`, such as a browser recording.
+- It rejects empty audio, and audio over the ~7 MB limit, before uploading. The error message suggests compressed or 16 kHz mono audio.
+- Raw 48 kHz WAV reaches the limit at about 75 s; the largest Yoruba clip was 23.5 MB in its original form.
+
 ---
 
 ## Known issues
@@ -158,3 +204,6 @@ The other 9 replies have no loop. They are fluent Yoruba, with mixed tone-mark u
 | KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | Open. Must be listed in the final pre-submission status. |
 | KI-5 | Before the Customer Service demo goes live: the notebook can't decode browser voice recordings (webm), and it has no GPU lock, so two requests at once can overlap on the GPU. | Deferred until Customer Service. |
 | KI-6 | The Colab notebook's chat reply has no token `usage` field, so the smoke test prints `undefined` for it. | Cosmetic. |
+| KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | Fixed in `natlas_colab.ipynb` (`chunk_length_s=30`). Live session needs the patch cell; re-test pending. |
+| KI-8 | ASR accuracy on conversational speech is modest: corpus WER Hausa 41%, Yoruba 56% (45% ignoring tone marks), Igbo 60–101% on a tone-marked multi-dialect benchmark, Nigerian English 26% (section 8). | Known limitation of the models; stated as a caveat. |
+| KI-9 | The gateway reported a backend 500 as `503 backend_unavailable`, and the SDK retried it. | Fixed in code (gateway `backend_error`, SDK retries 503 only). Verified locally; gateway deploy pending. |
