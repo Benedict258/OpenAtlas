@@ -48,3 +48,30 @@ export interface TranscribeResponse {
   language: TranscribeLanguage;
   model: string;
 }
+
+export interface ReportIssueParams {
+  /** Which N-ATLaS output was wrong. */
+  kind: "chat" | "transcription";
+  /** What N-ATLaS returned. */
+  output: string;
+  /** What it should have been. */
+  correction: string;
+  /** The prompt that produced the output. Required for `chat`; optional for `transcription`. */
+  input?: string;
+  /** Language of the text: en, en-ng, ha, yo, ig. */
+  language?: "en" | "en-ng" | "ha" | "yo" | "ig";
+  /** Free-text context, up to 2,000 characters. */
+  note?: string;
+  /**
+   * Transcription issues only: the audio clip, so the corrected transcript can be paired with it.
+   * Up to ~1 MB once base64-encoded (roughly 30 s of compressed speech).
+   */
+  audio?: AudioInput;
+  /** Optional end-user ID; hashed before storage, like `ChatParams.user`. */
+  user?: string;
+}
+
+export interface ReportIssueResponse {
+  id: string;
+  received_at: string;
+}

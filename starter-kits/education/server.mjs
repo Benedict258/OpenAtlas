@@ -1,4 +1,5 @@
-// Education starter kit: tutoring-style explanations at a chosen level, via chat().
+// Education starter kit: tutoring-style explanations at a chosen level, via chat();
+// wrong answers are flagged back to OpenAtlas with reportIssue().
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
 import { OpenAtlas, OpenAtlasError } from "openatlas";
@@ -31,7 +32,7 @@ createServer(async (req, res) => {
     }
     if (req.method === "GET" && req.url === "/api/status") {
       const health = await fetch(`${client.baseURL}/v1/health`).then((r) => r.json());
-      return send(res, 200, { upstream: health.upstream });
+      return send(res, 200, { mock: health.backend?.mock === true });
     }
     if (req.method === "POST" && req.url === "/api/explain") {
       const { question, language, level, user } = await readJson(req);
@@ -46,6 +47,12 @@ createServer(async (req, res) => {
         user,
       });
       return send(res, 200, { explanation: response.content, model: response.model });
+    }
+    if (req.method === "POST" && req.url === "/api/report") {
+      const { question, explanation, correction, language, user } = await readJson(req);
+      if (!question || !explanation || !correction) return send(res, 400, { error: "question, explanation and correction are required" });
+      const report = await client.reportIssue({ kind: "chat", input: question, output: explanation, correction, language, user });
+      return send(res, 200, report);
     }
     send(res, 404, { error: "not found" });
   } catch (err) {

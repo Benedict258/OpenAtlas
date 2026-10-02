@@ -81,3 +81,33 @@ test("constructor requires a key; base URL defaults to the hosted gateway", () =
   assert.throws(() => new OpenAtlas({ baseURL: "https://x" }), /API key/);
   assert.equal(new OpenAtlas({ apiKey: "k" }).baseURL, "https://openatlas-gateway.isaacbenedict001.workers.dev");
 });
+
+test("reportIssue posts to /v1/issues and base64-encodes audio", async () => {
+  const s = stub(json(201, { id: "i1", received_at: "2026-10-02T00:00:00.000Z" }));
+  const res = await make(s.fetch).reportIssue({
+    kind: "transcription", output: "bad", correction: "good", language: "yo", audio: new Uint8Array([1, 2, 3]), user: "u",
+  });
+  assert.equal(res.id, "i1");
+  assert.equal(s.calls[0].url, "https://gw.example/v1/issues");
+  assert.deepEqual(s.calls[0].body, { kind: "transcription", output: "bad", correction: "good", language: "yo", audio: "AQID", user: "u" });
+});
+
+test("reportIssue validates before sending", async () => {
+  const s = stub();
+  const c = make(s.fetch);
+  await assert.rejects(c.reportIssue({ kind: "other", output: "a", correction: "b" }), OpenAtlasError);
+  await assert.rejects(c.reportIssue({ kind: "chat", output: "a", correction: "b" }), /input/);
+  await assert.rejects(c.reportIssue({ kind: "chat", input: "q", output: "a", correction: " " }), /correction/);
+  await assert.rejects(c.reportIssue({ kind: "chat", input: "q", output: "a", correction: "b", audio: "AQID" }), /audio/);
+  assert.equal(s.calls.length, 0);
+});
+
+test("normalize: true cleans chat input/output and transcripts", async () => {
+  const s = stub(json(200, { content: "Æ™asa", model: "n-atlas-llm" }), json(200, { text: "Å\u009Fé", language: "yo", model: "m" }));
+  const c = make(s.fetch, { normalize: true });
+  const r = await c.chat({ messages: [{ role: "user", content: "ķasa" }], language: "ha", user: "u" });
+  assert.equal(s.calls[0].body.messages[0].content, "ƙasa");
+  assert.equal(r.content, "ƙasa");
+  const t = await c.transcribe({ audio: "AQID", language: "yo", user: "u" });
+  assert.equal(t.text, "ṣé");
+});

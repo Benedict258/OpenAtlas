@@ -29,3 +29,20 @@ CREATE TABLE IF NOT EXISTS request_log (
   status      INTEGER NOT NULL,
   latency_ms  INTEGER NOT NULL
 );
+
+-- reportIssue(): flagged N-ATLaS outputs with a correction. Opt-in by construction: only what an
+-- app explicitly sends to POST /v1/issues is stored. user_hash = SHA-256(key_id + ":" + user).
+CREATE TABLE IF NOT EXISTS issue_reports (
+  id            TEXT PRIMARY KEY,
+  created_at    INTEGER NOT NULL,
+  key_id        TEXT NOT NULL,
+  user_hash     TEXT,
+  kind          TEXT NOT NULL,          -- 'chat' | 'transcription'
+  language      TEXT,
+  input         TEXT,                   -- the prompt (chat); optional for transcription
+  output        TEXT NOT NULL,          -- what N-ATLaS returned
+  correction    TEXT NOT NULL,          -- what it should have been
+  note          TEXT,
+  audio_base64  TEXT                    -- optional clip for transcription issues (<= ~1 MB)
+);
+CREATE INDEX IF NOT EXISTS idx_issue_reports_created ON issue_reports (created_at);

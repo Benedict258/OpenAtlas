@@ -6,15 +6,20 @@ compatibility_date = "2026-09-01"
 # Rolling-window license cap from the N-ATLaS license.
 ACTIVE_USER_CAP = "1000"
 ACTIVE_WINDOW_DAYS = "30"
-# How long the gateway waits for a queued RunPod job (covers cold starts) before returning 504.
+# How long the gateway waits for the backend (covers model loading / cold starts) before returning 504.
 UPSTREAM_TIMEOUT_MS = "300000"
-# Real RunPod by default. Point at dev/mock-runpod for local testing ONLY; /v1/health reports it.
+# Which backend protocol to speak:
+#   "http"   any host running deploy/server/natlas_server.py (Colab interim, NiHub intended)
+#   "runpod" RunPod Serverless fallback
+BACKEND_KIND = "http"
+# Only used when BACKEND_KIND = "runpod".
 RUNPOD_API_BASE = "https://api.runpod.ai/v2"
 
-# Secrets (set with `wrangler secret put NAME`, or in .dev.vars locally):
-#   RUNPOD_API_KEY    RunPod key, ideally restricted to the two endpoints below
-#   LLM_ENDPOINT_ID   RunPod endpoint serving N-ATLaS LLM (vLLM worker)
-#   ASR_ENDPOINT_ID   RunPod endpoint serving the four N-ATLaS ASR models (workers/asr)
+# Secrets (set with `wrangler secret put NAME`, or in .dev.vars locally).
+# deploy/set-backend.mjs sets the backend ones; changing them needs no redeploy.
+#   BACKEND_URL       base URL of the backend host (http kind), e.g. the Colab tunnel or NiHub URL
+#   BACKEND_API_KEY   the backend's BACKEND_API_KEY (http kind)
+#   RUNPOD_API_KEY, LLM_ENDPOINT_ID, ASR_ENDPOINT_ID   (runpod kind)
 #   ADMIN_TOKEN       for /v1/admin/* and /v1/usage
 
 [[d1_databases]]

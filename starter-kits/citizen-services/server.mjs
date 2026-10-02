@@ -1,7 +1,7 @@
-// Citizen Services starter kit: local-language Q&A over a small demo dataset, via chat().
+// Citizen Services starter kit: local-language Q&A over a small demo dataset, via normalizeText() + chat().
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
-import { OpenAtlas, OpenAtlasError } from "openatlas";
+import { OpenAtlas, OpenAtlasError, normalizeText } from "openatlas";
 import { DEMO_DATASET } from "./demo-dataset.mjs";
 
 const client = new OpenAtlas();
@@ -38,20 +38,22 @@ createServer(async (req, res) => {
     }
     if (req.method === "GET" && req.url === "/api/status") {
       const health = await fetch(`${client.baseURL}/v1/health`).then((r) => r.json());
-      return send(res, 200, { upstream: health.upstream, dataset: DEMO_DATASET.map((d) => d.topic) });
+      return send(res, 200, { mock: health.backend?.mock === true, dataset: DEMO_DATASET.map((d) => d.topic) });
     }
     if (req.method === "POST" && req.url === "/api/ask") {
       const { question, language, user } = await readJson(req);
       if (!question || !LANGUAGE_NAMES[language]) return send(res, 400, { error: "question and a valid language are required" });
+      // Pasted or scraped text often has broken special characters (e.g. "Æ™" for "ƙ"); repair them first.
+      const cleaned = normalizeText(question, { language });
       const response = await client.chat({
         messages: [
           { role: "system", content: systemPrompt() },
-          { role: "user", content: question },
+          { role: "user", content: cleaned },
         ],
         language,
         user,
       });
-      return send(res, 200, { answer: response.content, model: response.model });
+      return send(res, 200, { answer: response.content, model: response.model, normalized: cleaned !== question ? cleaned : null });
     }
     send(res, 404, { error: "not found" });
   } catch (err) {

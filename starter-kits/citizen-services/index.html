@@ -20,7 +20,7 @@
 </head>
 <body>
 <h1>OpenAtlas — Citizen Services Demo</h1>
-<div id="mock" class="banner mock" hidden>MOCK UPSTREAM — the gateway is connected to a local mock, not N-ATLaS. Responses below are placeholders.</div>
+<div id="mock" class="banner mock" hidden>MOCK BACKEND — the gateway is connected to a local mock, not N-ATLaS. Responses below are placeholders.</div>
 <div class="banner note">Answers are grounded in a small <strong>demo dataset</strong> (sample only, not authoritative): <span id="topics"></span></div>
 
 <label for="lang">Language</label>
@@ -31,6 +31,7 @@
 <textarea id="q" placeholder="e.g. How do I get a NIN?"></textarea>
 <button id="ask">Ask</button>
 
+<div class="step" id="norm-step" hidden><h2>Question after normalizeText() (broken characters repaired)</h2><div id="norm"></div></div>
 <div class="step"><h2>Response (N-ATLaS LLM via OpenAtlas chat())</h2><div id="out">—</div></div>
 
 <footer style="margin-top:2rem;font-size:.8rem;color:#666">N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies. Reference implementation for non-commercial use under the N-ATLaS Terms of Use (max 1,000 active end-users per rolling 30 days).</footer>
@@ -39,16 +40,18 @@
   // Stable, anonymous per-browser ID, sent as `user` so the license cap counts real end users.
   let uid; try { uid = localStorage.oaUser || (localStorage.oaUser = crypto.randomUUID()); } catch { uid = crypto.randomUUID(); }
   fetch("/api/status").then(r => r.json()).then(s => {
-    document.getElementById("mock").hidden = s.upstream !== "mock";
+    document.getElementById("mock").hidden = !s.mock;
     document.getElementById("topics").textContent = s.dataset.join(", ");
   });
   document.getElementById("ask").onclick = async () => {
     const out = document.getElementById("out");
-    out.textContent = "Waiting for N-ATLaS… (the first request after idle can take a while: cold start)";
+    out.textContent = "Waiting for N-ATLaS… (the first request can take a while if the model is still loading)";
     const r = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question: document.getElementById("q").value, language: document.getElementById("lang").value, user: uid }) });
     const body = await r.json();
     out.textContent = body.answer ?? `Error: ${body.error}`;
+    document.getElementById("norm-step").hidden = !body.normalized;
+    document.getElementById("norm").textContent = body.normalized ?? "";
   };
 </script>
 </body>

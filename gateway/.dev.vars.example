@@ -1,8 +1,13 @@
-# Copy to .dev.vars for `wrangler dev`. Values below point at the MOCK RunPod server
-# (dev/mock-runpod). For the real thing, use your RunPod key and endpoint IDs and
-# remove RUNPOD_API_BASE.
+# Copy to .dev.vars for `wrangler dev`. Values below point at the MOCK backend
+# (dev/mock-backend), which speaks both the http contract and RunPod's job API.
+# Every mock output is prefixed "[MOCK — not N-ATLaS output]".
+BACKEND_KIND=http
+BACKEND_URL=http://127.0.0.1:8788
+BACKEND_API_KEY=mock-backend-key
+# To exercise the RunPod fallback path against the same mock instead:
+#   BACKEND_KIND=runpod  RUNPOD_API_BASE=http://127.0.0.1:8788/v2  RUNPOD_API_KEY=mock-backend-key
 RUNPOD_API_BASE=http://127.0.0.1:8788/v2
-RUNPOD_API_KEY=mock-runpod-key
+RUNPOD_API_KEY=mock-backend-key
 LLM_ENDPOINT_ID=mock-llm
 ASR_ENDPOINT_ID=mock-asr
 ADMIN_TOKEN=local-admin-token-change-me

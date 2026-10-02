@@ -9,6 +9,8 @@ cp .env.example .env      # set OPENATLAS_API_KEY and OPENATLAS_BASE_URL
 npm install && npm start  # http://localhost:3003
 ```
 
-The call path is `index.html` (record or upload) → `POST /api/ticket` → `client.transcribe({ audio, language })` → `client.chat({ messages: [triage prompt + transcript], language })` → OpenAtlas gateway → N-ATLaS ASR + LLM on RunPod.
+The call path is `index.html` (record or upload) → `POST /api/ticket` → `client.transcribe({ audio, language })` → `normalizeText(transcript)` → `client.chat({ messages: [triage prompt + transcript], language })` → OpenAtlas gateway → N-ATLaS ASR + LLM.
 
-Limit: about 7 MB of audio per request (RunPod's 10 MB payload cap after base64 encoding).
+**Correct this transcript** → `POST /api/report` → `client.reportIssue({ kind: "transcription", output, correction, audio })`. Clips over ~1 MB (base64) are reported as text only.
+
+Limit: about 7 MB of audio per request (the gateway rejects larger requests).

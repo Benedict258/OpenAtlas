@@ -1,7 +1,8 @@
-// Customer Service starter kit: voice note → transcribe() → chat() (triage + draft reply).
+// Customer Service starter kit: voice note → transcribe() → normalizeText() → chat() (triage + draft reply).
+// A wrong transcript can be corrected and sent back with its audio via reportIssue().
 import { createServer } from "node:http";
 import { readFileSync } from "node:fs";
-import { OpenAtlas, OpenAtlasError } from "openatlas";
+import { OpenAtlas, OpenAtlasError, normalizeText } from "openatlas";
 
 const client = new OpenAtlas();
 const page = readFileSync(new URL("./index.html", import.meta.url));
@@ -36,7 +37,7 @@ createServer(async (req, res) => {
     }
     if (req.method === "GET" && req.url === "/api/status") {
       const health = await fetch(`${client.baseURL}/v1/health`).then((r) => r.json());
-      return send(res, 200, { upstream: health.upstream });
+      return send(res, 200, { mock: health.backend?.mock === true });
     }
     if (req.method === "POST" && req.url === "/api/ticket") {
       const { audio, language, user } = await readJson(req);
@@ -44,21 +45,31 @@ createServer(async (req, res) => {
 
       // Step 1: speech → text with the matching N-ATLaS ASR model.
       const transcript = await client.transcribe({ audio, language, user });
+      const text = normalizeText(transcript.text, { language });
       // Step 2: triage + draft with the N-ATLaS LLM.
       const draft = await client.chat({
         messages: [
           { role: "system", content: TRIAGE_PROMPT },
-          { role: "user", content: transcript.text },
+          { role: "user", content: text },
         ],
         language: CHAT_LANGUAGE[language],
         user,
       });
       return send(res, 200, {
-        transcript: transcript.text,
+        transcript: text,
         asrModel: transcript.model,
         draft: draft.content,
         llmModel: draft.model,
       });
+    }
+    if (req.method === "POST" && req.url === "/api/report") {
+      const { audio, transcript, correction, language, user } = await readJson(req);
+      if (!transcript || !correction || !CHAT_LANGUAGE[language]) return send(res, 400, { error: "transcript, correction and language are required" });
+      // Audio paired with a human-corrected transcript is the most useful contribution, but reports
+      // are capped at ~1 MB of base64 audio; longer clips are reported as text only.
+      const clip = audio && audio.length <= 1_400_000 ? audio : undefined;
+      const report = await client.reportIssue({ kind: "transcription", output: transcript, correction, language, audio: clip, user });
+      return send(res, 200, { ...report, audio_included: Boolean(clip) });
     }
     send(res, 404, { error: "not found" });
   } catch (err) {

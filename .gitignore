@@ -9,3 +9,4 @@ __pycache__/
 *.pyc
 deploy/endpoints.json
 test-audio/
+deploy/smoke-results.jsonl
