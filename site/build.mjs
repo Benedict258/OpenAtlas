@@ -3,6 +3,7 @@
 // Run by wrangler before `dev` and `deploy` ([build] in wrangler.toml).
 import { cpSync, existsSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { KIT_NAMES, LIVE_KITS } from "./live-kits.mjs";
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const KITS = { citizen: "citizen-services", education: "education", support: "customer-service" };
@@ -19,8 +20,22 @@ for (const [kit, dir] of Object.entries(KITS)) {
   if (!m) throw new Error(`No <!-- window:${kit} --> block in starter-kits/${dir}/public/index.html`);
   const placeholder = `<!-- kit:${kit} -->`;
   if (!page.includes(placeholder)) throw new Error(`No ${placeholder} in pages/starter-kits.html`);
-  page = page.replace(placeholder, m[1].trimEnd());
-  cpSync(here(`../starter-kits/${dir}/public/app.js`), here(`./dist/kits/${kit}.js`));
+  if (LIVE_KITS.includes(kit)) {
+    page = page.replace(placeholder, m[1].trimEnd());
+    cpSync(here(`../starter-kits/${dir}/public/app.js`), here(`./dist/kits/${kit}.js`));
+  } else {
+    // Paused: same window frame, no controls, and its script is not loaded.
+    page = page.replace(placeholder, pausedWindow(kit, dir)).replace(new RegExp(String.raw`<script src="/kits/${kit}\.js"></script>\r?\n`), "");
+  }
 }
 writeFileSync(here("./dist/starter-kits.html"), page);
+
+function pausedWindow(kit, dir) {
+  return `<div class="win" data-kit="${kit}">
+<div class="wbar"><span>OpenAtlas — ${KIT_NAMES[kit]} Demo</span><span style="display:flex;gap:8px;flex:none"><span class="demo">Paused</span></span></div>
+<div class="wbody">
+<div class="out"><b>Live demo paused</b><span>This demo goes live once its full pipeline has been checked against the live N-ATLaS model. Until then it is switched off rather than shown unverified. The kit's code is in <span class="mono">starter-kits/${dir}</span>.</span></div>
+</div>
+</div>`;
+}
 console.log("site/dist built");
