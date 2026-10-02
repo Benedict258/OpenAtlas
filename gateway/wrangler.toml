@@ -20,4 +20,4 @@ RUNPOD_API_BASE = "https://api.runpod.ai/v2"
 [[d1_databases]]
 binding = "DB"
 database_name = "openatlas"
-database_id = "REPLACE_AFTER_wrangler_d1_create"
+database_id = "84031f4d-13ea-4b3b-ba0e-10b52ac3ae5a"

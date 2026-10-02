@@ -75,9 +75,9 @@ test("chat() and transcribe() require a user id, before any request", async () =
   assert.equal(s.calls.length, 0);
 });
 
-test("constructor requires a key and a base URL", () => {
+test("constructor requires a key; base URL defaults to the hosted gateway", () => {
   delete process.env.OPENATLAS_API_KEY;
   delete process.env.OPENATLAS_BASE_URL;
   assert.throws(() => new OpenAtlas({ baseURL: "https://x" }), /API key/);
-  assert.throws(() => new OpenAtlas({ apiKey: "k" }), /gateway URL/);
+  assert.equal(new OpenAtlas({ apiKey: "k" }).baseURL, "https://openatlas-gateway.isaacbenedict001.workers.dev");
 });
