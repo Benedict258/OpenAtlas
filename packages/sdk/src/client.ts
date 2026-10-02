@@ -26,7 +26,10 @@ export interface OpenAtlasOptions {
    * scaled-to-zero endpoint includes loading the model.
    */
   timeoutMs?: number;
-  /** Retries for network errors and 502/503 responses. Default 2. Never retries 4xx. */
+  /**
+   * Retries for network errors and 503 (backend temporarily unavailable). Default 2. Other errors
+   * (4xx, and 502/504, which mean the backend failed on or timed out on this request) are not retried.
+   */
   maxRetries?: number;
   /** Custom fetch implementation (tests, proxies). */
   fetch?: typeof fetch;
@@ -85,8 +88,11 @@ export class OpenAtlas {
       throw new OpenAtlasError(`Unsupported transcription language "${params?.language}". Use one of: en-ng, ha, yo, ig.`);
     }
     requireUser(params.user);
+    const audio = toBase64(await readAudio(params.audio));
+    if (audio.length === 0) throw new OpenAtlasError("transcribe() got empty audio.");
+    if (audio.length > MAX_AUDIO_BASE64_CHARS) throw audioTooLarge(audio.length);
     const res = await this.post<TranscribeResponse>("/v1/audio/transcriptions", {
-      audio: toBase64(params.audio),
+      audio,
       language: params.language,
       user: params.user,
     });
@@ -118,7 +124,7 @@ export class OpenAtlas {
       throw new OpenAtlasError("reportIssue() accepts `audio` only for transcription issues.");
     }
     const { audio, ...rest } = params;
-    return this.post<ReportIssueResponse>("/v1/issues", audio === undefined ? rest : { ...rest, audio: toBase64(audio) });
+    return this.post<ReportIssueResponse>("/v1/issues", audio === undefined ? rest : { ...rest, audio: toBase64(await readAudio(audio)) });
   }
 
   private async post<T>(path: string, body: unknown): Promise<T> {
@@ -152,7 +158,7 @@ export class OpenAtlas {
         payload?.error?.message ?? res.statusText ?? "Request failed",
         payload?.error?.job_id,
       );
-      if (res.status !== 502 && res.status !== 503) throw error;
+      if (res.status !== 503) throw error;
       lastError = error;
     }
     throw lastError;
@@ -168,7 +174,23 @@ function requireUser(user: unknown) {
   }
 }
 
-function toBase64(audio: AudioInput): string {
+/** The gateway's limit on base64 audio (about 7 MB of audio). */
+const MAX_AUDIO_BASE64_CHARS = 9_500_000;
+
+function audioTooLarge(chars: number) {
+  const mb = ((chars * 3) / 4 / 1e6).toFixed(1);
+  return new OpenAtlasError(
+    `Audio is ${mb} MB; the limit is about 7 MB. Send compressed audio (mp3/ogg) or 16 kHz mono WAV, ` +
+      `which is what the speech models use anyway (about 32 KB per second).`,
+  );
+}
+
+/** Blobs and Files (browser recordings, file inputs) are read into bytes; everything else passes through. */
+async function readAudio(audio: AudioInput): Promise<Exclude<AudioInput, Blob>> {
+  return typeof Blob !== "undefined" && audio instanceof Blob ? new Uint8Array(await audio.arrayBuffer()) : (audio as Exclude<AudioInput, Blob>);
+}
+
+function toBase64(audio: Exclude<AudioInput, Blob>): string {
   if (typeof audio === "string") return audio.replace(/^data:[^,]*,/, "");
   const bytes = audio instanceof Uint8Array ? audio : new Uint8Array(audio);
   if (typeof Buffer !== "undefined") return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString("base64");

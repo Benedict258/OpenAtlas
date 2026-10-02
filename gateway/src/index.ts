@@ -165,6 +165,10 @@ async function httpBackend(env: Env, path: string, payload: unknown): Promise<an
   if (res.status === 400) throw new HttpError(400, "invalid_request", detail);
   if (res.status === 404) throw new HttpError(502, "backend_route_missing", `The backend has no ${path} route (check BACKEND_URL has no extra path such as /v1).`);
   if (res.status === 401) throw new HttpError(502, "backend_auth_failed", "The gateway's backend credential was rejected (check BACKEND_API_KEY).");
+  // A 500 is the backend failing on this particular request (it is up, so retrying won't help).
+  if (res.status === 500) {
+    throw new HttpError(502, "backend_error", `The N-ATLaS backend failed on this request (HTTP 500): ${detail}`);
+  }
   if (res.status === 503 || res.status >= 520 || !body) {
     throw new HttpError(503, "backend_unavailable", `The N-ATLaS backend is not serving right now (HTTP ${res.status}): ${detail}`);
   }
