@@ -1,0 +1,90 @@
+/* Responsive layer for the OpenAtlas site (added to the original design file), loaded after each page's
+   own styles. Uses only the design's tokens. Breakpoints: 1100 (small laptop), 900 (tablet: hamburger
+   menu), 760 (phone), 400 (small phone). */
+
+/* ---------- Mobile navigation ---------- */
+.menu-btn{display:none;align-items:center;justify-content:center;width:48px;height:48px;padding:0;border:1.5px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);cursor:pointer;flex:none}
+.menu-btn:hover{border-color:var(--ink)}
+.menu-btn:focus-visible,.mnav a:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+.menu-btn .i-close{display:none}
+.menu-btn[aria-expanded="true"] .i-open{display:none}
+.menu-btn[aria-expanded="true"] .i-close{display:block}
+.mnav{display:none}
+
+/* The design's form fields grow by flex-basis inside vertical stacks, leaving tall empty gaps.
+   Keep that growth only where fields sit side by side (.rowf). */
+.wbody>.fld{flex:none}
+
+/* .grid3 draws its 1px dividers by letting a grey background show through the gaps, so a row that
+   isn't full shows a solid grey block. Draw the same 1px lines as cell outlines instead. */
+.grid3{background:transparent;border:0}
+.grid3>*{outline:1px solid var(--line)}
+
+@media (max-width:1100px){
+  .links{gap:24px}
+}
+
+@media (max-width:900px){
+  .links,.navin>.btn{display:none!important}
+  .menu-btn{display:inline-flex}
+  .navin{min-height:64px}
+  .mnav{flex-direction:column;border-top:1px solid var(--line);background:var(--bg);max-height:calc(100vh - 64px);overflow-y:auto}
+  .mnav.open{display:flex}
+  .mnav .wrap{display:flex;flex-direction:column;width:100%;padding-top:8px;padding-bottom:24px}
+  .mnav a.ml{display:flex;align-items:center;justify-content:space-between;min-height:56px;font-size:18px;font-weight:500;color:var(--muted);border-bottom:1px solid var(--line)}
+  .mnav a.ml.on{color:var(--ink);font-weight:600}
+  .mnav a.ml.on::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--green)}
+  .mnav .btn{margin-top:20px;width:100%}
+  /* Two-column layouts settle into one column a little earlier than the design's auto-fit does. */
+  .kit{grid-template-columns:1fr;gap:40px}
+  .panel{grid-template-columns:1fr;gap:32px}
+}
+
+@media (max-width:760px){
+  .wrap{padding:0 20px}
+  /* Section rhythm: the design's 80–112px desktop spacing, scaled down. */
+  main>section{padding-top:56px!important;padding-bottom:56px!important}
+  main>section[style^="padding:0"],main>section[style^="padding-bottom"]{padding-top:0!important}
+  .sechead{margin-bottom:32px}
+  .lead{font-size:17px}
+  .eyebrow{font-size:13px}
+  .grid3 .cell,.cell{padding:24px 20px}
+  .panel{padding:24px 20px}
+  .panel h3{font-size:24px}
+  /* Tabs stack instead of scrolling off-screen. */
+  .tabs{flex-direction:column;overflow:visible}
+  .tab{padding:16px 20px;min-height:56px;border:1px solid var(--line);border-bottom:none;margin-bottom:0;background:transparent}
+  .tab.on{background:var(--paper)}
+  .codebox .code{font-size:12.5px;padding:18px}
+  .card,.card-dark{padding:20px}
+  .dcard{padding:24px 20px}
+  .row{grid-template-columns:1fr;gap:8px}
+  /* Pipeline rows read top to bottom. */
+  .flow{flex-direction:column;align-items:stretch}
+  .flow .step{flex:none}
+  .flow .arr{align-self:center;transform:rotate(90deg)}
+  /* Kit windows and forms */
+  .wbar{padding:12px 16px;flex-wrap:wrap}
+  .wbody{padding:18px}
+  .wbody .rowf>.wbtn{flex:1 1 auto}
+  .facts div{grid-template-columns:1fr;gap:2px}
+  /* Docs */
+  .doc{gap:56px}
+  .method{padding:20px}
+  .step{grid-template-columns:36px minmax(0,1fr);gap:12px}
+  .note{padding:18px 20px}
+  /* Architecture diagram */
+  .layer{padding:18px 20px}
+  .host{padding:16px}
+  .link{text-align:center}
+  /* Footer */
+  .foot .wrap{padding-top:48px!important;padding-bottom:32px!important}
+  .foot .wrap>p{margin-top:32px!important}
+}
+
+@media (max-width:400px){
+  .wrap{padding:0 16px}
+  .btn{padding:0 18px;font-size:15px}
+  .wbtn{padding:0 16px;font-size:15px}
+  .chip{font-size:14px}
+}
