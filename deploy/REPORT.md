@@ -142,9 +142,9 @@ Every failure in both runs starts at the word "afẹ́fẹ́" (air). The test pr
 The other 9 replies have no loop. They are fluent Yoruba, with mixed tone-mark use and off-topic content as before.
 
 **Decision:**
-- The fallback is applied: the Citizen Services language menu now lists Hausa first, live on site version `a5b4ade5`. Yoruba is still selectable.
-- KI-2 stays open.
-- The guard is still in the notebook and server. It did not measurably help, and it does change some output: forced word swaps such as "hello" → "hi" in deliberately repetitive text.
+- Fallback applied: the Citizen Services language menu lists Hausa first, live on site version `a5b4ade5`. Yoruba is still selectable.
+- **The guard was tried and removed.** It made no measurable difference (1 loop in 11 runs before vs 1 in 12 with it; stutters 2 → 3), and it changes legitimately repetitive output: in the probe above, the model was forced to write "hi" instead of "hello". `natlas_colab.ipynb` and `deploy/server/natlas_server.py` are back to the earlier settings: temperature 0.1, repetition penalty 1.12, today's date in the template.
+- **KI-2 is closed as a known model limitation.** Yoruba works, with a documented intermittent failure. Hausa is the default because of it. No further fixes are planned before submission. The untried options were a reworded prompt from a native speaker and a stronger single-token penalty.
 
 ---
 
@@ -153,7 +153,7 @@ The other 9 replies have no loop. They are fluent Yoruba, with mixed tone-mark u
 | ID | Issue | Status |
 |---|---|---|
 | KI-1 | Citizen Services: on a question outside the demo notes (Hausa airfare), N-ATLaS gave general advice instead of saying the notes don't cover it. It ignores the "answer only from the notes" system instruction. | Open. Tracked, not being fixed yet. |
-| KI-2 | Yoruba chat can degenerate into repeated or mutated syllables around "afẹ́fẹ́" ("afẹ́fẹ́fẹ́…", "fúnfúnfún…"). Before the guard: 1 full loop and 2 stutters in 11 runs. With `no_repeat_ngram_size = 10`: 1 full loop and 3 stutters in 12 runs. | **Open.** The n-gram guard did not help. Stopgap: Citizen Services opens in Hausa (site version `a5b4ade5`); Yoruba is still offered. |
+| KI-2 | Yoruba chat can degenerate into repeated or mutated syllables around "afẹ́fẹ́" ("afẹ́fẹ́fẹ́…", "fúnfúnfún…"). Without the guard: 1 full loop and 2 stutters in 11 runs. With `no_repeat_ngram_size = 10`: 1 full loop and 3 stutters in 12 runs. | **Closed as a known model limitation.** The n-gram guard was tried and removed. Citizen Services opens in Hausa (site version `a5b4ade5`); Yoruba is still selectable, with this caveat. |
 | KI-3 | Yoruba is the weakest language so far: most tone marks missing in chat replies, invented details, 74% WER on the one ASR clip, and the slowest chat (11–23 s vs 4–8 s for the other languages). | Known limitation of the current models; stated as a caveat. |
 | KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | Open. Must be listed in the final pre-submission status. |
 | KI-5 | Before the Customer Service demo goes live: the notebook can't decode browser voice recordings (webm), and it has no GPU lock, so two requests at once can overlap on the GPU. | Deferred until Customer Service. |
