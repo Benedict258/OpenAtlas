@@ -1,0 +1,18 @@
+{
+  "name": "openatlas-monorepo",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/sdk",
+    "gateway",
+    "starter-kits/citizen-services",
+    "starter-kits/education",
+    "starter-kits/customer-service"
+  ],
+  "scripts": {
+    "build": "npm run build -w openatlas",
+    "test": "npm test -w openatlas",
+    "dev:mock-runpod": "node dev/mock-runpod/server.mjs",
+    "dev:gateway": "npm run dev -w openatlas-gateway"
+  }
+}
