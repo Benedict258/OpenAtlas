@@ -18,7 +18,8 @@ if (!url || !key) {
   process.exit(1);
 }
 if (!gateway) throw new Error("Set OPENATLAS_BASE_URL in .env (the gateway URL).");
-const backend = url.replace(/\/+$/, "");
+// The gateway appends /v1/... itself, so a URL printed with a trailing /v1 is trimmed.
+const backend = url.replace(/\/+$/, "").replace(/\/v1$/, "");
 if (!backend.startsWith("https://")) throw new Error("The backend URL must be https:// (the Cloudflare Worker can't reach a local or plain-http host).");
 
 console.log(`1/3 Checking ${backend} directly…`);

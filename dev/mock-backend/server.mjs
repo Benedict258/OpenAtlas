@@ -59,7 +59,15 @@ createServer(async (req, res) => {
     return send(res, 200, produceOutput("http", { openai_input: await readJson(req) })[0]);
   }
   if (req.method === "POST" && req.url === "/v1/audio/transcriptions") {
-    const out = produceOutput("http", await readJson(req));
+    let input;
+    if ((req.headers["content-type"] ?? "").startsWith("multipart/form-data")) {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const form = await new Response(Buffer.concat(chunks), { headers: { "content-type": req.headers["content-type"] } }).formData();
+      const audio = Buffer.from(await form.get("audio").arrayBuffer());
+      input = { audio_base64: audio.toString("base64"), language: form.get("language") };
+    } else input = await readJson(req);
+    const out = produceOutput("http", input);
     return send(res, 200, { ...out, inference_ms: 0 });
   }
 
