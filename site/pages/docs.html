@@ -167,7 +167,7 @@ console.<span class="f">log</span>(response.content);</pre></div></div></div>
 <tr><td>messages</td><td>{ role, content }[]</td><td>Required.</td></tr>
 <tr><td>user</td><td>string</td><td>Required. A stable, opaque ID for your end user. Hashed, and used only to count active users against the licence cap.</td></tr>
 <tr><td>language</td><td>"ha" | "yo" | "ig" | "en"</td><td>Optional.</td></tr>
-<tr><td>returns</td><td>{ content, model, usage }</td><td>model is "n-atlas-llm".</td></tr>
+<tr><td>returns</td><td>{ content, model, attribution, usage }</td><td>model is "NCAIR1/N-ATLaS"; attribution is "Powered by Awarri".</td></tr>
 </tbody></table></div>
 </div>
 
@@ -185,7 +185,7 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <tr><td>audio</td><td>bytes or base64</td><td>Required. Any common format (wav, mp3, ogg, webm, m4a), about 7 MB at most.</td></tr>
 <tr><td>language</td><td>"ha" | "yo" | "ig" | "en-ng"</td><td>Required. Selects the ASR model.</td></tr>
 <tr><td>user</td><td>string</td><td>Required. Same as chat().</td></tr>
-<tr><td>returns</td><td>{ text, language, model }</td><td>model is "n-atlas-asr-&lt;lang&gt;".</td></tr>
+<tr><td>returns</td><td>{ text, language, model, attribution }</td><td>model is the ASR model's ID, e.g. "NCAIR1/Hausa-ASR"; attribution is "Powered by Awarri".</td></tr>
 </tbody></table></div>
 </div>
 
@@ -284,7 +284,7 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <div><h4>Learn</h4><ul><li><a href="#quickstart">Quickstart</a></li><li><a href="#api">API reference</a></li><li><a href="/architecture">Architecture</a></li></ul></div>
 <div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Benedict Isaac</li></ul></div>
 </div>
-<p style="margin-top:48px;padding-top:24px;border-top:1px solid #2C352E;font-size:14px">A non-commercial developer and research resource.</p>
+<p style="margin-top:48px;padding-top:24px;border-top:1px solid #2C352E;font-size:14px">A non-commercial developer and research resource. N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies.</p>
 </div>
 </footer>
 </div>

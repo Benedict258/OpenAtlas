@@ -96,11 +96,11 @@ One base URL (the gateway). Auth: `Authorization: Bearer <OpenAtlas key>`. `user
 ```
 POST /v1/chat/completions
   { messages: [{role, content}], language?: "en"|"ha"|"yo"|"ig", max_tokens?, temperature?, user }
-  → { content, model: "n-atlas-llm", usage }
+  → { content, model: "NCAIR1/N-ATLaS", attribution: "Powered by Awarri", usage }
 
 POST /v1/audio/transcriptions
   { audio: <base64>, language: "ha"|"yo"|"ig"|"en-ng", user }
-  → { text, language, model: "n-atlas-asr-<lang>" }
+  → { text, language, model: "NCAIR1/<Hausa|Yoruba|Igbo>-ASR" | "NCAIR1/NigerianAccentedEnglish", attribution: "Powered by Awarri" }
 
 POST /v1/issues
   { kind: "chat"|"transcription", input, output, correction, language?, note?, audio?, user? }
