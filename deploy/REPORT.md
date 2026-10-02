@@ -192,6 +192,48 @@ Verified locally: the SDK test suite (23/23) and the gateway mock suite (12/12).
 - It rejects empty audio, and audio over the ~7 MB limit, before uploading. The error message suggests compressed or 16 kHz mono audio.
 - Raw 48 kHz WAV reaches the limit at about 75 s; the largest Yoruba clip was 23.5 MB in its original form.
 
+## 2026-10-03
+
+Backend: the **same Colab kernel as 2026-10-02** (the traceback shows `ipykernel_5444`), with a new tunnel (`offerings-country-alternatively-walls.trycloudflare.com`). It is not a fresh run of the repo notebook. Its server cell still calls the ASR pipeline without chunking; chunking was added only through the patch cell. Gateway versions: error handling `847daa0a`, then attribution `4f9461f8`.
+
+### 9. Long-clip re-test: FAIL, 0/10; transcription broken on this backend
+
+| Check | Result |
+|---|---|
+| The 10 clips over 30 s (3 Hausa, 7 Yoruba) | **0/10.** All returned HTTP 500 from the backend. |
+| One short clip per language (2.1–26.7 s), all of which transcribed on 2026-10-02 | **0/4.** HTTP 500. |
+| An 8.8 s English clip | HTTP 500 |
+
+**Cause, from the Colab traceback:**
+- The ASR patch cell was run twice, so each pipeline was wrapped twice, and the outer wrapper passed `chunk_length_s` into the inner one.
+- Every call then failed with `TypeError: AutomaticSpeechRecognitionPipeline … got multiple values for keyword argument 'chunk_length_s'`, including short clips.
+- This was a fault in the patch cell (it was not safe to re-run), not in chunking itself. **Chunking has not been tested yet.**
+- **KI-7 stays open** until the long clips are re-run with a single, correct wrapper.
+
+**KI-9 confirmed live:** each failure came back as `502 backend_error` ("The N-ATLaS backend failed on this request (HTTP 500)"), not "not serving", and was not retried.
+
+### 10. Education starter kit against live N-ATLaS: PASS, with a quality note
+
+Run as the standalone kit (`starter-kits/education`, local server) → SDK → live gateway. The browser test (headless Chrome, 1280 px) passed 7/7:
+- no mock badge;
+- the language menu starts with Hausa;
+- Hausa/primary explanation shown;
+- "Report a wrong answer" offered;
+- English/secondary explanation shown;
+- the correction box opens;
+- the correction is stored through `reportIssue()` (id `3deb2ce7…`).
+
+| Language / level | Question | Time | Reply, verbatim or excerpt |
+|---|---|---|---|
+| ha / primary | Me yasa ruwan sama yake sauka? | 11.3 s | "Ruwa yana saukowa ne saboda gajimare a cikin sararin sama sun yi girma sosai har suka kama iskar da ke tashi. Wannan iskar tana dauke da danshi ko ruwa mai digo. Lokacin da wadannan gajimaren suka hadu, suna hade su zuba ruwan sama. Don haka, ruwan sama yana faruwa lokacin da gajimaren da aka taru a saman juna suka bar ruwan sama ya fado kasa." |
+| en / secondary (browser) | What is photosynthesis? | 15.4 s | "Photosynthesis is how plants make their own food from sunlight. It's like a superpower that helps them survive! … they turn these two things into a yummy, sweet drink called glucose …" |
+| en / secondary (API, repeat) | What is photosynthesis? | 16.7 s | Same framing ("like a magic power", "a yummy, sweet drink called glucose"), plus a word equation. |
+| en / primary (API) | What is photosynthesis? | 4.7 s | "Photosynthesis is how plants make their own food from sunlight! Just like you eat food to have energy, plants use sunlight to make their food. They use this food to grow big and strong." |
+
+The level does change the answer: primary is much shorter and simpler. But the secondary answer is still pitched at young children, and it calls glucose "a sweet drink", which is wrong. Logged as KI-10.
+
+A live chat also confirmed the new response fields: `model: "NCAIR1/N-ATLaS"`, `attribution: "Powered by Awarri"`.
+
 ---
 
 ## Known issues
@@ -204,6 +246,7 @@ Verified locally: the SDK test suite (23/23) and the gateway mock suite (12/12).
 | KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | Open. Must be listed in the final pre-submission status. |
 | KI-5 | Before the Customer Service demo goes live: the notebook can't decode browser voice recordings (webm), and it has no GPU lock, so two requests at once can overlap on the GPU. | Deferred until Customer Service. |
 | KI-6 | The Colab notebook's chat reply has no token `usage` field, so the smoke test prints `undefined` for it. | Cosmetic. |
-| KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | Fixed in `natlas_colab.ipynb` (`chunk_length_s=30`). Live session needs the patch cell; re-test pending. |
+| KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | **Open.** Fix is in `natlas_colab.ipynb`. The live session's patch cell ran twice and broke all ASR (section 9). Chunking itself is not yet tested live. |
 | KI-8 | ASR accuracy on conversational speech is modest: corpus WER Hausa 41%, Yoruba 56% (45% ignoring tone marks), Igbo 60–101% on a tone-marked multi-dialect benchmark, Nigerian English 26% (section 8). | Known limitation of the models; stated as a caveat. |
-| KI-9 | The gateway reported a backend 500 as `503 backend_unavailable`, and the SDK retried it. | Fixed in code (gateway `backend_error`, SDK retries 503 only). Verified locally; gateway deploy pending. |
+| KI-9 | The gateway reported a backend 500 as `503 backend_unavailable`, and the SDK retried it. | **Fixed.** Deployed; confirmed live on 2026-10-03 (`502 backend_error`, not retried). |
+| KI-10 | Education kit: at secondary level, N-ATLaS still answers in a young-child register, with a factual slip (glucose as "a sweet drink"). Primary level works as intended. | Known model behaviour; stated as a caveat. |
