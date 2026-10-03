@@ -20,17 +20,46 @@
     if (!res.ok) throw new Error(json.error || `Request failed (HTTP ${res.status})`);
     return json;
   };
+  // speechLive: "Play response audio" is offered only when the server reports speak() switched on and ready.
+  let speechLive = false;
   fetch("/api/status").then((r) => r.json()).then((s) => {
     if (s.mock) document.querySelectorAll('[data-kit="support"] [data-mock]').forEach((el) => (el.hidden = false));
+    speechLive = s.speech === true;
   }).catch(() => {});
 
   const status = (text) => {
     $("s-status").hidden = !text;
     $("s-status").textContent = text ?? "";
   };
+  let speechUrl = null;
   const resetReport = () => {
     $("s-report").hidden = $("s-fix").hidden = $("s-send").hidden = true;
     $("s-fix-status").textContent = "";
+    $("s-speak").hidden = $("s-speech").hidden = true;
+    if (speechUrl) URL.revokeObjectURL(speechUrl);
+    speechUrl = null;
+  };
+
+  // Optional: N-ATLaS's drafted reply read aloud by speak() (a separate text-to-speech renderer).
+  $("s-speak").onclick = async () => {
+    const draft = $("s-draft").textContent;
+    $("s-speak").disabled = true;
+    status("Rendering the reply as speech… (natural voices can take a minute or more per sentence)");
+    try {
+      const r = await post("/api/support/speak", { draft, language: last.language, user: uid });
+      const bytes = Uint8Array.from(atob(r.audio), (c) => c.charCodeAt(0));
+      if (speechUrl) URL.revokeObjectURL(speechUrl);
+      speechUrl = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+      $("s-speech-audio").src = speechUrl;
+      $("s-speech-credit").textContent = `${r.attribution}.` + (r.fallback_reason ? " (Fell back to MMS-TTS.)" : "");
+      $("s-speech").hidden = false;
+      $("s-speech-audio").play().catch(() => {});
+      status(`Spoken reply: ${r.seconds} s of audio (${r.model}).` + (r.warnings?.length ? ` ${r.warnings.join(" ")}` : ""));
+    } catch (e) {
+      status(`Error: ${e.message}`);
+    } finally {
+      $("s-speak").disabled = false;
+    }
   };
 
   // Any audio the browser can play → 16 kHz mono samples.
@@ -148,6 +177,7 @@
       last = { audio: pieces.length === 1 ? pieces[0] : undefined, transcript: r.transcript, language };
       $("s-fix-text").value = r.transcript;
       $("s-report").hidden = false;
+      $("s-speak").hidden = !speechLive || !/draft reply\**\s*:/i.test(r.draft);
     } catch (e) {
       $("s-transcript").textContent = "The N-ATLaS ASR transcript appears here.";
       $("s-draft").textContent = "The N-ATLaS LLM draft appears here.";

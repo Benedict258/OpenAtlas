@@ -70,3 +70,35 @@ export async function report(client, { audio, transcript, correction, language, 
   return { ...result, audio_included: Boolean(clip) };
 }
 
+// Optional last step: read N-ATLaS's drafted reply aloud with speak(), a separate text-to-speech renderer.
+// Only the "Draft reply:" part is spoken (never the labels or the customer's own words), and the text is
+// passed through unchanged.
+const SPEECH_LANGUAGE = { ha: "ha", yo: "yo", ig: "ig", "en-ng": "en" };
+export function draftReply(draft) {
+  const m = /^\s*\**draft reply\**\s*:\s*\**\s*([\s\S]+)$/im.exec(typeof draft === "string" ? draft : "");
+  return m ? m[1].replaceAll("*", "").trim() || null : null;
+}
+
+// Works in Node and in Workers/browsers (no Buffer).
+function base64(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+export async function speakDraft(client, { draft, language, user } = {}) {
+  if (!SPEECH_LANGUAGE[language]) throw badRequest("Choose a language.");
+  const text = draftReply(draft);
+  if (!text) throw badRequest("There is no drafted reply to read aloud.");
+  const r = await client.speak({ text, language: SPEECH_LANGUAGE[language], user });
+  return {
+    audio: base64(r.audio),
+    seconds: r.seconds,
+    engine: r.engine,
+    model: r.model,
+    attribution: r.attribution,
+    warnings: r.warnings,
+    fallback_reason: r.fallback_reason ?? null,
+    spoken: text,
+  };
+}

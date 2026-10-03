@@ -4,8 +4,8 @@
 import { OpenAtlas } from "@openatlas/sdk";
 import { ask } from "../../starter-kits/citizen-services/kit.mjs";
 import { explain, report as reportExplanation } from "../../starter-kits/education/kit.mjs";
-import { ticket, report as reportTranscript } from "../../starter-kits/customer-service/kit.mjs";
-import { LIVE_KITS } from "../live-kits.mjs";
+import { ticket, report as reportTranscript, speakDraft } from "../../starter-kits/customer-service/kit.mjs";
+import { LIVE_KITS, LIVE_SPEECH } from "../live-kits.mjs";
 
 const ROUTES = {
   "/api/citizen/ask": ask,
@@ -13,6 +13,7 @@ const ROUTES = {
   "/api/education/report": reportExplanation,
   "/api/support/ticket": ticket,
   "/api/support/report": reportTranscript,
+  "/api/support/speak": speakDraft,
 };
 
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -28,7 +29,8 @@ export default {
     try {
       if (req.method === "GET" && pathname === "/api/status") {
         const health = await gatewayFetch(`${gateway}/v1/health`).then((r) => r.json());
-        return json(200, { mock: health.backend?.mock === true });
+        const speech = LIVE_SPEECH && health.tts_enabled === true && health.backend?.tts?.status === "ok";
+        return json(200, { mock: health.backend?.mock === true, speech });
       }
       if (req.method !== "POST") return json(405, { error: "Method not allowed." });
       // Per-IP limit (site/wrangler.toml), so one visitor can't drain the shared demo key.
@@ -55,6 +57,9 @@ export default {
       const kit = pathname.split("/")[2];
       if (!LIVE_KITS.includes(kit)) {
         return json(503, { error: "This demo is paused until its pipeline has been verified against the live N-ATLaS model." });
+      }
+      if (pathname === "/api/support/speak" && !LIVE_SPEECH) {
+        return json(503, { error: "Spoken replies are switched off until they have been verified against the live backend." });
       }
       const client = new OpenAtlas({ apiKey: env.OPENATLAS_API_KEY, baseURL: gateway, fetch: gatewayFetch });
       return json(200, await handler(client, body));

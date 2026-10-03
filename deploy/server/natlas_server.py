@@ -18,6 +18,8 @@ Environment:
     HOST              default 127.0.0.1 (put a tunnel or reverse proxy in front for HTTPS)
     LLM_QUANT         "4bit" (default; fits a 16 GB T4) or "none" (bf16/fp16, needs ~17 GB)
     ASR_LANGUAGES     comma-separated subset of ha,yo,ig,en-ng to load (default: all four)
+    ENABLE_TTS        "1" adds the optional speech renderer (tts_renderer.py, POST /v1/audio/speech),
+                      loaded after the N-ATLaS models. Off by default. TTS_SOROTTS=0 loads MMS-TTS only.
 
 Inference settings carried over from the Safroi Colab notebook, which ran against the real
 N-ATLaS weights: repetition penalty 1.12, current date passed into the chat template's
@@ -269,6 +271,14 @@ def run_asr(audio: bytes, language: str):
     }
 
 
+def load_all():
+    load_models()
+    if os.environ.get("ENABLE_TTS") == "1":
+        import tts_renderer  # optional final-stage speech renderer; see its docstring
+
+        tts_renderer.install(app, check_auth, gpu_lock, HF_TOKEN, load_sorotts=os.environ.get("TTS_SOROTTS", "1") != "0", background=False)
+
+
 if __name__ == "__main__":
     if not HF_TOKEN:
         raise SystemExit("Set HF_TOKEN (account with access to the NCAIR1 N-ATLaS repos).")
@@ -277,5 +287,5 @@ if __name__ == "__main__":
     unknown = [l for l in ASR_TO_LOAD if l not in ASR_REPOS]
     if unknown:
         raise SystemExit(f"Unknown ASR_LANGUAGES {unknown}; use a subset of {sorted(ASR_REPOS)}.")
-    threading.Thread(target=load_models, daemon=True).start()
+    threading.Thread(target=load_all, daemon=True).start()
     uvicorn.run(app, host=os.environ.get("HOST", "127.0.0.1"), port=int(os.environ.get("PORT", "8000")), log_level="warning")

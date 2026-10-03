@@ -3,4 +3,8 @@
 // (site/build.mjs) and their API routes answer 503 (site/src/worker.mjs).
 export const LIVE_KITS = ["citizen", "education", "support"];
 
+// The Customer Service kit's optional "Play response audio" (speak(), a text-to-speech renderer after
+// N-ATLaS). Switched on only after it has been verified against the live backend (deploy/REPORT.md).
+export const LIVE_SPEECH = false;
+
 export const KIT_NAMES = { citizen: "Citizen Services", education: "Education", support: "Customer Service" };
