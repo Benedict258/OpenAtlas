@@ -127,11 +127,11 @@ OpenAtlas
 </div>
 <div class="link"><svg width="20" height="28" viewBox="0 0 20 28" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 2v22M4 18l6 6 6-6"></path></svg><span>Backend chosen by configuration</span></div>
 <div class="host">
-<h3>GPU host · NiHub (Colab while testing)</h3>
+<h3>GPU host · Kaggle notebook today (free T4 x2), or any GPU you run it on</h3>
 <div class="hosts">
 <div class="layer core"><h3>N-ATLaS LLM</h3><p>Llama-3 8B fine-tune, 4-bit quantized to fit the GPU tier.</p></div>
 <div class="layer core"><h3>N-ATLaS ASR ×4</h3><p>Hausa, Yoruba, Igbo and Nigerian-accented English.</p></div>
-<div class="layer opt"><h3>TTS <span class="badge" style="margin-left:6px">Stretch</span></h3><p>sorotts as primary, MMS-TTS as fallback. Final audio rendering only.</p></div>
+<div class="layer opt"><h3>TTS <span class="badge" style="margin-left:6px">Optional</span></h3><p>SoroTTS for single sentences, MMS-TTS for longer text and English. Final audio rendering only; reliable in English.</p></div>
 </div>
 </div>
 </div>
@@ -146,7 +146,7 @@ OpenAtlas
 </div>
 <div class="two">
 <div class="card"><h3>A thin client</h3><p>A local-first design would contradict the core value proposition: no GPU required to use N-ATLaS. So inference is centralized and the client is kept deliberately small.</p></div>
-<div class="card"><h3>A gateway in front of a swappable host</h3><p>GPU hosts give each endpoint its own URL and key, and count requests rather than people. The gateway gives developers one URL and their own key, measures unique end users against the licence cap, and lets the host move with a configuration change: Colab for testing today (its sessions time out and change URL every run), NiHub for the persistent deployment, RunPod as fallback.</p></div>
+<div class="card"><h3>A gateway in front of a swappable host</h3><p>GPU hosts give each endpoint its own URL and key, and count requests rather than people. The gateway gives developers one URL and their own key, measures unique end users against the licence cap, and lets the host move with a configuration change. No GPU hosting came with the challenge, so today the host is a free Kaggle notebook: its sessions end after at most 12 hours and its URL changes each run. Anyone can stand up the same backend with our notebook or Docker image (see Deploy your own in the docs).</p></div>
 </div>
 </div>
 </section>
@@ -158,9 +158,9 @@ OpenAtlas
 <h2 class="h2">What does what.</h2>
 </div>
 <div class="scroll"><table class="tbl"><thead><tr><th>Component</th><th>Technology</th><th>Responsibility</th></tr></thead><tbody>
-<tr><td>Inference host</td><td>NiHub persistent GPU (Colab while testing, RunPod as fallback)</td><td>Runs the N-ATLaS LLM and four ASR models and exposes HTTP endpoints.</td></tr>
+<tr><td>Inference host</td><td>Kaggle notebook on a free T4 x2 today; the same server runs in Docker on any NVIDIA GPU</td><td>Runs the N-ATLaS LLM and four ASR models and exposes HTTP endpoints.</td></tr>
 <tr><td>Model serving</td><td>One Python server (FastAPI and transformers) for the LLM and all four ASR models</td><td>Turns handler calls into model forward passes.</td></tr>
-<tr><td>TTS host</td><td>Same deployment, separate endpoint</td><td>Runs sorotts or MMS-TTS for audio rendering. Stretch.</td></tr>
+<tr><td>TTS host</td><td>Same deployment, separate endpoint</td><td>Runs SoroTTS or MMS-TTS for audio rendering. Optional; reliable in English only.</td></tr>
 <tr><td>OpenAtlas SDK</td><td>TypeScript, published to npm</td><td>One client over all of the above, written fresh with the inference settings tested against the real N-ATLaS weights.</td></tr>
 <tr><td>Gateway</td><td>Cloudflare Worker and D1</td><td>One public URL and per-developer keys. Counts active end users against the licence cap, stores reportIssue() corrections and holds the GPU host's credentials.</td></tr>
 <tr><td>Starter kits ×3</td><td>Node and TypeScript</td><td>Minimal reference apps proving the SDK end to end.</td></tr>
@@ -194,8 +194,8 @@ OpenAtlas
 <p class="lead">The plan to the October 12 submission. A live N-ATLaS backend is the single hard dependency, so it comes first. Speech output is gated behind an explicit go or no-go by October 7.</p>
 </div>
 <div class="scroll"><table class="tbl"><thead><tr><th>Days</th><th>Work</th></tr></thead><tbody>
-<tr><td class="day">Oct 2</td><td>Docs repositioned around the SDK. Backend server and Colab notebook. Gateway made host-agnostic. normalizeText() and reportIssue().</td></tr>
-<tr><td class="day">Oct 2–3</td><td>N-ATLaS on the interim Colab host. First real chat() and transcribe() calls through the gateway.</td></tr>
+<tr><td class="day">Oct 2</td><td>Docs repositioned around the SDK. Backend server and hosting notebook. Gateway made host-agnostic. normalizeText() and reportIssue().</td></tr>
+<tr><td class="day">Oct 2–3</td><td>N-ATLaS on a free notebook GPU, now Kaggle. First real chat() and transcribe() calls through the gateway.</td></tr>
 <tr><td class="day">Oct 3–4</td><td>Move the backend to NiHub with a configuration change, then re-verify everything.</td></tr>
 <tr><td class="day">Oct 4–7</td><td>Starter kits and website against the real SDK. Check for the NAIC reply; go or no-go on TTS.</td></tr>
 <tr><td class="day">Oct 8–9</td><td>If confirmed, build speak(). If not, harden the core. End-to-end test of every kit on the persistent host, with no mocks.</td></tr>
@@ -232,7 +232,7 @@ OpenAtlas
 </div>
 <div><h4>Product</h4><ul><li><a href="/#what">Hosted endpoint</a></li><li><a href="/#sdk">SDK</a></li><li><a href="/starter-kits">Starter kits</a></li></ul></div>
 <div><h4>Learn</h4><ul><li><a href="/docs#quickstart">Quickstart</a></li><li><a href="/docs#api">API reference</a></li><li><a href="/architecture">Architecture</a></li></ul></div>
-<div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Benedict Isaac</li></ul></div>
+<div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Team Suiaah &amp; NiHub</li></ul></div>
 </div>
 <p style="margin-top:48px;padding-top:24px;border-top:1px solid #2C352E;font-size:14px">A non-commercial developer and research resource. N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies.</p>
 </div>

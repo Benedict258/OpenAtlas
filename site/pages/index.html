@@ -133,7 +133,7 @@ OpenAtlas
 <a class="btn btn-primary" href="/request-key">Get an API key</a>
 <a class="btn btn-ghost" href="/docs">Read the quickstart</a>
 </div>
-<div class="mono" style="display:inline-flex;align-self:flex-start;align-items:center;gap:12px;padding:12px 18px;border:1px solid var(--line);background:#fff;border-radius:6px;font-size:15px"><span style="color:var(--green)">$</span> npm install openatlas</div>
+<div class="mono" style="display:inline-flex;align-self:flex-start;align-items:center;gap:12px;padding:12px 18px;border:1px solid var(--line);background:#fff;border-radius:6px;font-size:15px"><span style="color:var(--green)">$</span> npm install @openatlas/sdk</div>
 </div>
 <div class="codebox">
 <div class="codebar"><i></i><i></i><i></i><span class="mono" style="margin-left:6px">quickstart.ts</span></div>
@@ -250,7 +250,7 @@ console.<span class="f">log</span>(response.content);
 <div class="cell"><span class="mono" style="color:var(--green);font-size:18px">client.transcribe()</span><h3>Speech to text</h3><p>Audio plus a language code, routed to the matching N-ATLaS ASR model.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">POST /v1/audio/transcriptions</p></div>
 <div class="cell"><span class="mono" style="color:var(--green);font-size:18px">normalizeText()</span><h3>Text repair</h3><p>Fixes Nigerian-language characters broken by typing or scraping, such as Æ™asa to ƙasa. Runs locally. It does not add tone marks that were never typed.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">Local · no request</p></div>
 <div class="cell"><span class="mono" style="color:var(--green);font-size:18px">client.reportIssue()</span><h3>Corrections</h3><p>Flag a wrong N-ATLaS output with its correction. Every app becomes an opt-in source of corrected local-language data.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">POST /v1/issues</p></div>
-<div class="cell"><span class="mono" style="color:var(--green);font-size:18px">client.speak()</span><div><span class="badge">Stretch</span></div><h3>Audio rendering</h3><p>Final-stage rendering of text N-ATLaS already produced.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">POST /v1/audio/speech</p></div>
+<div class="cell"><span class="mono" style="color:var(--green);font-size:18px">client.speak()</span><div><span class="badge">Optional</span></div><h3>Audio rendering</h3><p>Final-stage rendering of text N-ATLaS already produced, by a separate speech model. Clear in English; Hausa, Yoruba and Igbo are experimental.</p><p class="mono" style="font-size:13.5px;color:var(--ink)">POST /v1/audio/speech</p></div>
 </div>
 <p style="margin-top:24px"><a href="/docs#api" style="font-weight:600;color:var(--green);border-bottom:1.5px solid var(--green)">Full API reference →</a></p>
 </div>
@@ -389,7 +389,7 @@ console.<span class="f">log</span>(response.content);
 </div>
 <div><h4>Product</h4><ul><li><a href="/#what">Hosted endpoint</a></li><li><a href="/#sdk">SDK</a></li><li><a href="/starter-kits">Starter kits</a></li></ul></div>
 <div><h4>Learn</h4><ul><li><a href="/docs#quickstart">Quickstart</a></li><li><a href="/docs#api">API reference</a></li><li><a href="/architecture">Architecture</a></li></ul></div>
-<div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Benedict Isaac</li></ul></div>
+<div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Team Suiaah &amp; NiHub</li></ul></div>
 </div>
 <p style="margin-top:56px;padding-top:24px;border-top:1px solid #2C352E;font-size:14px">A non-commercial developer and research resource. N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies.</p>
 </div>

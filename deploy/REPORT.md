@@ -684,16 +684,77 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 - `/api/status` is `{"mock":false,"speech":false}`, and `/api/support/speak` returns `503`.
 - **The public website still has no speech.** Speech is used only through the API/SDK and the locally run demo kit.
 
+### 27. Audit fixes: website user IDs, stale copy, backend-offline banner, Deploy Your Own with Docker
+
+**1. Made-up user IDs on the website (found in the 15:35 audit).**
+- **The problem:**
+  - The website's demos passed the browser's `user` straight through to the license count, so each made-up ID counted as a new person.
+  - Because the per-IP limit is approximate, that could have used up the `website-demos` key's user share and refused new visitors.
+- **The fix (`site/src/worker.mjs`):**
+  - The website's server now ignores the browser's `user` and derives the ID itself, with a keyed hash (HMAC) of the visitor's network: the IPv4 address, or the IPv6 /64.
+  - An HttpOnly cookie spreads people who share one address (an office, a school) over at most 8 IDs.
+  - So one network address can count as at most 8 users, however many IDs or cookies a script invents.
+  - The trade-off: more than 8 real visitors behind one shared address are under-counted.
+- **Local test:** all 11 checks pass, including:
+  - 500 requests from one IPv4 address without cookies → 8 IDs;
+  - 300 hosts and cookies inside one IPv6 /64 → 8 IDs;
+  - the same visitor keeps the same ID;
+  - a forged cookie value is ignored.
+- **Live test on the deployed site (`f2a27af1`), reading the key's active-user count with `deploy/keys.mjs` between steps:**
+
+  | Step | Requests (all HTTP 200) | `website-demos` active users |
+  |---|---|---|
+  | Before | — | 9 |
+  | One browser keeping its cookie, 8 different fake `user` IDs; then 12 requests without cookies, each with a new fake ID | 20 | **17 (+8, the per-address ceiling; before the fix this would have been +20)** |
+  | 5 more fake IDs without cookies | 5 | **17 (+0)** |
+  | After the final deploy (`c6389dc5`), 1 more fake ID | 1 | **17 (+0)** |
+
+  **Made-up IDs no longer count as separate users.**
+- **Still possible:** someone with many network addresses, such as rotating proxies, still counts as many users. The per-key share and the per-IP rate limit are the remaining guards.
+
+**2. Stale public copy fixed (site `c6389dc5`):**
+- **Landing page:**
+  - install line `npm install @openatlas/sdk` (was `openatlas`, which doesn't exist on npm);
+  - the `speak()` card is now "Optional" with the real quality note (was "Stretch").
+- **Docs:**
+  - the speech section now says the API serves it, is clear in English and experimental in Hausa, Yoruba and Igbo (was "off… returns `tts_disabled`");
+  - the self-hosting section is now Kaggle-first, says no GPU came with the challenge, and adds a Docker row.
+- **Architecture page:** the host is "Kaggle notebook today (free T4 x2)", where it said "NiHub (Colab while testing)". No "Colab" remains on the page; the timeline rows now say "free notebook GPU, now Kaggle".
+- **Footer on all 5 pages:** "Built by Team Suiaah & NiHub".
+- **Checked live:** each string was fetched from the deployed pages.
+
+**3. Backend state shown up front.**
+- `/api/status` (the website and the three standalone kit servers) now reports `backend: "online" | "loading" | "offline"`, from the gateway's health check.
+- Each kit window shows a **Backend offline** or **Backend starting** banner on load, rechecked every 60 s, so visitors don't only find out after a failed Ask.
+- **Checked:**
+  - the standalone kit server against a fake gateway in every state: online, loading, tunnel down and backend error give the right value; gateway down gives `502`, which the page treats as offline;
+  - each kit's page script against a stub page, 15 cases: the banner is hidden when online and shown in every other case, including when the status call fails;
+  - live: `/api/status` is `{"mock":false,"speech":false,"backend":"online"}`, all three windows carry the banner (hidden), and a real Hausa question was answered in 6.1 s.
+- **Not seen in a real browser while the backend was actually down,** because it was up throughout.
+
+**4. Deploy Your Own rewritten as the main guide** (`docs/deploy-your-own.md`):
+- It's on free tools; the hosted demo isn't up around the clock; this is how anyone, judges included, stands it up.
+- It walks through what we actually ran: the Kaggle notebook part by part, the gateway, checks, the starter kits, reconnecting, a table of what we hit, and troubleshooting.
+- **New Docker path** (`deploy/server/Dockerfile`, `requirements.txt`, `docker-compose.yml` with a `cloudflared` tunnel), plus a CI job (`.github/workflows/backend-image.yml`) that builds, smoke-tests and publishes `ghcr.io/benedict258/openatlas-backend`.
+  - The CI job has no GPU or model access, so it checks only that the image builds, starts, answers `/health`, refuses calls without the key (`401`) and before the models load (`503`).
+  - **The image has not been run on a GPU.** Docker isn't installed on our machine, and model downloads are kept off it.
+
+**Correction to earlier entries:**
+- **KI-1 and KI-12 were deployed:** the website's server imports the starter-kit code, so the site deploys on 2026-10-03 (`57c63aca` onward) shipped them.
+- **Live confirmation (15:30 UTC):**
+  - the Customer Service draft kept the English labels with a Hausa reply;
+  - Citizen Services answered within the demo notes.
+
 ---
 
 ## Known issues
 
 | ID | Issue | Status |
 |---|---|---|
-| KI-1 | Citizen Services: on a question outside the demo notes (Hausa airfare), N-ATLaS gave general advice instead of saying the notes don't cover it. It ignores the "answer only from the notes" system instruction. | **Fixed in the kit code for the reported case** (section 18): structured prompt; out-of-scope declined cleanly 5/6 (was 1/6), the Hausa airfare case declines in Hausa. One case still answered from outside knowledge (Hausa farm loan). Not yet deployed to the website. |
+| KI-1 | Citizen Services: on a question outside the demo notes (Hausa airfare), N-ATLaS gave general advice instead of saying the notes don't cover it. It ignores the "answer only from the notes" system instruction. | **Fixed in the kit code for the reported case** (section 18): structured prompt; out-of-scope declined cleanly 5/6 (was 1/6), the Hausa airfare case declines in Hausa. One case still answered from outside knowledge (Hausa farm loan). Live on the website since 2026-10-03 (section 27). |
 | KI-2 | Yoruba chat can degenerate into repeated or mutated syllables around "afẹ́fẹ́" ("afẹ́fẹ́fẹ́…", "fúnfúnfún…"). Without the guard: 1 full loop and 2 stutters in 11 runs. With `no_repeat_ngram_size = 10`: 1 full loop and 3 stutters in 12 runs. | **Closed as a known model limitation.** The n-gram guard was tried and removed. Citizen Services opens in Hausa (site version `a5b4ade5`); Yoruba is still selectable, with this caveat. |
 | KI-3 | Yoruba is the weakest language so far: most tone marks missing in chat replies, invented details, 74% WER on the one ASR clip, and the slowest chat (11–23 s vs 4–8 s for the other languages). | Known limitation of the current models; stated as a caveat. |
-| KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | **Fixed, live** (sections 20, 23, 24): per-key daily quota and share of the license cap, with `website-demos` at 3,000 requests per 24 h and 300 users, plus a per-IP limit on the website demos. The per-IP limit is approximate (Cloudflare's counters are per location). Must be listed in the final pre-submission status. |
+| KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | **Fixed, live** (sections 20, 23, 24): per-key daily quota and share of the license cap, with `website-demos` at 3,000 requests per 24 h and 300 users, plus a per-IP limit on the website demos. The per-IP limit is approximate (Cloudflare's counters are per location). Website user IDs are now derived on the server, so made-up IDs can't use up the share (section 27; checked live). Must be listed in the final pre-submission status. |
 | KI-5 | The Colab notebook couldn't decode browser recordings (webm), and had no GPU lock for concurrent requests. | **Fixed.** ffmpeg decoding and one GPU lock (`998a946`), both verified live (section 17, steps 2–3). |
 | KI-6 | The Colab notebook's chat reply has no token `usage` field, so the smoke test prints `undefined` for it. | Cosmetic. |
 | KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | **Fixed.** With `chunk_length_s=30`, 10/10 long clips transcribe (section 11). The earlier 0/10 was a patch cell run twice (section 9). |
@@ -701,6 +762,6 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 | KI-9 | The gateway reported a backend 500 as `503 backend_unavailable`, and the SDK retried it. | **Fixed.** Deployed; confirmed live on 2026-10-03 (`502 backend_error`, not retried). |
 | KI-10 | Education kit: the level framing varies from run to run (a secondary answer sometimes comes back in a young-child register), and answers can contain factual slips: glucose as "a sweet drink"; O₂ missing its coefficient in the photosynthesis equation. | **Content-accuracy limitation of the model.** Documented, not being chased. |
 | KI-11 | Audio over ~30 s lost words in the backend's chunked ASR mode: transcripts were 39–79% of reference length on clips over ~37 s. | **Fixed for 38–54 s clips:** the backend now sends plain 25 s pieces, and words kept went from 39–61% to 83–99% (section 17). On 89–123 s free speech some loss remains with clean pieces too (model). Documented reliable limit: 30 s per request. The Customer Service recorder caps at 30 s and splits uploads. |
-| KI-12 | Customer Service drafts: with a Yoruba note, N-ATLaS translated the required format labels and picked a category outside the allowed list. With a Hausa note it kept the format, but its "reply" restated the customer's words instead of answering them. | **Format fixed in the kit code** (section 18): followed 10/10 (was 3/10), both reported notes re-run and passing. Category choice is still model judgment (6–8/10 as expected). Not yet deployed to the website. |
+| KI-12 | Customer Service drafts: with a Yoruba note, N-ATLaS translated the required format labels and picked a category outside the allowed list. With a Hausa note it kept the format, but its "reply" restated the customer's words instead of answering them. | **Format fixed in the kit code** (section 18): followed 10/10 (was 3/10), both reported notes re-run and passing. Category choice is still model judgment (6–8/10 as expected). Live on the website since 2026-10-03 (section 27). |
 | KI-13 | The notebook's `latency_seconds` includes time spent waiting for the GPU lock, so it overstates model time under concurrent load. | Cosmetic. Measurement note only. |
 | KI-14 | Speech output, two separate problems (section 24). **(1) Too slow:** SoroTTS renders at about 10 s per second of audio on a T4, so multi-sentence Hausa, Yoruba and Igbo replies don't finish within the free tunnel's timeout (HTTP 524; failed in 3 of 3 languages). **(2) Low quality:** the MMS-TTS engine has much higher heard-back word error rates for Hausa (32%), Yoruba (79%; 38% ignoring tone marks) and Igbo (72%) than for English (2%). That is a real quality gap, not a timeout artifact. | **(1) Fixed for multi-sentence replies** (section 25): `auto` sends anything past one sentence to MMS-TTS. Re-verified: 10/10 renders, no 524s. A long *single* sentence still goes to SoroTTS (79–122 s measured), so a 524 there is still possible. **(2) Open, confirmed on re-test:** MMS-TTS Hausa 36–40%, Yoruba 61% (26% ignoring tone marks), Igbo 79%, against English 2–5%. A limit of the available speech models. Speech is shown in English only; the website's speech switch stays off. |

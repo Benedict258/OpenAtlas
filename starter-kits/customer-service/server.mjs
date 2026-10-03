@@ -5,6 +5,9 @@ import { extname } from "node:path";
 import { OpenAtlas } from "@openatlas/sdk";
 import { ticket, report, speakDraft } from "./kit.mjs";
 
+// "online" | "loading" | "offline": whether the gateway can reach a GPU backend with its models loaded.
+const backendState = (health) => (health.backend?.reachable !== true ? "offline" : health.backend.status === "ok" ? "online" : health.backend.status === "loading" ? "loading" : "offline");
+
 const client = new OpenAtlas();
 const ROUTES = { "POST /api/support/ticket": ticket, "POST /api/support/report": report, "POST /api/support/speak": speakDraft };
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
@@ -28,7 +31,7 @@ createServer(async (req, res) => {
     if (route === "GET /api/status") {
       const health = await fetch(`${client.baseURL}/v1/health`).then((r) => r.json());
       // speech: the gateway allows speak() and the backend's speech renderer is loaded.
-      return send(res, 200, { mock: health.backend?.mock === true, speech: health.tts_enabled === true && health.backend?.tts?.status === "ok" });
+      return send(res, 200, { mock: health.backend?.mock === true, speech: health.tts_enabled === true && health.backend?.tts?.status === "ok", backend: backendState(health) });
     }
     if (req.method === "GET") {
       const file = req.url === "/" ? "index.html" : req.url.slice(1);
