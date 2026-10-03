@@ -5,6 +5,9 @@ import { normalizeText } from "openatlas";
 
 // ASR language code → chat language code (Nigerian-accented English replies in English).
 const CHAT_LANGUAGE = { ha: "ha", yo: "yo", ig: "ig", "en-ng": "en" };
+// Speech recognition is reliable on up to 30 s at a time (deploy/REPORT.md, KI-11), so longer notes
+// arrive as several pieces of up to ~25 s, cut in the browser. Five pieces is about two minutes.
+const MAX_PIECES = 5;
 // reportIssue() accepts up to ~1 MB of base64 audio; longer clips are reported as text only.
 const MAX_REPORT_AUDIO = 1_400_000;
 
@@ -18,12 +21,22 @@ const TRIAGE_PROMPT = [
 
 const badRequest = (message) => Object.assign(new Error(message), { status: 400 });
 
-export async function ticket(client, { audio, language, user } = {}) {
-  if (typeof audio !== "string" || !audio) throw badRequest("Record or upload a voice note first.");
+export async function ticket(client, { audio, pieces, language, user } = {}) {
+  // `pieces`: the note cut into ≤25 s parts (what the kit's page sends); `audio`: one clip of ≤30 s.
+  const parts = Array.isArray(pieces) ? pieces : typeof audio === "string" && audio ? [audio] : [];
+  if (parts.length === 0 || !parts.every((p) => typeof p === "string" && p)) throw badRequest("Record or upload a voice note first.");
+  if (parts.length > MAX_PIECES) throw badRequest("Voice notes are limited to about two minutes.");
   if (!CHAT_LANGUAGE[language]) throw badRequest("Choose a language.");
-  // Step 1: speech → text with the matching N-ATLaS ASR model, then repair any broken characters.
-  const transcript = await client.transcribe({ audio, language, user });
-  const text = normalizeText(transcript.text, { language });
+  // Step 1: speech → text with the matching N-ATLaS ASR model, one piece at a time, then repair any
+  // broken characters.
+  const texts = [];
+  let asrModel = "";
+  for (const part of parts) {
+    const t = await client.transcribe({ audio: part, language, user });
+    texts.push(t.text.trim());
+    asrModel = t.model;
+  }
+  const text = normalizeText(texts.filter(Boolean).join(" "), { language });
   // Step 2: triage + draft with the N-ATLaS LLM.
   const draft = await client.chat({
     messages: [
@@ -33,7 +46,7 @@ export async function ticket(client, { audio, language, user } = {}) {
     language: CHAT_LANGUAGE[language],
     user,
   });
-  return { transcript: text, asrModel: transcript.model, draft: draft.content, llmModel: draft.model };
+  return { transcript: text, pieces: parts.length, asrModel, draft: draft.content, llmModel: draft.model, attribution: draft.attribution };
 }
 
 export async function report(client, { audio, transcript, correction, language, user } = {}) {
