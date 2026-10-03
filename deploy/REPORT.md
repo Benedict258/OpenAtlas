@@ -263,6 +263,38 @@ Corpus WER for these long clips: Hausa 55.1% (3 clips); Yoruba 63.0%, or 54.2% i
 - The cause is not established. Candidates are the chunking boundaries (the default overlap between chunks), and the fine-tuned models skipping speech in long free-form recordings.
 - Logged as KI-11. **For now, the reliable range for `transcribe()` is up to about 30 s per request.**
 
+### 12. Education demo switched on for the website: PASS
+
+`site/live-kits.mjs` now lists Citizen Services and Education; Customer Service stays paused. Live on site version `8f7352f8`.
+- `/kits/education.js` is served (200).
+- One paused window remains, Customer Service.
+- Browser test on the live site at 390 px phone width: 7/7, the same checks as section 10. The correction was stored (`b1d05df1…`).
+
+| Language / level | Time | Result |
+|---|---|---|
+| ha / primary | 13.3 s | The same sensible explanation of rainfall as section 10 |
+| en / secondary | 35.2 s | This time a genuinely secondary-level answer: stomata, roots and the photosynthesis equation. The equation is printed as "6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + O₂", missing the 6 before O₂. Earlier runs gave a young-child register (section 10). |
+
+So the level framing varies from run to run, and the answers can contain factual slips. KI-10 is reclassified as a **content-accuracy limitation** of the model, not a bug to chase.
+
+### 13. KI-11 check: is audio lost at chunk boundaries, or by the model? Mostly the chunker
+
+**The one bounded check:** the 6 long clips with the largest word loss were split locally into plain 25 s pieces, with no overlap. Each piece was sent as its own `transcribe()` call, so the backend never chunks anything. The joined transcripts were compared with the backend-chunked run in section 11. Script: `deploy/asr-split-check.mjs`.
+
+| Clip | Audio | Reference words | Backend-chunked: words (ratio), WER | Split into 25 s pieces: words (ratio), WER |
+|---|---|---|---|---|
+| ha-29 | 44.1 s | 131 | 57 (0.44), 68% | **123 (0.94), 22%** |
+| yo-14 | 37.9 s | 90 | 35 (0.39), 81% | **75 (0.83), 47%** |
+| yo-17 | 54.3 s | 95 | 58 (0.61), 55% | **94 (0.99), 23%** |
+| yo-34 | 122.6 s | 332 | 213 (0.64), 65% | 209 (0.63), 67% |
+| yo-44 | 89.3 s | 254 | 153 (0.60), 77% | 186 (0.73), 70% |
+| yo-46 | 90.6 s | 215 | 142 (0.66), 51% | 182 (0.85), 58% |
+
+**Verdict: mostly a fixable chunking bug.**
+- For the 38–54 s clips, simple splitting recovers nearly all the words and cuts WER from 55–81% to 22–47%. So the backend's chunked pipeline (`chunk_length_s=30, batch_size=8`) is dropping speech the model can transcribe.
+- On the three 89–123 s recordings, splitting helps less, or not at all (yo-34). There, some loss also comes from the model or the recordings themselves.
+- Not pursued further, as agreed. The likely fix is to split long audio into ≤30 s pieces on the server, instead of using the pipeline's chunked mode. Until that is done and verified, **30 s per request is the documented reliable limit.**
+
 ---
 
 ## Known issues
@@ -278,5 +310,5 @@ Corpus WER for these long clips: Hausa 55.1% (3 clips); Yoruba 63.0%, or 54.2% i
 | KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | **Fixed.** With `chunk_length_s=30`, 10/10 long clips transcribe (section 11). The earlier 0/10 was a patch cell run twice (section 9). |
 | KI-8 | ASR accuracy on conversational speech is modest: corpus WER Hausa 41%, Yoruba 56% (45% ignoring tone marks), Igbo 60–101% on a tone-marked multi-dialect benchmark, Nigerian English 26% (section 8). | Known limitation of the models; stated as a caveat. |
 | KI-9 | The gateway reported a backend 500 as `503 backend_unavailable`, and the SDK retried it. | **Fixed.** Deployed; confirmed live on 2026-10-03 (`502 backend_error`, not retried). |
-| KI-10 | Education kit: at secondary level, N-ATLaS still answers in a young-child register, with a factual slip (glucose as "a sweet drink"). Primary level works as intended. | Known model behaviour; stated as a caveat. |
-| KI-11 | Audio longer than about 30 s transcribes, but loses words: transcripts are 39–79% of reference length on clips over ~37 s, against a median 91% for clips of 30 s or less. | Open. Cause not established. Documented limit: about 30 s per request for reliable results. |
+| KI-10 | Education kit: the level framing varies from run to run (a secondary answer sometimes comes back in a young-child register), and answers can contain factual slips: glucose as "a sweet drink"; O₂ missing its coefficient in the photosynthesis equation. | **Content-accuracy limitation of the model.** Documented, not being chased. |
+| KI-11 | Audio longer than about 30 s transcribes, but loses words: transcripts are 39–79% of reference length on clips over ~37 s, against a median 91% for clips of 30 s or less. | **Mostly a chunking bug** (section 13): splitting into plain 25 s pieces recovers most words on 38–54 s clips. Not fixed. Documented limit: 30 s per request. The Customer Service recorder must enforce or split at 30 s. |
