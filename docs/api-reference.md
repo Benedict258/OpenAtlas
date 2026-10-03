@@ -109,6 +109,8 @@ await client.reportIssue({
 });
 ```
 
+Structured prompts: `buildPrompt(spec, input)` returns `messages` for `chat()`. The base layer comes from OpenAtlas; your app adds `role`, `task`, and optional `reference`, `format`, `example` and `reminder`. See the README and deploy/REPORT.md, section 18 for what it measurably changed.
+
 Retries: network errors and 503 are retried with backoff (1 s, 2 s, …), up to `maxRetries`. 4xx, 502 and 504 errors are never retried. A `429 license_cap_reached` won't go away by retrying.
 
 ## Language codes

@@ -111,6 +111,31 @@ It does **not** add tone marks that were never typed: missing marks stay missing
 
 Records a wrong N-ATLaS output and its correction. `kind` is `"chat"` (needs `input`, the prompt) or `"transcription"` (can include `audio`, up to ~1 MB base64, so the corrected transcript is paired with its audio). Reports are stored by OpenAtlas and exportable as a correction dataset. Nothing is stored unless you call this, so tell your users when you do. `user` is optional here and hashed.
 
+### `buildPrompt(spec, input)` → `messages`
+
+Local, no network. Builds a structured system prompt for `chat()`. OpenAtlas supplies a base layer: role line, rules (follow the task; reply language; keep format labels in English; don't guess; be concise). Your app adds its own `role`, `task`, and optional `reference`, `format`, `example` and `reminder` (repeated after the user's input).
+
+```ts
+const messages = buildPrompt({
+  language: "ha",
+  role: "You help a small business triage customer messages.",
+  task: "Classify the message, then draft a reply that answers the customer.",
+  format: "Category: one of billing, delivery, other\nDraft reply: <the reply>",
+  reminder: "Reply in that format: labels in English, the draft reply in {language}.",
+  inputLabel: "Customer message:",
+}, transcript);
+const { content } = await client.chat({ messages, user }); // no `language`: the prompt already states it
+```
+
+Measured on the starter kits (deploy/REPORT.md, section 18):
+- **Customer Service:** the three-line format was followed 10/10, against 3/10 for the previous free-form prompt.
+- **Citizen Services:** out-of-scope questions were declined cleanly 5/6, against 1/6.
+- **Education:** no measurable change, so it keeps its own prompt.
+
+Two cautions from the same measurements:
+- **Examples are copied closely,** including their language: write an example reply in the reply language.
+- **With fixed format labels, don't pass `language` to `chat()`:** the gateway's added "Respond in …" line comes last, and it made the model translate the labels.
+
 ### `user` is required on `chat` and `transcribe`
 
 N-ATLaS's license caps usage at 1,000 active **end users** per rolling 30 days, meaning the people interacting with N-ATLaS output through your app. So every call must include `user`: a stable, opaque ID for the person your app is serving, such as a database ID or a random per-browser ID. Don't send names or emails. The gateway hashes the ID and uses it only for this count. Requests without it are refused with `400 missing_user`.
@@ -189,10 +214,17 @@ Measured, not estimated. Details and verbatim outputs are in [`deploy/REPORT.md`
   - NIMC described as handling e-passports (that's the Immigration Service);
   - glucose called "a sweet drink";
   - a chemical equation missing a coefficient.
-- **Instructions are followed loosely:**
-  - Told to answer only from given notes, N-ATLaS answered an out-of-scope question with general advice instead of declining.
-  - Asked for secondary-school level, it sometimes answers as if to a young child.
-  - In the Customer Service kit, it once translated the required format labels into Yoruba. It also wrote a "reply" that restated the customer's message instead of answering it.
+- **Instructions are followed loosely with free-form prompts.** A structured prompt ([`buildPrompt()`](#buildpromptspec-input--messages)) measurably helps in two kits (deploy/REPORT.md, section 18):
+  - **Citizen Services, answering only from given notes:**
+    - with its previous prompt, N-ATLaS declined cleanly on 1 of 6 out-of-scope questions, and gave general advice or invented details on the others;
+    - with the structured prompt it declined cleanly on 5 of 6;
+    - one, a farm-loan question, was still answered from outside knowledge.
+  - **Customer Service:**
+    - with its previous prompt, the fixed three-line format was followed in 3 of 10 drafts; Yoruba and Igbo drafts translated the format labels;
+    - with the structured prompt it was followed in 10 of 10;
+    - choosing the right category is still hit and miss: 6–8 of 10.
+  - **Education:** asked for secondary-school level, N-ATLaS sometimes answers as if to a young child. A structured prompt did not measurably fix this.
+  - **Website:** the structured prompts are in the kits' code, but not yet on the website's demos.
 
 **`transcribe()` quality**, word error rate (WER) on 10–20 real recordings per source (2026-10-02). These are small samples, not benchmarks, and the clips may overlap the models' training data:
 

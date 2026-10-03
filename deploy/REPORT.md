@@ -382,13 +382,99 @@ Backend: a fresh Colab run of `natlas_colab.ipynb` at commit `998a946` (`synthet
   - Draft: "Category: other / Urgency: low / Draft reply: Ina matukar sha'awar wasannin tsere na dawaki, …". The format was followed, but the "reply" restates the customer's own words ("I'm very interested in horse racing…") instead of answering them.
 - **Correct this transcript, with audio,** via the live site API: stored (`c971a126…`, 1.9 s, `audio_included: true`). The operator export shows `has_audio: 1`.
 
+### 18. System prompts: does a structured prompt layer improve instruction-following?
+
+**Question.** KI-1, KI-10 and KI-12 are all cases of N-ATLaS not following the kit's instructions. Does a defined, structured system prompt measurably fix them, compared with each kit's free-form prompt?
+
+**Method** (script: `deploy/prompt-eval.mjs`; raw replies: `deploy/prompt-eval-results.jsonl`, gitignored).
+- **Backend:** the live gateway and the real N-ATLaS, on the same Colab backend (`synthetic-occupations-dragon-specialist…`), 2026-10-03. Temperature 0.1, the gateway default.
+- **Variants:**
+  - **A:** each kit's previous prompt.
+  - **B:** a structured prompt: a shared base layer (role; rules: follow the task, reply language, keep format labels in English, don't guess; be concise), plus the kit's own sections (task, reference notes, output format, one example).
+  - **C to H:** variations on B, to find out *why* B helped or failed (listed in the script header).
+- **Same input for every variant:** the same inputs, the same `chat()` path, and the same `user` ID.
+- **Scoring:**
+  - Customer Service is scored automatically: three English labels, an allowed category and urgency, and the category matching the one I expected.
+  - Citizen Services and Education replies were read and scored by me, with a fixed rubric for out-of-scope questions:
+    - **clean** says the notes don't cover it and adds no named outside sources or facts;
+    - **partial** declines but names outside sources;
+    - **fail** answers from outside knowledge.
+- **Sample size:** small, 10 Customer Service inputs, 10 Citizen Services questions and 6 Education prompts per variant. Differences of one or two cases are within noise. Replies at temperature 0.1 are *not* fully deterministic: the same Yoruba draft came back with different wording in two runs.
+
+**Customer Service (KI-12): large, consistent improvement.** Inputs:
+- two real transcripts behind KI-12 (Yoruba, Hausa);
+- eight written complaints, two per language (en, ha, yo, ig), with an obvious category each.
+
+| Variant | Format followed (English labels, allowed values) | Category as expected | Reply in the customer's language |
+|---|---|---|---|
+| A (previous prompt) | 3/10 | 3/10 | — |
+| B structured | 6/10 | 6/10 | — |
+| C = B without the gateway's trailing "Respond in X." | 8/10 | 7/10 | 9/10 |
+| D = C + format reminder after the message | **10/10** | 8/10 | 9/10 |
+| **E** = D, reminder also names the reply language | **10/10** | 6/10 | **10/10** |
+
+What caused the failures:
+1. In Yoruba and Igbo, the model translated the format labels ("Kíláàsì:", "Ẹka:", "Nkeji:", "Uru:"), and in Hausa it once put all three fields on one line. The gateway's "Respond in Yoruba." is the *last* line of the system prompt, and the model followed it over the format: removing it (C) fixed most of the label translation.
+2. Repeating the format after the customer's message (D) fixed the rest.
+3. Without the language line, one English complaint was answered in Igbo (C and D). Naming the language in the reminder (E) fixed that.
+
+Category accuracy stays model judgment. "I paid … but it hasn't arrived" was classed as billing rather than delivery in E (4 misses). Drafts in B to E answer the customer rather than restate them, apart from one copied example: B's Yoruba draft repeated the example's "I paid for my order last week".
+
+**Citizen Services (KI-1): fixed, with a language trade-off found and resolved.** Inputs:
+- six questions the notes don't cover: airfare in ha, yo and ig; a licence fee; a hospital; a farm loan;
+- four questions they do cover: voter registration, passport, NIN, BVN.
+
+| Variant | Out-of-scope: clean / partial / fail | In-scope answered from notes | Reply in the asked language |
+|---|---|---|---|
+| A (previous prompt) | 1 / 1 / 4 | 4/4 | 10/10 |
+| B structured, English example | **6 / 0 / 0** (same in a repeat run) | 4/4 | 8/10: both Hausa declines in English |
+| E = B + reminder, no gateway language line | 6 / 0 / 0 | 4/4 | 7/10 |
+| F = B without the example | 4 / 1 / 1 | 4/4 | 10/10 |
+| G = marker "NOT_IN_NOTES" instead of a written decline | 6 / 0 / 0 | **2/4**: declined voter registration and passport | — |
+| **H** = B with the example reply in the reply language | **5 / 0 / 1** | 4/4 | **10/10** |
+
+Findings:
+- **Under the previous prompt**, A gave airline-search advice for airfare, an invented list of "best hospitals in Abuja", and named FMARD and Jaiz Bank for farm loans.
+- **The one example decline drives clean declines**, and it also drags the decline into its own language. Without it (F), the outside advice comes back: Travelstart.com for airfare, FMARD for farm loans. With an English example (B, E), Hausa declines come back in English. Written in the reply language (H), the declines are clean and in the right language. The one remaining failure is the Hausa farm-loan question, answered from outside knowledge.
+- **Correction to an interim figure:** an early "F" run sent B's prompt by mistake (a script bug ignored the option). It was relabelled `B-repeat` in the results file, and F was re-run. Under the rubric above, the real F run scores 4/1/1; I had reported "2 clean, 3 partial" mid-run before fixing the rubric.
+
+**Education (KI-10): no measurable improvement; not changed.** Three questions (two English, one Hausa) at both levels, A vs B.
+- **Better:** B fixed the reproduced KI-10 case. The secondary photosynthesis answer under A was again "a magic power … a yummy, sweet drink called glucose"; under B it was teen-level, with the correct balanced equation.
+- **Worse:**
+  - B's primary answer for fractions used "numerator/denominator" despite "no technical terms";
+  - its secondary fractions answer got *shorter* (82 words, below the 120 asked);
+  - its secondary photosynthesis answer ran to 305 words (cap 250);
+  - its primary photosynthesis answer still had "a yummy, sweet drink called glucose".
+- **Conclusion:** the level framing is not measurably more reliable under B. The Education kit keeps its prompt, and KI-10 stays a content-accuracy limitation.
+
+**What was built.**
+- **The layer lives in the SDK,** not the gateway: `buildPrompt(spec, input)` and `systemPrompt(spec)` in `packages/sdk/src/prompt.ts`.
+  - OpenAtlas supplies the base layer (role line, rules, reply language).
+  - Each app passes its own `role`, `task`, and optional `reference`, `format`, `example` and `reminder`.
+  - **Why the SDK:** developers can see and test the exact prompt; kits can extend it; and the gateway keeps passing messages through unchanged.
+  - The doc comments carry the two measured cautions: examples are copied closely, including their language; and drop `language` when the format has fixed labels.
+  - 5 unit tests; SDK suite 29/29.
+- **Citizen Services** uses variant H. **Customer Service** uses variant E, calling `chat()` without `language`.
+- **Checked** byte for byte against the evaluated prompts, by capturing what each kit's code sends (8/8 identical).
+
+**Known-issue cases re-run through the kits' own code** (`deploy/prompt-known-issues.mjs`), live gateway, real N-ATLaS:
+- **KI-1, Hausa airfare** (5.8 s, same in two runs): "Yi hakuri, bayanan da nake da su bai kunshi bayani kan kudin tikitin jirgin sama daga Kano zuwa Legas ba, don haka ba zan iya amsa wannan ba." A clean decline, in Hausa. **Fixed for this case.**
+- **KI-12, Yoruba 51 s voice note** (real audio, speech recognition then draft, 15–19 s): "Category: other / Urgency: low / Draft reply: …". English labels, allowed values, in Yoruba. **Format fixed.**
+  - The draft's wording varied between the two runs ("we will address your questions quickly" / a vaguer line).
+  - The transcript itself is garbled (KI-8), so there is little to answer.
+- **KI-12, Hausa 26.7 s voice note** (15.9 s): "Category: Other / Urgency: Low / Draft reply: Muna godiya da sha'awar ku ga wasannin tsere na dawaki. Za mu iya taimaka muku …". It answers rather than restating the customer. **Fixed for this case.**
+
+**Not yet deployed:** the website's demos still run the previous prompts until the site is redeployed.
+
+**Not checked by a native speaker:** the Hausa, Yoruba and Igbo example declines in the Citizen Services kit were written by the developer.
+
 ---
 
 ## Known issues
 
 | ID | Issue | Status |
 |---|---|---|
-| KI-1 | Citizen Services: on a question outside the demo notes (Hausa airfare), N-ATLaS gave general advice instead of saying the notes don't cover it. It ignores the "answer only from the notes" system instruction. | Open. Tracked, not being fixed yet. |
+| KI-1 | Citizen Services: on a question outside the demo notes (Hausa airfare), N-ATLaS gave general advice instead of saying the notes don't cover it. It ignores the "answer only from the notes" system instruction. | **Fixed in the kit code for the reported case** (section 18): structured prompt; out-of-scope declined cleanly 5/6 (was 1/6), the Hausa airfare case declines in Hausa. One case still answered from outside knowledge (Hausa farm loan). Not yet deployed to the website. |
 | KI-2 | Yoruba chat can degenerate into repeated or mutated syllables around "afẹ́fẹ́" ("afẹ́fẹ́fẹ́…", "fúnfúnfún…"). Without the guard: 1 full loop and 2 stutters in 11 runs. With `no_repeat_ngram_size = 10`: 1 full loop and 3 stutters in 12 runs. | **Closed as a known model limitation.** The n-gram guard was tried and removed. Citizen Services opens in Hausa (site version `a5b4ade5`); Yoruba is still selectable, with this caveat. |
 | KI-3 | Yoruba is the weakest language so far: most tone marks missing in chat replies, invented details, 74% WER on the one ASR clip, and the slowest chat (11–23 s vs 4–8 s for the other languages). | Known limitation of the current models; stated as a caveat. |
 | KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | Open. Must be listed in the final pre-submission status. |
@@ -399,5 +485,5 @@ Backend: a fresh Colab run of `natlas_colab.ipynb` at commit `998a946` (`synthet
 | KI-9 | The gateway reported a backend 500 as `503 backend_unavailable`, and the SDK retried it. | **Fixed.** Deployed; confirmed live on 2026-10-03 (`502 backend_error`, not retried). |
 | KI-10 | Education kit: the level framing varies from run to run (a secondary answer sometimes comes back in a young-child register), and answers can contain factual slips: glucose as "a sweet drink"; O₂ missing its coefficient in the photosynthesis equation. | **Content-accuracy limitation of the model.** Documented, not being chased. |
 | KI-11 | Audio over ~30 s lost words in the backend's chunked ASR mode: transcripts were 39–79% of reference length on clips over ~37 s. | **Fixed for 38–54 s clips:** the backend now sends plain 25 s pieces, and words kept went from 39–61% to 83–99% (section 17). On 89–123 s free speech some loss remains with clean pieces too (model). Documented reliable limit: 30 s per request. The Customer Service recorder caps at 30 s and splits uploads. |
-| KI-12 | Customer Service drafts: with a Yoruba note, N-ATLaS translated the required format labels and picked a category outside the allowed list. With a Hausa note it kept the format, but its "reply" restated the customer's words instead of answering them. | Content and instruction-following limitation of the model (like KI-1, KI-10). Documented, not being chased. |
+| KI-12 | Customer Service drafts: with a Yoruba note, N-ATLaS translated the required format labels and picked a category outside the allowed list. With a Hausa note it kept the format, but its "reply" restated the customer's words instead of answering them. | **Format fixed in the kit code** (section 18): followed 10/10 (was 3/10), both reported notes re-run and passing. Category choice is still model judgment (6–8/10 as expected). Not yet deployed to the website. |
 | KI-13 | The notebook's `latency_seconds` includes time spent waiting for the GPU lock, so it overstates model time under concurrent load. | Cosmetic. Measurement note only. |
