@@ -306,6 +306,39 @@ So the level framing varies from run to run, and the answers can contain factual
 
 **Bug found on the first attempt:** an *empty* `OPENATLAS_BASE_URL`, common in `.env` templates, stopped the SDK falling back to the hosted gateway ("Missing gateway URL"). Fixed: empty environment variables now count as unset. New unit test; SDK tests 24/24.
 
+### 15. Customer Service, step 1 and step 3 backend fixes: built and tested locally, **not yet live**
+
+The changes are in `natlas_colab.ipynb` and `deploy/server/natlas_server.py`, commit `998a946`:
+- **Splitting (KI-11):** the ASR pipeline's `chunk_length_s` mode is replaced by explicit plain 25 s pieces, the method that recovered words in section 13. A leftover under 2 s joins the last piece.
+- **Decoding:** all audio goes through ffmpeg, so webm/opus and m4a work. Before, soundfile could not read browser recordings.
+- **GPU lock:** one lock serialises chat generation and ASR.
+- **Request handling:** the transcription endpoint is a plain `def`, so it runs off the event loop.
+
+**Local test with stub models** (no model involved; real ffmpeg decoding of real audio): 7/7.
+- A 122.6 s Yoruba clip as wav, webm (opus), m4a (aac) and mp3: each decodes, and splits into 5 pieces of 25/25/25/25/22.6 s.
+- A 51 s clip gives pieces of 25 s then 26 s. A first version of the leftover merge overwrote the *first* piece; this test caught it before it shipped.
+- Undecodable bytes give 400 "Could not decode this audio".
+- 3 chat and 3 transcription requests fired at once: the GPU stubs never overlapped (maximum 1 concurrent job).
+
+**Live status:** the running Colab (`figure-changelog-inc-granted…`) is still the previous version. A direct transcription response has no `pieces` field. The live six-clip re-test, the webm test and the concurrency test wait for a fresh Colab run of this version.
+
+### 16. Customer Service, step 2: recorder with the 30 s rule, tested against the MOCK backend, **not yet live**
+
+The changes are in `starter-kits/customer-service`, commit `cf4c326`:
+- Recording stops itself at 30 s, with a countdown.
+- Every note is converted in the browser to 16 kHz mono WAV.
+- Notes over 30 s are cut into plain parts of up to 25 s, and the review step warns about this before anything is sent.
+- Uploads over 2 minutes are refused.
+- The kit transcribes each part, then drafts once from the joined transcript.
+
+**Browser test, headless Chrome with a fake microphone, against the mock backend** (UI logic only, no N-ATLaS): 10/10.
+- A 90.6 s upload: the review says "4 parts … only reliable on 30 s at a time".
+- A 51 s upload gives 2 parts; a 20 s upload gives one clip, with no warning.
+- A 130 s upload is refused.
+- Recording shows a countdown ("28 s left") and stopped itself at 29.9 s, staged as one clip.
+- Nothing is sent before "Send voice note".
+- Sending made exactly one request, carrying 2 WAV pieces. The mock transcribed both, and the draft came back with "Powered by Awarri".
+
 ---
 
 ## Known issues
