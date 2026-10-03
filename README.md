@@ -17,10 +17,9 @@ Plus three starter kits (citizen services, education, customer service) that use
 > OpenAtlas is a **non-commercial developer and research resource**. N-ATLaS's Terms of Use cap usage at **1,000 active end-users per rolling 30 days**; the gateway enforces that cap.
 
 > **Status (2026-10-03):**
-> - **Checked against the real N-ATLaS models through the public gateway:** `chat()` in English, Hausa, Yoruba and Igbo; `transcribe()` in all four ASR languages on 90 real recordings; `reportIssue()`; and the Citizen Services and Education kits in a browser.
+> - **Checked against the real N-ATLaS models through the public gateway:** `chat()` in English, Hausa, Yoruba and Igbo; `transcribe()` in all four ASR languages on 90 real recordings; `reportIssue()`; and all three starter kits in a browser on the live website.
 > - **Evidence:** every check, with verbatim outputs, timings and failures, is in [`deploy/REPORT.md`](deploy/REPORT.md).
 > - **Hosting is interim:** the models run on Google Colab, which is up only while the notebook runs. At other times calls return `503 backend_unavailable`. NiHub is the planned persistent host.
-> - **Not yet checked live:** the Customer Service kit.
 
 ## Quickstart
 
@@ -94,8 +93,8 @@ Text generation with the N-ATLaS LLM. `language` (`en`, `ha`, `yo`, `ig`) adds a
 Speech-to-text with the N-ATLaS ASR model for `language`. `model` is that model's ID (e.g. `"NCAIR1/Hausa-ASR"`).
 
 `audio` can be raw bytes (`Uint8Array`/`ArrayBuffer`/`Buffer`), a `Blob`/`File` (e.g. a browser recording) or a base64 string.
-- **Formats:** wav, flac, ogg and mp3 work on every backend. webm and m4a work only on a backend that decodes through ffmpeg. `deploy/server/natlas_server.py` does; the Colab notebook currently serving does not.
-- **Length:** keep each request to **30 seconds of audio or less.** Longer audio is accepted, but currently loses words (see [Known limitations](#known-limitations)). Split longer recordings into ≤30 s pieces.
+- **Formats:** anything ffmpeg decodes: wav, mp3, ogg, flac, and the webm (Chrome, Firefox) and m4a (Safari) that browsers record. Checked live on 2026-10-03.
+- **Length:** **30 seconds or less per request is the reliable range.** Longer audio is accepted: the backend cuts it into plain 25 s pieces. But on very long free speech (90 s and more) some words are still lost (see [Known limitations](#known-limitations)). For long recordings, split them yourself and check each part.
 - **Size:** about 7 MB per request. The SDK refuses larger audio before uploading. 16 kHz mono WAV, which is what the models use internally, is about 32 KB per second.
 
 ### `normalizeText(text, { language?, hausaApostrophes? })` → `string`
@@ -142,7 +141,7 @@ Minimal reference implementations, not products. Each one runs with `npm install
 
 - [Citizen Services](starter-kits/citizen-services/): local-language Q&A over a small, labeled demo dataset. The question goes through `normalizeText()`, then `chat()`. **Checked live**; running on the website.
 - [Education](starter-kits/education/): tutor explanations at primary or secondary level (`chat()`), with **Report a wrong answer** (`reportIssue()`). **Checked live**; running on the website.
-- [Customer Service](starter-kits/customer-service/): a voice note goes through `transcribe()` → `normalizeText()` → `chat()` for triage and a drafted reply, with **Correct this transcript** (`reportIssue()` with the audio). **Not yet checked live**; paused on the website.
+- [Customer Service](starter-kits/customer-service/): a voice note goes through `transcribe()` → `normalizeText()` → `chat()` for triage and a drafted reply, with **Correct this transcript** (`reportIssue()` with the audio). Recording stops at 30 s; longer uploads are split into parts, with a warning before sending. **Checked live**; running on the website.
 
 ## How it's built
 
@@ -193,6 +192,7 @@ Measured, not estimated. Details and verbatim outputs are in [`deploy/REPORT.md`
 - **Instructions are followed loosely:**
   - Told to answer only from given notes, N-ATLaS answered an out-of-scope question with general advice instead of declining.
   - Asked for secondary-school level, it sometimes answers as if to a young child.
+  - In the Customer Service kit, it once translated the required format labels into Yoruba. It also wrote a "reply" that restated the customer's message instead of answering it.
 
 **`transcribe()` quality**, word error rate (WER) on 10–20 real recordings per source (2026-10-02). These are small samples, not benchmarks, and the clips may overlap the models' training data:
 
@@ -204,8 +204,11 @@ Measured, not estimated. Details and verbatim outputs are in [`deploy/REPORT.md`
 | Igbo | IgboSynCorp, every syllable tone-marked, several dialects | 101% (the model doesn't write tone marks) | 61% |
 | Nigerian English | read and spontaneous speech | 26% | 26% |
 
-- **Audio over 30 s loses words.** It transcribes without error, but on clips over ~37 s the transcript had only 39–79% as many words as the reference, against 91% for shorter clips. A check showed that splitting the audio into plain 25 s pieces recovers most of them, so this is mostly fixable chunking behaviour on the backend; it is not fixed yet. **Keep requests to 30 s or less.**
-- **webm/m4a audio** (typical browser recordings) doesn't decode on the current Colab backend. wav, flac, ogg and mp3 do.
+- **Long audio:**
+  - **30 s or less per request is the reliable range.**
+  - Whisper's built-in chunking lost words on longer clips: transcripts were 39–79% of reference length. It was replaced by plain 25 s pieces.
+  - That brought 38–54 s clips back to 83–99% of the words, with WER 22–47% instead of 55–81%.
+  - On 89–123 s free speech, transcripts still had only 63–85% of the words.
 - **Stated by N-ATLaS:** dialect and accent bias, reduced accuracy on children's speech, limited handling of code-switching, and worse performance in noise.
 
 **OpenAtlas methods**
