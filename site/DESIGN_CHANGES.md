@@ -386,3 +386,7 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
 
 - Every page footer now carries the attribution N-ATLaS's terms require in all public use: "N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies." The site had none before.
 - The Product page code sample and the Docs return-value rows now show `model: "NCAIR1/N-ATLaS"` and `attribution: "Powered by Awarri"`, matching the API. The API no longer renames the models (`n-atlas-llm`, `n-atlas-asr-*`), because the terms require renamed models to carry "Powered by Awarri".
+
+## Starter kits page: Education demo live
+
+- The Education window is live again (`LIVE_KITS = ["citizen", "education"]`). Its pipeline was verified against live N-ATLaS on 2026-10-03; see deploy/REPORT.md, section 10. Customer Service stays paused.
