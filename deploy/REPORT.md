@@ -339,6 +339,49 @@ The changes are in `starter-kits/customer-service`, commit `cf4c326`:
 - Nothing is sent before "Send voice note".
 - Sending made exactly one request, carrying 2 WAV pieces. The mock transcribed both, and the draft came back with "Powered by Awarri".
 
+### 17. Customer Service go-live checks on the new backend: 4/4 steps PASS
+
+Backend: a fresh Colab run of `natlas_colab.ipynb` at commit `998a946` (`synthetic-occupations-dragon-specialist.trycloudflare.com`). Confirmed to be the new version: a direct transcription response carries `"audio_seconds"` and `"pieces"`. The steps were run in the agreed order, each gated on the one before.
+
+**Step 1: the six worst long clips, with server-side 25 s pieces: PASS.** The results are word for word what the manual split gave in section 13:
+
+| Clip | Audio | Words kept: `chunk_length_s` (§11) → server pieces | WER: §11 → server pieces |
+|---|---|---|---|
+| ha-29 | 44.1 s | 57 → **123** of 131 | 68% → **22%** |
+| yo-14 | 37.9 s | 35 → **75** of 90 | 81% → **47%** |
+| yo-17 | 54.3 s | 58 → **94** of 95 | 55% → **23%** |
+| yo-34 | 122.6 s | 213 → 209 of 332 | 65% → 67% |
+| yo-44 | 89.3 s | 153 → 186 of 254 | 77% → 70% |
+| yo-46 | 90.6 s | 142 → 182 of 215 | 51% → 58% |
+
+- The chunker's word loss is gone for 38–54 s clips.
+- The 89–123 s recordings still lose words with clean pieces too, as section 13 found. That part is the model on very long free speech.
+
+**Step 2: webm (and m4a) decoding: PASS.**
+- **Clips:** two real clips (Hausa 26.7 s, Nigerian English 7.5 s) converted to webm/Opus (what Chrome and Firefox record) and m4a/AAC (what Safari records), then sent directly to the backend.
+- **Result:** all 4 decoded and transcribed. The transcripts match the WAV ones; the only difference is one Hausa word ("ka ce" vs "kake") on the webm, from Opus compression.
+- **Through the public path:** webm sent as a `Blob` via SDK → gateway took 5.4 s and returned `model: "NCAIR1/Hausa-ASR"` with `attribution: "Powered by Awarri"`.
+
+**Step 3: GPU lock under concurrent requests: PASS** (script: `deploy/concurrency-check.mjs`).
+- **Concurrent:** 3 chats and 3 transcriptions (90.6 s, 51 s, 7.5 s of audio), fired at the backend at the same moment. All 6 returned HTTP 200, and the backend stayed healthy.
+- **Sequential:** the same 6 requests one at a time took **41.3 s** of model time in total.
+- **Comparison:** fired together, they finished in **42.6 s**, against a longest single request of 16.1 s. So the lock queued them. Had they shared the GPU, the total would have been near 16 s.
+- **Side finding:** the notebook's `latency_seconds` starts timing before the lock is acquired, so under load it includes queueing time.
+
+**Step 4: Customer Service switched on and tested end to end on the live site: PASS.**
+- `LIVE_KITS = ["citizen", "education", "support"]`, site version `a34f9d40`. No paused windows remain, and `/kits/support.js` serves the new recorder.
+- **Browser test** (headless Chrome, fake microphone, live site, real N-ATLaS): 10/10.
+  - The 90.6 s upload warns "4 parts"; 51 s gives 2 parts; 20 s gives one clip with no warning; 130 s is refused.
+  - Recording shows a countdown and stopped itself at 29.8 s.
+  - Nothing is sent before "Send voice note".
+  - Sending a 51 s Yoruba note made 1 request carrying 2 WAV pieces. Status: "Done: NCAIR1/Yoruba-ASR (2 parts) → NCAIR1/N-ATLaS. Powered by Awarri."
+  - Transcript (excerpt): "akú dídìwò ìbíré mi ni ṣé o jẹ́ ènìyàn tó máa ń ṣe ètò ǹkan bẹ́ẹ̀mì, mo jẹ́ nìyàn tó máa ń ṣètò ǹkan …". It is partly garbled, consistent with Yoruba WER.
+  - Draft: "Kategori: ibaraẹnisọrọ | Ipele Pataki: kekere | Idahun Ibeere: O ṣeun fun pinpin awọn iriri ati ero rẹ. …". The format labels were translated into Yoruba, and the category is not one of the allowed five.
+- **Hausa single clip** via the live site API (26.7 s), 11.3 s:
+  - Transcript: "wane wasa kake son yi? akwai wasan da nake son yi wannan wasa kuma shi ne wasan ɗere-tseren doki, …".
+  - Draft: "Category: other / Urgency: low / Draft reply: Ina matukar sha'awar wasannin tsere na dawaki, …". The format was followed, but the "reply" restates the customer's own words ("I'm very interested in horse racing…") instead of answering them.
+- **Correct this transcript, with audio,** via the live site API: stored (`c971a126…`, 1.9 s, `audio_included: true`). The operator export shows `has_audio: 1`.
+
 ---
 
 ## Known issues
@@ -349,10 +392,12 @@ The changes are in `starter-kits/customer-service`, commit `cf4c326`:
 | KI-2 | Yoruba chat can degenerate into repeated or mutated syllables around "afẹ́fẹ́" ("afẹ́fẹ́fẹ́…", "fúnfúnfún…"). Without the guard: 1 full loop and 2 stutters in 11 runs. With `no_repeat_ngram_size = 10`: 1 full loop and 3 stutters in 12 runs. | **Closed as a known model limitation.** The n-gram guard was tried and removed. Citizen Services opens in Hausa (site version `a5b4ade5`); Yoruba is still selectable, with this caveat. |
 | KI-3 | Yoruba is the weakest language so far: most tone marks missing in chat replies, invented details, 74% WER on the one ASR clip, and the slowest chat (11–23 s vs 4–8 s for the other languages). | Known limitation of the current models; stated as a caveat. |
 | KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | Open. Must be listed in the final pre-submission status. |
-| KI-5 | Before the Customer Service demo goes live: the notebook can't decode browser voice recordings (webm), and it has no GPU lock, so two requests at once can overlap on the GPU. | Deferred until Customer Service. |
+| KI-5 | The Colab notebook couldn't decode browser recordings (webm), and had no GPU lock for concurrent requests. | **Fixed.** ffmpeg decoding and one GPU lock (`998a946`), both verified live (section 17, steps 2–3). |
 | KI-6 | The Colab notebook's chat reply has no token `usage` field, so the smoke test prints `undefined` for it. | Cosmetic. |
 | KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | **Fixed.** With `chunk_length_s=30`, 10/10 long clips transcribe (section 11). The earlier 0/10 was a patch cell run twice (section 9). |
 | KI-8 | ASR accuracy on conversational speech is modest: corpus WER Hausa 41%, Yoruba 56% (45% ignoring tone marks), Igbo 60–101% on a tone-marked multi-dialect benchmark, Nigerian English 26% (section 8). | Known limitation of the models; stated as a caveat. |
 | KI-9 | The gateway reported a backend 500 as `503 backend_unavailable`, and the SDK retried it. | **Fixed.** Deployed; confirmed live on 2026-10-03 (`502 backend_error`, not retried). |
 | KI-10 | Education kit: the level framing varies from run to run (a secondary answer sometimes comes back in a young-child register), and answers can contain factual slips: glucose as "a sweet drink"; O₂ missing its coefficient in the photosynthesis equation. | **Content-accuracy limitation of the model.** Documented, not being chased. |
-| KI-11 | Audio longer than about 30 s transcribes, but loses words: transcripts are 39–79% of reference length on clips over ~37 s, against a median 91% for clips of 30 s or less. | **Mostly a chunking bug** (section 13): splitting into plain 25 s pieces recovers most words on 38–54 s clips. Not fixed. Documented limit: 30 s per request. The Customer Service recorder must enforce or split at 30 s. |
+| KI-11 | Audio over ~30 s lost words in the backend's chunked ASR mode: transcripts were 39–79% of reference length on clips over ~37 s. | **Fixed for 38–54 s clips:** the backend now sends plain 25 s pieces, and words kept went from 39–61% to 83–99% (section 17). On 89–123 s free speech some loss remains with clean pieces too (model). Documented reliable limit: 30 s per request. The Customer Service recorder caps at 30 s and splits uploads. |
+| KI-12 | Customer Service drafts: with a Yoruba note, N-ATLaS translated the required format labels and picked a category outside the allowed list. With a Hausa note it kept the format, but its "reply" restated the customer's words instead of answering them. | Content and instruction-following limitation of the model (like KI-1, KI-10). Documented, not being chased. |
+| KI-13 | The notebook's `latency_seconds` includes time spent waiting for the GPU lock, so it overstates model time under concurrent load. | Cosmetic. Measurement note only. |

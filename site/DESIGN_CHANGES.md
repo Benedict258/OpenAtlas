@@ -390,3 +390,12 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
 ## Starter kits page: Education demo live
 
 - The Education window is live again (`LIVE_KITS = ["citizen", "education"]`). Its pipeline was verified against live N-ATLaS on 2026-10-03; see deploy/REPORT.md, section 10. Customer Service stays paused.
+
+## Starter kits page: Customer Service demo live, with the 30-second recorder
+
+- All three kit windows are live (`LIVE_KITS = ["citizen", "education", "support"]`). Customer Service was verified end to end on 2026-10-03; see deploy/REPORT.md, section 17.
+- New behaviour in the Customer Service window, using its existing elements and styles:
+  - the record button shows a countdown ("Stop recording (28 s left)") and stops at 30 s;
+  - the review step says when a longer upload will be sent in parts, and why;
+  - uploads over 2 minutes are refused, with a message;
+  - the status line ends with "Powered by Awarri".

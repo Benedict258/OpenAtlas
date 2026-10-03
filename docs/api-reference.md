@@ -26,7 +26,7 @@ The gateway also sends N-ATLaS two settings that the caller doesn't control. Bot
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `audio` | base64 string | yes | wav, flac, ogg or mp3 on any backend; webm/m4a only on an ffmpeg backend (not the current Colab notebook). About 7 MB before encoding. **Keep to 30 s of audio or less**: longer audio is accepted but currently loses words |
+| `audio` | base64 string | yes | Any format ffmpeg decodes, including the webm/m4a browsers record. About 7 MB before encoding. **30 s or less is the reliable range**: longer audio is cut into 25 s pieces, but very long free speech still loses some words |
 | `language` | `"en-ng"\|"ha"\|"yo"\|"ig"` | yes | Selects the ASR model |
 | `user` | string | **yes** | As above |
 

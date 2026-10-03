@@ -38,8 +38,8 @@ export interface ChatResponse {
 
 /**
  * Raw bytes, a base64 string (a `data:` URL prefix is stripped), or a Blob/File (e.g. a browser recording).
- * Which formats decode depends on the backend: wav, flac, ogg and mp3 always; webm/m4a only on a backend
- * that decodes through ffmpeg (deploy/server/natlas_server.py does; the Colab notebook does not).
+ * Any format ffmpeg decodes, including the webm/m4a browsers record. 30 s or less per request is the
+ * reliable range (longer audio is split into 25 s pieces by the backend).
  */
 export type AudioInput = Uint8Array | ArrayBuffer | string | Blob;
 
