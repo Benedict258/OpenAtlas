@@ -59,8 +59,22 @@ With `kind: "runpod"` (fallback): `backend` is `{ kind, mock, llm_configured, as
 
 ### Admin (requires `Authorization: Bearer <ADMIN_TOKEN>`)
 
-- `POST /v1/admin/keys` with `{ "label": string }` returns `201 { id, label, key }`. The key is shown once and stored only as a SHA-256 hash.
-- `GET /v1/usage` returns `{ window_days, cap, active_users, requests_in_window, by_key: [{label, active_users}] }`.
+- `POST /v1/admin/keys` with `{ "label": string, "daily_request_limit"?: number|null, "max_active_users"?: number|null }` returns `201 { id, label, key, daily_request_limit, max_active_users }`.
+  - The key is shown once and stored only as a SHA-256 hash.
+  - Limits that are left out get the gateway defaults (`DEFAULT_DAILY_REQUEST_LIMIT`, `DEFAULT_KEY_MAX_ACTIVE_USERS`); `null` means no limit.
+- `GET /v1/admin/keys` lists every key with its limits and usage. Each entry has:
+  - `requests_24h`, `requests_window`, `errors_window`, `active_users_window`;
+  - `first_request_at`, `last_request_at`;
+  - `routes_window`: a count per route.
+
+  Keys themselves are never listed.
+- `POST /v1/admin/keys/revoke` with `{ id, reason? }`. It takes effect on the key's next request (`401 invalid_api_key`), and the key's usage history is kept.
+- `POST /v1/admin/keys/limits` with `{ id, daily_request_limit?, max_active_users? }`. Give a number, or `null` to remove the limit.
+- Limits are enforced before any model call:
+  - `429 key_quota_exceeded`: the key's requests in the last 24 h;
+  - `429 key_user_share_reached`: a *new* end user beyond the key's share of the license cap. Existing users continue.
+- `deploy/keys.mjs` wraps all of the above, plus a Markdown usage `report`.
+- `GET /v1/usage` returns `{ window_days, cap, active_users, requests_in_window, by_key: [{label, user_share, active_users, requests}] }`.
 - `POST /v1/key-requests` (no auth): the website's request form. `{ name, email, project, use_case, expected_users?, accept_terms: true }` returns `201 { id, status: "pending" }`; `409 request_pending` if that email already has one pending.
 - `GET /v1/admin/key-requests?status=pending|approved|declined` lists requests. `POST /v1/admin/key-requests/decide` with `{ id, decision: "approve" | "decline" }`: approving issues a key (returned once, labelled with the requester's email and project). `deploy/key-requests.mjs` wraps both.
 - `GET /v1/admin/issues?since=<ms>&limit=<1-500>&audio=1` exports issue reports, oldest first: `{ issues: [...], next_since }`. Without `audio=1`, each row has `has_audio` instead of the clip. Page by passing `next_since` back as `since`.
@@ -82,7 +96,7 @@ Every error looks like `{ "error": { "code": string, "message": string, "job_id"
 ## SDK
 
 ```ts
-import { OpenAtlas, OpenAtlasAPIError, OpenAtlasTimeoutError, normalizeText } from "openatlas";
+import { OpenAtlas, OpenAtlasAPIError, OpenAtlasTimeoutError, normalizeText } from "@openatlas/sdk";
 
 const client = new OpenAtlas({ apiKey, baseURL, timeoutMs: 300_000, maxRetries: 2 });
 

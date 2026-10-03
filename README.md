@@ -24,11 +24,11 @@ Plus three starter kits (citizen services, education, customer service) that use
 ## Quickstart
 
 ```bash
-npm install openatlas   # not on npm yet: until it is, use `npm install ./packages/sdk` from this repo (after `npm run build`)
+npm install @openatlas/sdk   # not on npm yet: until it is, use `npm install ./packages/sdk` from this repo (after `npm run build`)
 ```
 
 ```ts
-import { OpenAtlas, normalizeText } from "openatlas";
+import { OpenAtlas, normalizeText } from "@openatlas/sdk";
 
 const client = new OpenAtlas({ apiKey: process.env.OPENATLAS_API_KEY });
 
@@ -184,7 +184,7 @@ The backend is a config value, not code: `deploy/set-backend.mjs <url> <key>` re
 - **RunPod Serverless:** fallback (`BACKEND_KIND=runpod`, scripts in `deploy/llm`, `deploy/asr`). Not deployed.
 
 Repo map:
-- [`packages/sdk`](packages/sdk/): the `openatlas` npm package
+- [`packages/sdk`](packages/sdk/): the `@openatlas/sdk` npm package
 - [`gateway`](gateway/): Worker and D1 schema
 - [`deploy/server`](deploy/server/): the backend server (`natlas_server.py`) and the notebook generator
 - [`deploy/set-backend.mjs`](deploy/set-backend.mjs), [`deploy/smoke-gateway.mjs`](deploy/smoke-gateway.mjs): point the gateway at a backend, then run real calls through it

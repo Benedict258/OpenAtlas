@@ -1,7 +1,8 @@
 {
-  "name": "openatlas",
+  "name": "@openatlas/sdk",
   "version": "0.1.0",
   "description": "TypeScript client for the hosted N-ATLaS models (Nigeria's sovereign LLM + Hausa/Yoruba/Igbo/Nigerian-English ASR). Non-commercial use only, per the N-ATLaS license.",
+  "homepage": "https://openatlas-site.isaacbenedict001.workers.dev/docs",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -19,9 +20,13 @@
   "engines": {
     "node": ">=18"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/client.test.mjs test/normalize.test.mjs test/prompt.test.mjs"
+    "test": "npm run build && node --test test/client.test.mjs test/normalize.test.mjs test/prompt.test.mjs",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "n-atlas",
@@ -30,7 +35,9 @@
     "yoruba",
     "igbo",
     "llm",
-    "asr"
+    "asr",
+    "tts",
+    "text-to-speech"
   ],
   "license": "MIT",
   "devDependencies": {

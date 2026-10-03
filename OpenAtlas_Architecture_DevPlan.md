@@ -12,7 +12,7 @@ Companion document to OpenAtlas_PRD.md. This defines how OpenAtlas is built, not
 ┌──────────────────────────────────────────────────────────────┐
 │                    DEVELOPER'S APPLICATION                    │
 │  (the 3 starter kits, or any custom app)                      │
-│  import { OpenAtlas, normalizeText } from "openatlas"          │
+│  import { OpenAtlas, normalizeText } from "@openatlas/sdk"          │
 └──────────────────────────┬───────────────────────────────────┘
                            │ in-process
                            ▼
@@ -64,7 +64,7 @@ Hosting is in flux during the build (see §5): Colab today, NiHub expected immin
 
 | Component | Technology | Responsibility |
 |---|---|---|
-| **OpenAtlas SDK** | TypeScript, npm package `openatlas` | Single client talking to the gateway; `normalizeText()` runs locally. Written fresh — there was never a `natlas.ts` client to reuse (that earlier assumption was wrong). Seeded with the tested settings from the Safroi Colab server notebook: repetition penalty 1.12, current date into the chat template's `date_string`, 4-bit NF4 quantization |
+| **OpenAtlas SDK** | TypeScript, npm package `@openatlas/sdk` | Single client talking to the gateway; `normalizeText()` runs locally. Written fresh — there was never a `natlas.ts` client to reuse (that earlier assumption was wrong). Seeded with the tested settings from the Safroi Colab server notebook: repetition penalty 1.12, current date into the chat template's `date_string`, 4-bit NF4 quantization |
 | **Gateway** | Cloudflare Worker + D1 (SQLite) | Keys, license-cap accounting, issue reports, proxying to the configured backend |
 | **Backend server (`http` kind)** | Python, FastAPI + `transformers` (`deploy/server/natlas_server.py`) | Implements the backend contract (§3.2). The same file runs on Colab and on NiHub |
 | **Backend (`runpod` kind, fallback)** | RunPod's vLLM worker image (LLM) + `workers/asr/` (ASR) | Same contract semantics via RunPod's job API |
@@ -169,7 +169,7 @@ Colab is never the submission deployment. Any demo or judging-window URL must po
 - **Model weights:** pulled from Hugging Face on backend start (HF token with access to all five N-ATLaS repos — verified 2026-10-02).
 - **Gateway:** Cloudflare Worker + one D1 database holding hashed keys, active-user records, a minimal request log (no content), and issue reports. Free tier is sufficient at this volume.
 - **Secrets:** OpenAtlas keys issued per developer (SHA-256 hashes stored). Backend URL/credential are Worker secrets and never reach the SDK.
-- **SDK distribution:** npm as `openatlas` (or installable from the repo if publishing slips).
+- **SDK distribution:** npm as `@openatlas/sdk` (or installable from the repo if publishing slips).
 - **Starter kits:** `npm install && npm start`, pointed at the gateway via env vars.
 
 ---

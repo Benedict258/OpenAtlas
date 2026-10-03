@@ -1,5 +1,5 @@
 // The README quickstart, as a runnable file: OPENATLAS_API_KEY=oa_... node examples/quickstart.mjs
-import { OpenAtlas, normalizeText } from "openatlas";
+import { OpenAtlas, normalizeText } from "@openatlas/sdk";
 
 const client = new OpenAtlas({ apiKey: process.env.OPENATLAS_API_KEY });
 

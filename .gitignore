@@ -14,3 +14,5 @@ deploy/smoke-results.jsonl
 # Direct-to-backend client draft; not used (the SDK goes through the gateway)
 natlas_colab.ts
 deploy/prompt-eval-results.jsonl
+.env.selfhost
+.env.selfhost.bak

@@ -23,6 +23,15 @@ export interface Env {
   ACTIVE_USER_CAP: string;
   ACTIVE_WINDOW_DAYS: string;
   UPSTREAM_TIMEOUT_MS: string;
+  DEFAULT_DAILY_REQUEST_LIMIT: string;
+  DEFAULT_KEY_MAX_ACTIVE_USERS: string;
+}
+
+/** An authenticated OpenAtlas key and its limits (null = no limit). */
+interface ApiKey {
+  id: string;
+  daily_request_limit: number | null;
+  max_active_users: number | null;
 }
 
 const CHAT_LANGUAGE_NAMES: Record<string, string> = { en: "English", ha: "Hausa", yo: "Yoruba", ig: "Igbo" };
@@ -82,25 +91,39 @@ function requireAdmin(req: Request, env: Env) {
   }
 }
 
-async function authenticate(req: Request, env: Env): Promise<string> {
+async function authenticate(req: Request, env: Env): Promise<ApiKey> {
   const key = bearer(req);
   if (!key) throw new HttpError(401, "missing_api_key", "Send your OpenAtlas key as `Authorization: Bearer <key>`.");
-  const row = await env.DB.prepare("SELECT id FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL")
+  const row = await env.DB.prepare("SELECT id, daily_request_limit, max_active_users FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL")
     .bind(await sha256(key))
-    .first<{ id: string }>();
+    .first<ApiKey>();
   if (!row) throw new HttpError(401, "invalid_api_key", "Unknown or revoked OpenAtlas key.");
-  return row.id;
+  return row;
 }
 
-const windowStart = (env: Env, now: number) => now - Number(env.ACTIVE_WINDOW_DAYS) * 86_400_000;
+const DAY_MS = 86_400_000;
+const windowStart = (env: Env, now: number) => now - Number(env.ACTIVE_WINDOW_DAYS) * DAY_MS;
+
+/** Per-key quota: requests in the last 24 h (refused requests don't count). */
+async function enforceDailyLimit(env: Env, key: ApiKey) {
+  if (key.daily_request_limit == null) return;
+  const { n } = (await env.DB.prepare("SELECT COUNT(*) AS n FROM request_log WHERE key_id = ? AND at >= ? AND status != 429")
+    .bind(key.id, Date.now() - DAY_MS)
+    .first<{ n: number }>())!;
+  if (n >= key.daily_request_limit) {
+    throw new HttpError(429, "key_quota_exceeded", `This key has used its ${key.daily_request_limit} requests for the last 24 hours. Try again later, or ask the OpenAtlas operator for a higher limit.`);
+  }
+}
 
 /**
- * Records activity for (key, end user). Existing active users are always let through;
- * a NEW user is refused once the active count has reached the cap.
+ * Runs before every model call: checks the key's daily quota, then records activity for (key, end user).
+ * Existing active users are always let through; a NEW user is refused once the active count has reached
+ * the license cap, or this key's own share of it (max_active_users).
  * Known limitation: two brand-new users racing at exactly the cap can both be admitted
  * (check-then-insert is not atomic across requests). Acceptable at this scale; documented.
  */
-async function trackActiveUser(env: Env, keyId: string, endUser: unknown) {
+async function trackActiveUser(env: Env, key: ApiKey, endUser: unknown) {
+  const keyId = key.id;
   // Required so the license cap counts real end users, not developer keys.
   if (typeof endUser !== "string" || endUser.trim() === "" || endUser.length > 256) {
     throw new HttpError(
@@ -110,6 +133,7 @@ async function trackActiveUser(env: Env, keyId: string, endUser: unknown) {
         "It is hashed and used only to count active users against the N-ATLaS license cap.",
     );
   }
+  await enforceDailyLimit(env, key);
   const now = Date.now();
   const since = windowStart(env, now);
   const subject = await sha256(`${keyId}:${endUser}`);
@@ -129,6 +153,19 @@ async function trackActiveUser(env: Env, keyId: string, endUser: unknown) {
         `The hosted N-ATLaS endpoint has reached its license cap of ${env.ACTIVE_USER_CAP} active users per ` +
           `${env.ACTIVE_WINDOW_DAYS} days. Existing users can continue; new users are refused until the window frees up.`,
       );
+    }
+    if (key.max_active_users != null) {
+      const own = (await env.DB.prepare("SELECT COUNT(*) AS n FROM active_users WHERE key_id = ? AND last_seen >= ?")
+        .bind(keyId, since)
+        .first<{ n: number }>())!;
+      if (own.n >= key.max_active_users) {
+        throw new HttpError(
+          429,
+          "key_user_share_reached",
+          `This key has reached its share of the license cap: ${key.max_active_users} active users per ${env.ACTIVE_WINDOW_DAYS} days. ` +
+            "Existing users can continue; ask the OpenAtlas operator to raise it.",
+        );
+      }
     }
   }
 
@@ -260,7 +297,7 @@ async function readJson(req: Request): Promise<any> {
   }
 }
 
-async function chat(req: Request, env: Env, keyId: string) {
+async function chat(req: Request, env: Env, key: ApiKey) {
   const body = await readJson(req);
   const messages = body?.messages;
   if (!Array.isArray(messages) || messages.length === 0 || !messages.every((m: any) => typeof m?.content === "string" && ["system", "user", "assistant"].includes(m?.role))) {
@@ -269,7 +306,7 @@ async function chat(req: Request, env: Env, keyId: string) {
   if (body.language !== undefined && !CHAT_LANGUAGE_NAMES[body.language]) {
     throw new HttpError(400, "invalid_language", "`language` must be one of en, ha, yo, ig.");
   }
-  await trackActiveUser(env, keyId, body.user);
+  await trackActiveUser(env, key, body.user);
 
   const finalMessages = messages.map((m: any) => ({ role: m.role, content: m.content }));
   if (body.language) {
@@ -296,34 +333,117 @@ async function chat(req: Request, env: Env, keyId: string) {
   return { content: content.trim(), model: LLM_MODEL, attribution: ATTRIBUTION, usage: output.usage };
 }
 
-async function transcribe(req: Request, env: Env, keyId: string) {
+async function transcribe(req: Request, env: Env, key: ApiKey) {
   const body = await readJson(req);
   if (!ASR_LANGUAGES.has(body?.language)) throw new HttpError(400, "invalid_language", "`language` must be one of en-ng, ha, yo, ig.");
   if (typeof body.audio !== "string" || body.audio.length === 0) throw new HttpError(400, "invalid_audio", "`audio` must be a base64 string.");
   if (body.audio.length > MAX_AUDIO_BASE64_CHARS) {
     throw new HttpError(413, "audio_too_large", "Audio is too large (limit ~7 MB before base64 encoding). Send a shorter clip.");
   }
-  await trackActiveUser(env, keyId, body.user);
+  await trackActiveUser(env, key, body.user);
 
   const output: any = await backendTranscribe(env, { audio_base64: body.audio, language: body.language });
   if (typeof output?.text !== "string") throw new HttpError(502, "unexpected_upstream_shape", "ASR response had no text.");
   return { text: output.text, language: body.language, model: ASR_MODELS[body.language], attribution: ATTRIBUTION };
 }
 
-async function createKey(env: Env, label: string) {
+type Limits = { daily_request_limit: number | null; max_active_users: number | null };
+
+/** A limit from an admin request: a positive whole number, null (no limit), or undefined (not given). */
+function limitValue(v: unknown, field: string): number | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 1) throw new HttpError(400, "invalid_limit", `\`${field}\` must be a positive whole number or null (no limit).`);
+  return v;
+}
+
+/** Limits for a new key: the gateway defaults (wrangler.toml), unless the admin request says otherwise. */
+function newKeyLimits(env: Env, body: any): Limits {
+  const dflt = (v: string) => (Number(v) > 0 ? Number(v) : null);
+  const daily = limitValue(body?.daily_request_limit, "daily_request_limit");
+  const users = limitValue(body?.max_active_users, "max_active_users");
+  return {
+    daily_request_limit: daily === undefined ? dflt(env.DEFAULT_DAILY_REQUEST_LIMIT) : daily,
+    max_active_users: users === undefined ? dflt(env.DEFAULT_KEY_MAX_ACTIVE_USERS) : users,
+  };
+}
+
+async function createKey(env: Env, label: string, limits: Limits) {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
   const key = "oa_" + [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
   const id = crypto.randomUUID();
-  await env.DB.prepare("INSERT INTO api_keys (id, key_hash, label, created_at) VALUES (?, ?, ?, ?)")
-    .bind(id, await sha256(key), label, Date.now())
+  await env.DB.prepare("INSERT INTO api_keys (id, key_hash, label, created_at, daily_request_limit, max_active_users) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(id, await sha256(key), label, Date.now(), limits.daily_request_limit, limits.max_active_users)
     .run();
-  return { id, label, key, note: "Store this key now; it is not shown again." };
+  return { id, label, key, ...limits, note: "Store this key now; it is not shown again." };
 }
 
 async function issueKey(req: Request, env: Env) {
   requireAdmin(req, env);
   const body = await readJson(req).catch(() => ({}));
-  return createKey(env, typeof body?.label === "string" && body.label ? body.label.slice(0, 100) : "unlabelled");
+  return createKey(env, typeof body?.label === "string" && body.label ? body.label.slice(0, 100) : "unlabelled", newKeyLimits(env, body));
+}
+
+/** Admin: every key with its limits and usage. The keys themselves are never stored, so never listed. */
+async function listKeys(req: Request, env: Env) {
+  requireAdmin(req, env);
+  const now = Date.now();
+  const since = windowStart(env, now);
+  const rows = await env.DB.prepare(
+    `SELECT k.id, k.label, k.created_at, k.revoked_at, k.revoked_reason, k.daily_request_limit, k.max_active_users,
+       (SELECT COUNT(*) FROM request_log r WHERE r.key_id = k.id AND r.at >= ?1) AS requests_24h,
+       (SELECT COUNT(*) FROM request_log r WHERE r.key_id = k.id AND r.at >= ?2) AS requests_window,
+       (SELECT COUNT(*) FROM request_log r WHERE r.key_id = k.id AND r.at >= ?2 AND r.status >= 400) AS errors_window,
+       (SELECT COUNT(*) FROM active_users u WHERE u.key_id = k.id AND u.last_seen >= ?2) AS active_users_window,
+       (SELECT MIN(at) FROM request_log r WHERE r.key_id = k.id) AS first_request_at,
+       (SELECT MAX(at) FROM request_log r WHERE r.key_id = k.id) AS last_request_at
+     FROM api_keys k ORDER BY k.created_at ASC`,
+  )
+    .bind(now - DAY_MS, since)
+    .all();
+  const routes = await env.DB.prepare(
+    "SELECT key_id, route, COUNT(*) AS n FROM request_log WHERE at >= ? GROUP BY key_id, route",
+  )
+    .bind(since)
+    .all<{ key_id: string; route: string; n: number }>();
+  const byRoute: Record<string, Record<string, number>> = {};
+  for (const r of routes.results) (byRoute[r.key_id] ??= {})[r.route] = r.n;
+  return {
+    window_days: Number(env.ACTIVE_WINDOW_DAYS),
+    keys: rows.results.map((k: any) => ({ ...k, routes_window: byRoute[k.id] ?? {} })),
+  };
+}
+
+async function findKey(env: Env, id: unknown) {
+  if (typeof id !== "string" || !id) throw new HttpError(400, "invalid_key_id", "`id` (the key's id, not the key itself) is required.");
+  const row = await env.DB.prepare("SELECT id, label, revoked_at FROM api_keys WHERE id = ?").bind(id).first<{ id: string; label: string; revoked_at: number | null }>();
+  if (!row) throw new HttpError(404, "not_found", "No key with that id.");
+  return row;
+}
+
+/** Admin: revoke a key. Takes effect on the key's next request; its usage history is kept. */
+async function revokeKey(req: Request, env: Env) {
+  requireAdmin(req, env);
+  const body = await readJson(req);
+  const key = await findKey(env, body?.id);
+  if (key.revoked_at) throw new HttpError(409, "already_revoked", `Key ${key.label} was already revoked.`);
+  const reason = optionalText(body?.reason, "reason", 500);
+  const at = Date.now();
+  await env.DB.prepare("UPDATE api_keys SET revoked_at = ?, revoked_reason = ? WHERE id = ?").bind(at, reason, key.id).run();
+  return { id: key.id, label: key.label, revoked_at: new Date(at).toISOString(), reason };
+}
+
+/** Admin: change a key's limits. Give a number, or null to remove that limit; omitted fields are unchanged. */
+async function setKeyLimits(req: Request, env: Env) {
+  requireAdmin(req, env);
+  const body = await readJson(req);
+  const key = await findKey(env, body?.id);
+  const daily = limitValue(body?.daily_request_limit, "daily_request_limit");
+  const users = limitValue(body?.max_active_users, "max_active_users");
+  if (daily === undefined && users === undefined) throw new HttpError(400, "invalid_limit", "Give `daily_request_limit` and/or `max_active_users`.");
+  if (daily !== undefined) await env.DB.prepare("UPDATE api_keys SET daily_request_limit = ? WHERE id = ?").bind(daily, key.id).run();
+  if (users !== undefined) await env.DB.prepare("UPDATE api_keys SET max_active_users = ? WHERE id = ?").bind(users, key.id).run();
+  return env.DB.prepare("SELECT id, label, daily_request_limit, max_active_users FROM api_keys WHERE id = ?").bind(key.id).first();
 }
 
 function requiredText(v: unknown, field: string, max: number): string {
@@ -372,7 +492,7 @@ async function decideKeyRequest(req: Request, env: Env) {
   const request = await env.DB.prepare("SELECT * FROM key_requests WHERE id = ?").bind(body.id).first<{ email: string; project: string; status: string }>();
   if (!request) throw new HttpError(404, "not_found", "No key request with that id.");
   if (request.status !== "pending") throw new HttpError(409, "already_decided", `Request is already ${request.status}.`);
-  const issued = body.decision === "approve" ? await createKey(env, `${request.email} · ${request.project}`.slice(0, 100)) : null;
+  const issued = body.decision === "approve" ? await createKey(env, `${request.email} · ${request.project}`.slice(0, 100), newKeyLimits(env, body)) : null;
   await env.DB.prepare("UPDATE key_requests SET status = ?, key_id = ?, decided_at = ? WHERE id = ?")
     .bind(body.decision === "approve" ? "approved" : "declined", issued?.id ?? null, Date.now(), body.id)
     .run();
@@ -384,8 +504,10 @@ async function usage(req: Request, env: Env) {
   const since = windowStart(env, Date.now());
   const active = await env.DB.prepare("SELECT COUNT(*) AS n FROM active_users WHERE last_seen >= ?").bind(since).first<{ n: number }>();
   const byKey = await env.DB.prepare(
-    `SELECT k.label, COUNT(*) AS active_users FROM active_users u JOIN api_keys k ON k.id = u.key_id
-     WHERE u.last_seen >= ? GROUP BY k.id ORDER BY active_users DESC`,
+    `SELECT k.label, k.max_active_users AS user_share,
+       (SELECT COUNT(*) FROM active_users u WHERE u.key_id = k.id AND u.last_seen >= ?1) AS active_users,
+       (SELECT COUNT(*) FROM request_log r WHERE r.key_id = k.id AND r.at >= ?1) AS requests
+     FROM api_keys k WHERE k.revoked_at IS NULL ORDER BY active_users DESC, requests DESC`,
   )
     .bind(since)
     .all();
@@ -500,19 +622,32 @@ export default {
           response = json(200, await health(env));
           break;
         case "POST /v1/issues":
-          keyId = await authenticate(req, env);
+          keyId = (await authenticate(req, env)).id;
           response = json(201, await createIssue(req, env, keyId));
           break;
         case "GET /v1/admin/issues":
           response = json(200, await listIssues(req, env));
           break;
-        case "POST /v1/chat/completions":
-          keyId = await authenticate(req, env);
-          response = json(200, await chat(req, env, keyId));
+        case "POST /v1/chat/completions": {
+          const key = await authenticate(req, env);
+          keyId = key.id;
+          response = json(200, await chat(req, env, key));
           break;
-        case "POST /v1/audio/transcriptions":
-          keyId = await authenticate(req, env);
-          response = json(200, await transcribe(req, env, keyId));
+        }
+        case "POST /v1/audio/transcriptions": {
+          const key = await authenticate(req, env);
+          keyId = key.id;
+          response = json(200, await transcribe(req, env, key));
+          break;
+        }
+        case "GET /v1/admin/keys":
+          response = json(200, await listKeys(req, env));
+          break;
+        case "POST /v1/admin/keys/revoke":
+          response = json(200, await revokeKey(req, env));
+          break;
+        case "POST /v1/admin/keys/limits":
+          response = json(200, await setKeyLimits(req, env));
           break;
         case "POST /v1/key-requests":
           response = json(201, await createKeyRequest(req, env));

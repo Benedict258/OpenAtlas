@@ -1,11 +1,11 @@
-# openatlas
+# @openatlas/sdk
 
 TypeScript client for the hosted **N-ATLaS** models: Nigeria's open LLM and its Hausa, Yoruba, Igbo and Nigerian-English speech recognition.
 
 > N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies. Non-commercial use only, capped at 1,000 active end-users per rolling 30 days under the N-ATLaS Terms of Use.
 
 ```ts
-import { OpenAtlas, normalizeText } from "openatlas";
+import { OpenAtlas, normalizeText } from "@openatlas/sdk";
 
 const client = new OpenAtlas({ apiKey: process.env.OPENATLAS_API_KEY });
 

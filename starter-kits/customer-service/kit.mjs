@@ -1,7 +1,7 @@
 // Customer Service kit logic: voice note → transcribe() → normalizeText() → chat() (triage + draft).
 // A wrong transcript goes back with its audio via reportIssue().
 // Used by this kit's server.mjs and by the OpenAtlas website's live demo.
-import { buildPrompt, normalizeText } from "openatlas";
+import { buildPrompt, normalizeText } from "@openatlas/sdk";
 
 // ASR language code → chat language code (Nigerian-accented English replies in English).
 const CHAT_LANGUAGE = { ha: "ha", yo: "yo", ig: "ig", "en-ng": "en" };
@@ -69,3 +69,4 @@ export async function report(client, { audio, transcript, correction, language, 
   const result = await client.reportIssue({ kind: "transcription", output: transcript, correction, language, audio: clip, user });
   return { ...result, audio_included: Boolean(clip) };
 }
+

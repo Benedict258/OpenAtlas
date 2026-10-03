@@ -11,8 +11,8 @@
     "site"
   ],
   "scripts": {
-    "build": "npm run build -w openatlas",
-    "test": "npm test -w openatlas",
+    "build": "npm run build -w @openatlas/sdk",
+    "test": "npm test -w @openatlas/sdk",
     "dev:mock-backend": "node dev/mock-backend/server.mjs",
     "dev:gateway": "npm run dev -w openatlas-gateway",
     "dev:site": "npm run dev -w openatlas-site"

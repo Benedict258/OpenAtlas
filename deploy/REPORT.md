@@ -468,6 +468,59 @@ Findings:
 
 **Not checked by a native speaker:** the Hausa, Yoruba and Igbo example declines in the Citizen Services kit were written by the developer.
 
+### 20. API keys: audited, then limits and revocation built (tested locally; live migration not applied)
+
+**What existed (live D1, 2026-10-03 02:3x UTC):**
+- **Keys:** two, `owner-testing` (348 requests) and `website-demos` (26 requests), both with no limits. One key request had been made, and it was declined.
+- **Issuance:** the request form, then `deploy/key-requests.mjs` (approve prints the key once), plus `POST /v1/admin/keys`.
+- **Usage:** `/v1/usage` counted active users per key, but requests only in total.
+- **Revocation:** the `revoked_at` column was honoured, but nothing could set it.
+- **Rate limiting:** none (KI-4).
+
+**Built:**
+- **Per-key limits:**
+  - a daily request quota (`429 key_quota_exceeded`; refused requests don't count);
+  - a per-key share of the license cap (`429 key_user_share_reached`; existing users continue).
+- **Defaults for new keys:** 1,000 requests a day and 100 users.
+- **Admin endpoints:** list keys with usage per route, revoke with a reason, and set limits. `deploy/keys.mjs` wraps them, with a Markdown `report` intended as beta-tester evidence.
+- **Website:** a per-IP limit on the demos and the request form, 10 POSTs a minute (Workers Rate Limiting binding; recognized in a wrangler dry run).
+- **Database:** an additive migration, `gateway/migrations/0001_key_limits.sql`.
+
+**Checked locally** (wrangler dev, a throwaway D1 created from the *old* schema and then migrated, mock backend): 13/13.
+- issue with defaults;
+- the 4th distinct user refused while existing users continue;
+- the 6th counted request refused;
+- removing a limit restores access;
+- the list and the report;
+- revoke → 401; revoking twice → 409; invalid limit → 400;
+- `/v1/usage` per key.
+
+The existing gateway end-to-end suite also passed on a fresh database from the new schema: 12/12.
+
+**Not applied live:** running the migration on the live D1 was refused by the session's permission check (a production database change). The new gateway code reads the new columns, so it must not be deployed before the migration. The live gateway stays on `ecdd7525`.
+
+### 21. npm: `@openatlas/sdk` prepared, not published
+
+- **Rename:** the package is now `@openatlas/sdk`, with `publishConfig.access: public` and `prepublishOnly: npm test` (the test script builds first).
+  - **Name check:** the registry has no `@openatlas/sdk` and no packages under the `@openatlas` scope. Whether the org *name* is free can only be confirmed when the org is created on npmjs.com.
+- **Publish gate:**
+  - with a deliberately failing test added, `npm publish --dry-run` stopped with exit 1 ("fail 1") before packing;
+  - restored, it packed `@openatlas/sdk@0.1.0`: 15 files, 11.9 kB, shasum `4e189fef…`, public access.
+- **Clean install of that exact tarball** (same shasum) into an empty folder outside the repo, with only `OPENATLAS_API_KEY` set:
+  - installed;
+  - `buildPrompt()` works from it;
+  - `speak()` returned the typed `404 tts_disabled` from the live gateway.
+- **Not yet run:** the quickstart's real answer. It returned `503 backend_unavailable`, because the Colab tunnel had gone down (Cloudflare 1033, about 02:33–02:45 UTC). To re-run once a backend is up.
+
+### 22. Deploy Your Own: documented
+
+- **Guide:** `docs/deploy-your-own.md`, plus a "Deploy your own" section on the website's docs page (checked at 1280 px and 390 px, with no sideways scroll). It covers the proven Colab path, any other GPU host, and RunPod Serverless.
+- **One-command gateway setup:** `deploy/setup-gateway.mjs`. Checked with `--dry-run` only (it prints every step and touches nothing); not yet run against a fresh Cloudflare account.
+- **RunPod facts found while writing it:**
+  - no endpoint has ever been created;
+  - the ASR image (`ghcr.io/benedict258/openatlas-asr:latest`, CI build of 2026-10-02) is anonymously pullable (manifest HTTP 200);
+  - but `workers/asr/handler.py` still uses `chunk_length_s=30`, the chunking that lost words in KI-11. This is stated in the guide; the worker code was not changed.
+
 ---
 
 ## Known issues
@@ -477,7 +530,7 @@ Findings:
 | KI-1 | Citizen Services: on a question outside the demo notes (Hausa airfare), N-ATLaS gave general advice instead of saying the notes don't cover it. It ignores the "answer only from the notes" system instruction. | **Fixed in the kit code for the reported case** (section 18): structured prompt; out-of-scope declined cleanly 5/6 (was 1/6), the Hausa airfare case declines in Hausa. One case still answered from outside knowledge (Hausa farm loan). Not yet deployed to the website. |
 | KI-2 | Yoruba chat can degenerate into repeated or mutated syllables around "afẹ́fẹ́" ("afẹ́fẹ́fẹ́…", "fúnfúnfún…"). Without the guard: 1 full loop and 2 stutters in 11 runs. With `no_repeat_ngram_size = 10`: 1 full loop and 3 stutters in 12 runs. | **Closed as a known model limitation.** The n-gram guard was tried and removed. Citizen Services opens in Hausa (site version `a5b4ade5`); Yoruba is still selectable, with this caveat. |
 | KI-3 | Yoruba is the weakest language so far: most tone marks missing in chat replies, invented details, 74% WER on the one ASR clip, and the slowest chat (11–23 s vs 4–8 s for the other languages). | Known limitation of the current models; stated as a caveat. |
-| KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | Open. Must be listed in the final pre-submission status. |
+| KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | **Fix built, not yet live** (section 20): per-key daily quota and share of the license cap, plus a per-IP limit on the website demos. Waits on the live database migration. Until then, still open. Must be listed in the final pre-submission status. |
 | KI-5 | The Colab notebook couldn't decode browser recordings (webm), and had no GPU lock for concurrent requests. | **Fixed.** ffmpeg decoding and one GPU lock (`998a946`), both verified live (section 17, steps 2–3). |
 | KI-6 | The Colab notebook's chat reply has no token `usage` field, so the smoke test prints `undefined` for it. | Cosmetic. |
 | KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | **Fixed.** With `chunk_length_s=30`, 10/10 long clips transcribe (section 11). The earlier 0/10 was a patch cell run twice (section 9). |

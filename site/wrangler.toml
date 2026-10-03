@@ -21,3 +21,11 @@ OPENATLAS_BASE_URL = "https://openatlas-gateway.isaacbenedict001.workers.dev"
 
 # Secret (wrangler secret put OPENATLAS_API_KEY, or .dev.vars locally):
 #   OPENATLAS_API_KEY  the key the website's live kit demos use (label it "website-demos")
+
+# Per-IP limit on the live demos and the key request form (Workers Rate Limiting): 10 POSTs a minute per
+# IP. The demos share one OpenAtlas key ("website-demos"), which also has its own daily quota and share
+# of the license cap in the gateway.
+[[ratelimits]]
+name = "DEMO_LIMITER"
+namespace_id = "1001"
+simple = { limit = 10, period = 60 }

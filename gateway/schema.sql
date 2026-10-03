@@ -1,12 +1,18 @@
 -- OpenAtlas gateway storage (Cloudflare D1 / SQLite).
 
 -- Developer keys. Only the SHA-256 hash is stored; the plaintext key is shown once at issue time.
+-- Limits (NULL = none): daily_request_limit counts requests in the last 24 h; max_active_users is this
+-- key's share of the N-ATLaS license cap, so one key can't use up every other key's headroom.
+-- (Existing databases: migrations/0001_key_limits.sql adds the last three columns.)
 CREATE TABLE IF NOT EXISTS api_keys (
-  id          TEXT PRIMARY KEY,
-  key_hash    TEXT NOT NULL UNIQUE,
-  label       TEXT NOT NULL,
-  created_at  INTEGER NOT NULL,
-  revoked_at  INTEGER
+  id                   TEXT PRIMARY KEY,
+  key_hash             TEXT NOT NULL UNIQUE,
+  label                TEXT NOT NULL,
+  created_at           INTEGER NOT NULL,
+  revoked_at           INTEGER,
+  daily_request_limit  INTEGER,
+  max_active_users     INTEGER,
+  revoked_reason       TEXT
 );
 
 -- One row per distinct "user" for license-cap accounting.
@@ -19,6 +25,7 @@ CREATE TABLE IF NOT EXISTS active_users (
   last_seen    INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_active_users_last_seen ON active_users (last_seen);
+CREATE INDEX IF NOT EXISTS idx_active_users_key ON active_users (key_id, last_seen);
 
 -- Minimal request log, so usage can be audited against the license (no request content stored).
 CREATE TABLE IF NOT EXISTS request_log (
@@ -29,6 +36,7 @@ CREATE TABLE IF NOT EXISTS request_log (
   status      INTEGER NOT NULL,
   latency_ms  INTEGER NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_request_log_key_at ON request_log (key_id, at);
 
 -- reportIssue(): flagged N-ATLaS outputs with a correction. Opt-in by construction: only what an
 -- app explicitly sends to POST /v1/issues is stored. user_hash = SHA-256(key_id + ":" + user).
