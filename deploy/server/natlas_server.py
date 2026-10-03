@@ -209,25 +209,62 @@ async def transcribe(request: Request, authorization: Optional[str] = Header(Non
     return await run_in_threadpool(run_asr, audio, language)
 
 
-def run_asr(audio: bytes, language: str):
-    # The pipeline decodes through ffmpeg, so any common audio format works.
+SAMPLE_RATE = 16000   # what the Whisper models use
+PIECE_SECONDS = 25    # long audio is cut into plain pieces of this length (deploy/REPORT.md, KI-11)
+
+
+def decode_audio(audio: bytes):
+    """Any format ffmpeg reads (wav, mp3, ogg, flac, webm, m4a) -> 16 kHz mono float32."""
+    import numpy as np
+    import subprocess
+
     with tempfile.NamedTemporaryFile(suffix=".audio", delete=False) as f:
         f.write(audio)
         path = f.name
     try:
-        started = time.time()
+        out = subprocess.run(
+            ["ffmpeg", "-nostdin", "-loglevel", "error", "-i", path, "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "f32le", "pipe:1"],
+            capture_output=True, check=True,
+        ).stdout
+    except subprocess.CalledProcessError as e:
+        raise HTTPException(400, f"Could not decode this audio: {e.stderr.decode(errors='replace')[:300]}")
+    finally:
+        os.unlink(path)
+    return np.frombuffer(out, dtype=np.float32)
+
+
+def split_audio(samples):
+    """Plain, non-overlapping PIECE_SECONDS pieces. The pipeline's chunked mode (chunk_length_s) was measured
+    dropping speech on 38-54 s clips; plain pieces did not. A leftover under 2 s joins the previous piece."""
+    import numpy as np
+
+    step = PIECE_SECONDS * SAMPLE_RATE
+    pieces = [samples[i:i + step] for i in range(0, len(samples), step)]
+    if len(pieces) > 1 and len(pieces[-1]) < 2 * SAMPLE_RATE:
+        leftover = pieces.pop()
+        pieces[-1] = np.concatenate([pieces[-1], leftover])
+    return pieces
+
+
+def run_asr(audio: bytes, language: str):
+    samples = decode_audio(audio)
+    if samples.size == 0:
+        raise HTTPException(400, "audio is empty")
+    pieces = split_audio(samples)
+    started = time.time()
+    try:
         with gpu_lock:
             # No forced language token: each fine-tune's own generation_config decides
             # (Igbo isn't a base Whisper language, so forcing one would be wrong there).
-            result = asr[language](path, chunk_length_s=30, batch_size=8)
+            texts = [asr[language]({"array": p, "sampling_rate": SAMPLE_RATE})["text"].strip() for p in pieces]
     except Exception as e:
         raise HTTPException(400, f"Could not transcribe this audio: {type(e).__name__}: {e}")
-    finally:
-        os.unlink(path)
     return {
-        "text": result["text"].strip(),
+        "text": " ".join(t for t in texts if t),
         "language": language,
         "model": f"n-atlas-asr-{language}",
+        "audio_seconds": round(samples.size / SAMPLE_RATE, 2),
+        "pieces": len(pieces),
         "inference_ms": int((time.time() - started) * 1000),
     }
 
