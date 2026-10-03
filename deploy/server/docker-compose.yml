@@ -1,0 +1,36 @@
+# The OpenAtlas backend plus a public HTTPS tunnel, in one command, on a machine with an NVIDIA GPU
+# (16 GB+) and the NVIDIA Container Toolkit:
+#
+#   HF_TOKEN=hf_... BACKEND_API_KEY=$(openssl rand -hex 24) docker compose up
+#
+# The tunnel's public URL appears in the log (a line with "trycloudflare.com"). Connect your gateway to it
+# with deploy/set-backend.mjs <that URL> <BACKEND_API_KEY>. Like the Kaggle notebook's tunnel, the URL
+# changes every time the tunnel restarts; for a fixed URL use a named Cloudflare Tunnel or a reverse proxy.
+services:
+  backend:
+    image: ghcr.io/benedict258/openatlas-backend:latest
+    build: .
+    environment:
+      HF_TOKEN: ${HF_TOKEN:?set HF_TOKEN to a Hugging Face read token with access to the NCAIR1 repos}
+      BACKEND_API_KEY: ${BACKEND_API_KEY:?set BACKEND_API_KEY to a random string of 16+ characters}
+      ENABLE_TTS: ${ENABLE_TTS:-0}
+      LLM_QUANT: ${LLM_QUANT:-4bit}
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate --url http://backend:8000
+    depends_on: [backend]
+    restart: unless-stopped
+
+volumes:
+  hf-cache:

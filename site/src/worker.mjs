@@ -16,7 +16,44 @@ const ROUTES = {
   "/api/support/speak": speakDraft,
 };
 
-const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+const json = (status, body, headers = {}) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
+
+// The end-user ID the demos send for the N-ATLaS license count is derived here, never taken from the
+// browser: a made-up `user` (or cookie) per request would otherwise count as a new person each time and
+// use up the website key's share of the cap. The ID comes from the visitor's network address (an IPv4
+// address, or the IPv6 /64 a subscriber holds), so one network yields at most USER_BUCKETS IDs however
+// many IDs or cookies a script invents. The cookie only spreads real visitors who share an address (an
+// office, a school) over those buckets. IDs are keyed with the site's secret, so they can't be reversed.
+// "online" | "loading" | "offline": whether the gateway can reach a GPU backend with its models loaded.
+const backendState = (health) => (health.backend?.reachable !== true ? "offline" : health.backend.status === "ok" ? "online" : health.backend.status === "loading" ? "loading" : "offline");
+
+const USER_BUCKETS = 8;
+const VISITOR_COOKIE = "oa_vid";
+
+function network(ip) {
+  if (!ip) return "unknown";
+  if (!ip.includes(":")) return ip;
+  const [head, tail] = ip.toLowerCase().split("::");
+  const h = head ? head.split(":") : [];
+  const t = tail ? tail.split(":") : [];
+  const groups = tail === undefined ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill("0"), ...t];
+  return groups.slice(0, 4).map((g) => g.replace(/^0+(?=.)/, "")).join(":") + "::/64";
+}
+
+async function keyedHash(secret, text) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(text)));
+  return [...sig.slice(0, 16)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function siteUser(req, secret) {
+  const cookie = /(?:^|;\s*)oa_vid=([0-9a-f-]{36})(?:;|$)/.exec(req.headers.get("Cookie") ?? "")?.[1];
+  const visitor = cookie ?? crypto.randomUUID();
+  const bucket = parseInt((await keyedHash(secret, `bucket|${visitor}`)).slice(0, 8), 16) % USER_BUCKETS;
+  const user = `web-${await keyedHash(secret, `user|${network(req.headers.get("CF-Connecting-IP"))}|${bucket}`)}`;
+  const setCookie = cookie ? {} : { "Set-Cookie": `${VISITOR_COOKIE}=${visitor}; Path=/api; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax` };
+  return { user, setCookie };
+}
 
 export default {
   async fetch(req, env) {
@@ -30,7 +67,7 @@ export default {
       if (req.method === "GET" && pathname === "/api/status") {
         const health = await gatewayFetch(`${gateway}/v1/health`).then((r) => r.json());
         const speech = LIVE_SPEECH && health.tts_enabled === true && health.backend?.tts?.status === "ok";
-        return json(200, { mock: health.backend?.mock === true, speech });
+        return json(200, { mock: health.backend?.mock === true, speech, backend: backendState(health) });
       }
       if (req.method !== "POST") return json(405, { error: "Method not allowed." });
       // Per-IP limit (site/wrangler.toml), so one visitor can't drain the shared demo key.
@@ -62,7 +99,9 @@ export default {
         return json(503, { error: "Spoken replies are switched off until they have been verified against the live backend." });
       }
       const client = new OpenAtlas({ apiKey: env.OPENATLAS_API_KEY, baseURL: gateway, fetch: gatewayFetch });
-      return json(200, await handler(client, body));
+      // The browser's `user` is ignored (see siteUser).
+      const { user, setCookie } = await siteUser(req, env.OPENATLAS_API_KEY);
+      return json(200, await handler(client, { ...body, user }), setCookie);
     } catch (err) {
       return json(err.status ?? 502, { error: err.message });
     }

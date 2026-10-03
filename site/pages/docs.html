@@ -221,8 +221,8 @@ console.<span class="f">log</span>(result.text);</pre></div>
 
 <div class="method">
 <span class="sig mono">client.speak({ text, language, engine?, user })</span>
-<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><span class="ep mono"><b>POST</b> /v1/audio/speech</span><span class="badge">Optional · off on the hosted gateway</span></div>
-<p>Final-stage audio rendering of text N-ATLaS already produced, by a separate text-to-speech model: SoroTTS, with Meta MMS-TTS as the fallback and for English. It is built, but switched off on the hosted gateway until it has been verified against the real models. Until then it returns <span class="mono">tts_disabled</span>.</p>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><span class="ep mono"><b>POST</b> /v1/audio/speech</span><span class="badge">Optional · reliable in English</span></div>
+<p>Final-stage audio rendering of text N-ATLaS already produced, by a separate text-to-speech model: SoroTTS for single sentences, Meta MMS-TTS for longer text and English. It is on for the hosted API and has been verified on the real models. English comes back clearly: 2–5% of words wrong when the audio is played back through the N-ATLaS speech recognizer. Hausa, Yoruba and Igbo are rendered, but with 36–79% wrong, so treat them as experimental. A gateway with it switched off returns <span class="mono">tts_disabled</span>. The website's own demos don't use it.</p>
 <div class="scroll"><table class="tbl"><thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead><tbody>
 <tr><td>text</td><td>string</td><td>Required, up to 1,000 characters. Spoken unchanged.</td></tr>
 <tr><td>language</td><td>"en" | "ha" | "yo" | "ig" | "pcm"</td><td>Required. "pcm" is Nigerian Pidgin.</td></tr>
@@ -284,11 +284,12 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <li><b>Backend:</b> a GPU host running the N-ATLaS LLM and the four speech-recognition models.</li>
 <li><b>Gateway:</b> a Cloudflare Worker with a D1 database, which holds the keys, counts users against the license cap and forwards requests.</li>
 </ul>
-<p>Moving the backend is a config change on the gateway, not a code change. The full guide is <span class="mono">docs/deploy-your-own.md</span> in the repository.</p>
+<p>No GPU or hosting came with the challenge, so we built and proved the whole stack on free tools: a Kaggle notebook for the GPU, a Cloudflare quick tunnel, and the Cloudflare free plan for the gateway. That is also why the hosted demo may not be live at every hour: a free Kaggle session ends after at most 12 hours. Anyone, including judges, can stand up the same working deployment with the steps below. Moving the backend is a config change on the gateway, not a code change. The full guide is <span class="mono">docs/deploy-your-own.md</span> in the repository.</p>
 <div class="scroll"><table class="tbl wrap1"><thead><tr><th>Path</th><th>Status</th></tr></thead><tbody>
-<tr><td>Colab backend + gateway</td><td><b>Proven.</b> Serves the public OpenAtlas gateway; every published check ran on it.</td></tr>
+<tr><td>Kaggle notebook backend + gateway</td><td><b>Proven.</b> Runs the public OpenAtlas gateway today (free T4 x2).</td></tr>
 <tr><td>One-command gateway setup</td><td>Checked with a dry run only; not yet run against a fresh Cloudflare account.</td></tr>
-<tr><td>natlas_server.py on another GPU host</td><td>Same audio handling as the Colab notebook; not verified end to end by us.</td></tr>
+<tr><td>Docker on your own GPU</td><td>The image builds and starts in CI (no GPU there); not yet run on a GPU by us.</td></tr>
+<tr><td>Colab notebook</td><td>Earlier proven host (Oct 2–3); same code, but not re-run since the latest notebook changes.</td></tr>
 <tr><td>RunPod Serverless</td><td>Scripted, never run. Its ASR worker still uses the older audio chunking, so keep requests to 30 s or less.</td></tr>
 </tbody></table></div>
 <div class="step"><span class="num">1</span><div class="body"><h3>Get access</h3>
@@ -296,12 +297,13 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <li><b>Hugging Face:</b> accept the terms on NCAIR1/N-ATLaS and the four NCAIR1 ASR repos, then create a read token.</li>
 <li><b>Cloudflare:</b> an API token on the free plan with Workers Scripts Edit and D1 Edit.</li>
 </ul></div></div>
-<div class="step"><span class="num">2</span><div class="body"><h3>Start the backend on Colab</h3>
+<div class="step"><span class="num">2</span><div class="body"><h3>Start the backend on Kaggle (free)</h3>
 <ol class="dots">
-<li>Upload <span class="mono">natlas_colab.ipynb</span> to Colab and choose a T4 GPU.</li>
-<li>Add the secrets <span class="mono">HF_TOKEN</span> and <span class="mono">NATLAS_API_KEY</span>.</li>
-<li>Run all. After the models load (several minutes), it prints a public URL and the key.</li>
-</ol></div></div>
+<li>Import <span class="mono">deploy/colab/natlas_kaggle.ipynb</span> into Kaggle. Under Settings, choose <b>GPU T4 x2</b> and turn <b>Internet</b> on (this needs a phone-verified account).</li>
+<li>Under Add-ons → Secrets, add <span class="mono">HF_TOKEN</span> and <span class="mono">NATLAS_API_KEY</span> (any long random string), and attach both.</li>
+<li>Run all. It loads and tests every model, then prints a public URL. Leave the tab open.</li>
+</ol>
+<p>Have your own GPU? The Docker image runs the same server; see the guide.</p></div></div>
 <div class="step"><span class="num">3</span><div class="body"><h3>Set up the gateway in one command</h3>
 <div class="codebox"><pre class="mono code">CLOUDFLARE_API_TOKEN=… node deploy/setup-gateway.mjs --name my-openatlas \
   --backend <span class="s">&lt;NATLAS_BASE_URL&gt;</span> <span class="s">&lt;NATLAS_API_KEY&gt;</span>
@@ -309,7 +311,7 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <span class="c"># issues your first key and writes .env.selfhost. Add --dry-run to preview.</span></pre></div></div></div>
 <div class="step"><span class="num">4</span><div class="body"><h3>Check it with a real answer</h3>
 <div class="codebox"><pre class="mono code">node --env-file=.env.selfhost examples/quickstart.mjs</pre></div></div></div>
-<div class="note"><h4>Your deployment, your obligations</h4><p>N-ATLaS is non-commercial and capped at 1,000 active users per 30 days; your gateway enforces the cap. Show "Powered by Awarri" with model output. A free Colab session ends when idle or after about 12 hours, and its URL changes each run. Reconnect with <span class="mono">deploy/set-backend.mjs</span>; no redeploy is needed.</p></div>
+<div class="note"><h4>Your deployment, your obligations</h4><p>N-ATLaS is non-commercial and capped at 1,000 active users per 30 days; your gateway enforces the cap. Show "Powered by Awarri" with model output. A free Kaggle session ends after at most 12 hours (and uses the account's weekly GPU quota), and its URL changes each run. Reconnect with <span class="mono">deploy/set-backend.mjs</span>; no redeploy is needed.</p></div>
 </section>
 </div>
 </div>
@@ -325,7 +327,7 @@ console.<span class="f">log</span>(result.text);</pre></div>
 </div>
 <div><h4>Product</h4><ul><li><a href="/#what">Hosted endpoint</a></li><li><a href="/#sdk">SDK</a></li><li><a href="/starter-kits">Starter kits</a></li></ul></div>
 <div><h4>Learn</h4><ul><li><a href="#quickstart">Quickstart</a></li><li><a href="#api">API reference</a></li><li><a href="/architecture">Architecture</a></li></ul></div>
-<div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Benedict Isaac</li></ul></div>
+<div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Team Suiaah &amp; NiHub</li></ul></div>
 </div>
 <p style="margin-top:48px;padding-top:24px;border-top:1px solid #2C352E;font-size:14px">A non-commercial developer and research resource. N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies.</p>
 </div>

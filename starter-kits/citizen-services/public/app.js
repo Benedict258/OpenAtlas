@@ -10,9 +10,25 @@
     if (!res.ok) throw new Error(json.error || `Request failed (HTTP ${res.status})`);
     return json;
   };
-  fetch("/api/status").then((r) => r.json()).then((s) => {
+  // Backend state up front: the GPU host isn't up around the clock (a free notebook session), so the
+  // window says so before anyone presses a button, not only after a request fails.
+  const BACKEND_TEXT = {
+    offline: "The N-ATLaS backend isn't running right now. It is hosted on a free GPU session that isn't up around the clock; requests will fail until it's back. Anyone can run their own: see Deploy your own in the docs.",
+    loading: "The N-ATLaS backend is starting and still loading its models. Requests may wait or fail for a few minutes.",
+  };
+  const showBackend = (state) => {
+    const el = document.querySelector('[data-kit="citizen"] [data-offline]');
+    if (!el) return;
+    el.hidden = state === "online";
+    el.querySelector("b").textContent = state === "loading" ? "Backend starting" : "Backend offline";
+    el.querySelector("span").textContent = BACKEND_TEXT[state] ?? BACKEND_TEXT.offline;
+  };
+  const checkStatus = () => fetch("/api/status").then((r) => r.json()).then((s) => {
     if (s.mock) document.querySelectorAll('[data-kit="citizen"] [data-mock]').forEach((el) => (el.hidden = false));
-  }).catch(() => {});
+    showBackend(s.backend ?? "offline");
+  }).catch(() => showBackend("offline"));
+  checkStatus();
+  setInterval(checkStatus, 60_000);
 
   const btn = $("c-ask");
   btn.onclick = async () => {
