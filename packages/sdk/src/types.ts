@@ -85,3 +85,44 @@ export interface ReportIssueResponse {
   id: string;
   received_at: string;
 }
+
+/** Languages the optional speech renderer covers ("pcm" is Nigerian Pidgin). */
+export type SpeakLanguage = "en" | "ha" | "yo" | "ig" | "pcm";
+
+export interface SpeakParams {
+  /**
+   * Text to speak, up to 1,000 characters: normally N-ATLaS's own reply. speak() only renders it as audio;
+   * it never changes, translates or answers it. Yoruba and Igbo sound best with tone marks and dots,
+   * Hausa with its hooked letters (ɓ ɗ ƙ).
+   */
+  text: string;
+  language: SpeakLanguage;
+  /**
+   * "auto" (default): SoroTTS where it covers the language and is loaded, otherwise (or if it fails) MMS-TTS.
+   * "sorotts": SoroTTS only (ha, yo, ig, pcm); natural but slow. "mms": Meta MMS-TTS only; fast, more robotic.
+   */
+  engine?: "auto" | "sorotts" | "mms";
+  /** Required. Same as `ChatParams.user`. */
+  user: string;
+}
+
+export interface SpeakResponse {
+  /** The speech as WAV bytes (16-bit mono PCM). In a browser: `new Blob([audio], { type: "audio/wav" })`. */
+  audio: Uint8Array;
+  format: "wav";
+  sample_rate: number;
+  seconds: number;
+  language: SpeakLanguage;
+  /** The engine that actually rendered it. */
+  engine: "sorotts" | "mms";
+  /** The TTS model's Hugging Face ID, e.g. "Shinzmann/sorotts" or "facebook/mms-tts-hau". Not an N-ATLaS model. */
+  model: string;
+  voice: string | null;
+  sentences: number;
+  /** E.g. a sentence that hit SoroTTS's length limit (its audio may be cut off there). */
+  warnings: string[];
+  /** Set when "auto" fell back from SoroTTS to MMS-TTS, with the reason. */
+  fallback_reason?: string;
+  /** The TTS model's license credit. Show it with the audio, next to N-ATLaS's "Powered by Awarri". */
+  attribution: string;
+}

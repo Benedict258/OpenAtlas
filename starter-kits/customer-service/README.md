@@ -2,7 +2,7 @@
 
 **What it shows:** `transcribe()` and `chat()` chained. A voice note in Igbo, Hausa, Yoruba or Nigerian English is transcribed by the matching N-ATLaS ASR model. The N-ATLaS LLM then categorizes it and drafts a reply. Both intermediate results are shown, so the whole pipeline is visible.
 
-**What it deliberately doesn't do:** no ticket storage, no auth, no spoken reply. `speak()` / TTS isn't built.
+**What it deliberately doesn't do:** no ticket storage, no auth, no spoken reply by default. "Play response audio" (`speak()`, a separate text-to-speech renderer) appears only when the server reports speech output switched on and ready; it reads out the draft's "Draft reply:" text unchanged.
 
 ```bash
 cp .env.example .env      # set OPENATLAS_API_KEY and OPENATLAS_BASE_URL

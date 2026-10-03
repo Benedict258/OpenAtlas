@@ -34,6 +34,18 @@ Response `200`: `{ "text": string, "language": string, "model": "NCAIR1/Hausa-AS
 
 Models are named by their Hugging Face IDs, not renamed. `attribution` is the "Powered by Awarri" credit that N-ATLaS's terms require; show it wherever you show model output.
 
+### `POST /v1/audio/speech` (optional; off unless `TTS_ENABLED = "true"`)
+
+A text-to-speech renderer for text the app already has, normally N-ATLaS's reply.
+- **Not N-ATLaS:** the speech models are separate. It never changes, translates or answers the text.
+- **Request:** `{ text (≤1,000 chars), language: "en"|"ha"|"yo"|"ig"|"pcm", engine?: "auto"|"sorotts"|"mms", user }`.
+- **Response:** `{ audio (base64 WAV), format, sample_rate, seconds, language, engine, model, voice, sentences, warnings, fallback_reason?, attribution }`.
+- **Engines:** `auto` uses SoroTTS (`Shinzmann/sorotts`) where it covers the language and is loaded, and MMS-TTS otherwise or if SoroTTS fails.
+- **Errors:**
+  - `404 tts_disabled` when the gateway has it switched off;
+  - `501 tts_unsupported_backend` on the RunPod backend.
+- **Backend side:** `deploy/server/tts_renderer.py`.
+
 ### `POST /v1/issues`
 
 Records a wrong N-ATLaS output with its correction (`reportIssue()` in the SDK). Only what you send here is stored.

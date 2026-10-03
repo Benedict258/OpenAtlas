@@ -220,13 +220,15 @@ console.<span class="f">log</span>(result.text);</pre></div>
 </div>
 
 <div class="method">
-<span class="sig mono">client.speak({ text, language })</span>
-<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><span class="ep mono"><b>POST</b> /v1/audio/speech</span><span class="badge">Stretch</span></div>
-<p>Final-stage audio rendering of text N-ATLaS already produced.</p>
+<span class="sig mono">client.speak({ text, language, engine?, user })</span>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><span class="ep mono"><b>POST</b> /v1/audio/speech</span><span class="badge">Optional · off on the hosted gateway</span></div>
+<p>Final-stage audio rendering of text N-ATLaS already produced, by a separate text-to-speech model: SoroTTS, with Meta MMS-TTS as the fallback and for English. It is built, but switched off on the hosted gateway until it has been verified against the real models. Until then it returns <span class="mono">tts_disabled</span>.</p>
 <div class="scroll"><table class="tbl"><thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead><tbody>
-<tr><td>text</td><td>string</td><td>Required.</td></tr>
-<tr><td>language</td><td>"ha" | "yo" | "ig" | "pcm"</td><td>Required.</td></tr>
-<tr><td>returns</td><td>{ audio, model }</td><td>model is "sorotts" or "mms-tts-&lt;lang&gt;".</td></tr>
+<tr><td>text</td><td>string</td><td>Required, up to 1,000 characters. Spoken unchanged.</td></tr>
+<tr><td>language</td><td>"en" | "ha" | "yo" | "ig" | "pcm"</td><td>Required. "pcm" is Nigerian Pidgin.</td></tr>
+<tr><td>engine</td><td>"auto" | "sorotts" | "mms"</td><td>Default "auto": SoroTTS where it covers the language (natural, slow), otherwise or on failure MMS-TTS (fast).</td></tr>
+<tr><td>user</td><td>string</td><td>Required, as for chat().</td></tr>
+<tr><td>returns</td><td>{ audio, seconds, engine, model, attribution, warnings }</td><td>audio is WAV bytes. model is the TTS model's Hugging Face ID, e.g. "Shinzmann/sorotts" or "facebook/mms-tts-hau". attribution is its license credit.</td></tr>
 </tbody></table></div>
 <div class="note"><h4>A strict boundary</h4><p>N-ATLaS has no text-to-speech model. speak() only renders audio. It never reasons, transcribes or replaces N-ATLaS at any decision point.</p></div>
 </div>
@@ -267,7 +269,7 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <div class="scroll"><table class="tbl"><tbody>
 <tr><td>Licence</td><td>N-ATLaS is non-commercial and capped at 1,000 active users per 30 days. Basic request logging is kept to monitor usage against that cap.</td></tr>
 <tr><td>Reliability</td><td>New infrastructure, not load-tested, no uptime or SLA claim.</td></tr>
-<tr><td>Speech output</td><td>speak() is an optional, separate text-to-speech renderer, not N-ATLaS, and adds no N-ATLaS capability.</td></tr>
+<tr><td>Speech output</td><td>speak() is built but switched off on the hosted gateway until it has been verified against the real speech models. It never changes the text it is given.</td></tr>
 <tr><td>Text repair</td><td>normalizeText() fixes corrupted characters. It does not restore tone marks that were never typed; N-ATLaS-based restoration is a roadmap item.</td></tr>
 <tr><td>Corrections</td><td>reportIssue() collects and exports corrections. There is no agreed hand-off to the N-ATLaS maintainers yet.</td></tr>
 <tr><td>Languages of the SDK</td><td>TypeScript and Node only. A Python SDK is a roadmap item.</td></tr>

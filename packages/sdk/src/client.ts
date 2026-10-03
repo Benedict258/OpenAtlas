@@ -6,12 +6,16 @@ import type {
   ChatResponse,
   ReportIssueParams,
   ReportIssueResponse,
+  SpeakParams,
+  SpeakResponse,
   TranscribeParams,
   TranscribeResponse,
 } from "./types.js";
 
 const CHAT_LANGUAGES = new Set(["en", "ha", "yo", "ig"]);
 const TRANSCRIBE_LANGUAGES = new Set(["en-ng", "ha", "yo", "ig"]);
+const SPEAK_LANGUAGES = new Set(["en", "ha", "yo", "ig", "pcm"]);
+const MAX_SPEAK_CHARS = 1_000;
 
 /** Public OpenAtlas gateway (Cloudflare Worker). Override with `baseURL` or `OPENATLAS_BASE_URL`. */
 export const DEFAULT_BASE_URL: string | undefined = "https://openatlas-gateway.isaacbenedict001.workers.dev";
@@ -98,6 +102,30 @@ export class OpenAtlas {
       user: params.user,
     });
     return this.normalize ? { ...res, text: normalizeText(res.text, { language: params.language }) } : res;
+  }
+
+  /**
+   * Text-to-speech: renders text (normally N-ATLaS's own reply) as audio. A separate, final-stage renderer
+   * (SoroTTS / MMS-TTS), not an N-ATLaS model: it never reasons, translates or transcribes. Optional on the
+   * gateway; when it is switched off this throws `OpenAtlasAPIError` with code `tts_disabled`.
+   */
+  async speak(params: SpeakParams): Promise<SpeakResponse> {
+    if (!SPEAK_LANGUAGES.has(params?.language)) {
+      throw new OpenAtlasError(`Unsupported speech language "${params?.language}". Use one of: en, ha, yo, ig, pcm.`);
+    }
+    if (typeof params.text !== "string" || params.text.trim() === "") throw new OpenAtlasError("speak() needs non-empty `text`.");
+    if (params.text.length > MAX_SPEAK_CHARS) throw new OpenAtlasError(`speak() takes up to ${MAX_SPEAK_CHARS} characters; split longer text.`);
+    if (params.engine !== undefined && !["auto", "sorotts", "mms"].includes(params.engine)) {
+      throw new OpenAtlasError('`engine` must be "auto", "sorotts" or "mms".');
+    }
+    requireUser(params.user);
+    const res = await this.post<Omit<SpeakResponse, "audio"> & { audio: string }>("/v1/audio/speech", {
+      text: params.text,
+      language: params.language,
+      engine: params.engine ?? "auto",
+      user: params.user,
+    });
+    return { ...res, audio: fromBase64(res.audio) };
   }
 
   /** Repairs corrupted Nigerian-language characters. Local; same as the standalone `normalizeText()`. */
@@ -198,6 +226,11 @@ function toBase64(audio: Exclude<AudioInput, Blob>): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(binary);
+}
+
+function fromBase64(text: string): Uint8Array {
+  if (typeof Buffer !== "undefined") return new Uint8Array(Buffer.from(text, "base64"));
+  return Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -23,6 +23,7 @@ export interface Env {
   ACTIVE_USER_CAP: string;
   ACTIVE_WINDOW_DAYS: string;
   UPSTREAM_TIMEOUT_MS: string;
+  TTS_ENABLED: string;
   DEFAULT_DAILY_REQUEST_LIMIT: string;
   DEFAULT_KEY_MAX_ACTIVE_USERS: string;
 }
@@ -47,6 +48,16 @@ const ASR_MODELS: Record<string, string> = {
   "en-ng": "NCAIR1/NigerianAccentedEnglish",
 };
 const ATTRIBUTION = "Powered by Awarri";
+// Optional speech output. Not an N-ATLaS model: it only renders text the app already has (normally N-ATLaS's
+// reply) as audio. Each engine's own license credit travels with its audio.
+const SPEECH_LANGUAGES = new Set(["en", "ha", "yo", "ig", "pcm"]);
+const SPEECH_ENGINES = new Set(["auto", "sorotts", "mms"]);
+const MAX_SPEECH_CHARS = 1_000;
+const SPEECH_CREDITS: Record<string, string> = {
+  "Shinzmann/sorotts": "Speech: SoroTTS (Orpheus-3B fine-tune), CC BY-NC-SA 4.0",
+  "Shinzmann/soro-tts-ibo": "Speech: Soro-TTS Igbo (MMS-TTS fine-tune), CC BY-NC 4.0",
+};
+const speechCredit = (model: string) => SPEECH_CREDITS[model] ?? `Speech: Meta MMS-TTS (${model}), CC BY-NC 4.0`;
 // RunPod rejects /run payloads over 10 MB; base64 adds ~33%.
 const MAX_AUDIO_BASE64_CHARS = 9_500_000;
 // Free-plan Workers allow 50 subrequests per request; keep polling well under that.
@@ -347,6 +358,36 @@ async function transcribe(req: Request, env: Env, key: ApiKey) {
   return { text: output.text, language: body.language, model: ASR_MODELS[body.language], attribution: ATTRIBUTION };
 }
 
+/** speak(): text → speech through the backend's optional renderer (deploy/server/tts_renderer.py). */
+async function speech(req: Request, env: Env, key: ApiKey) {
+  if (env.TTS_ENABLED !== "true") throw new HttpError(404, "tts_disabled", "Speech output is switched off on this gateway.");
+  const body = await readJson(req);
+  if (!SPEECH_LANGUAGES.has(body?.language)) throw new HttpError(400, "invalid_language", "`language` must be one of en, ha, yo, ig, pcm.");
+  if (typeof body.text !== "string" || !body.text.trim()) throw new HttpError(400, "invalid_text", "`text` must be a non-empty string.");
+  if (body.text.length > MAX_SPEECH_CHARS) throw new HttpError(413, "text_too_long", `\`text\` is limited to ${MAX_SPEECH_CHARS} characters.`);
+  const engine = body.engine ?? "auto";
+  if (!SPEECH_ENGINES.has(engine)) throw new HttpError(400, "invalid_engine", "`engine` must be auto, sorotts or mms.");
+  await trackActiveUser(env, key, body.user);
+  if (backendKind(env) !== "http") throw new HttpError(501, "tts_unsupported_backend", "Speech output needs an http backend.");
+
+  const output: any = await httpBackend(env, "/v1/audio/speech", { text: body.text, language: body.language, engine });
+  if (typeof output?.audio_base64 !== "string") throw new HttpError(502, "unexpected_upstream_shape", "Speech response had no audio.");
+  return {
+    audio: output.audio_base64,
+    format: output.format ?? "wav",
+    sample_rate: output.sample_rate,
+    seconds: output.seconds,
+    language: body.language,
+    engine: output.engine,
+    model: output.model,
+    voice: output.voice ?? null,
+    sentences: output.sentences,
+    warnings: Array.isArray(output.warnings) ? output.warnings : [],
+    ...(output.fallback_reason ? { fallback_reason: output.fallback_reason } : {}),
+    attribution: speechCredit(output.model),
+  };
+}
+
 type Limits = { daily_request_limit: number | null; max_active_users: number | null };
 
 /** A limit from an admin request: a positive whole number, null (no limit), or undefined (not given). */
@@ -601,11 +642,12 @@ async function health(env: Env) {
       const res = await fetch(backendBase(env) + "/health", { signal: AbortSignal.timeout(8000) });
       const h: any = await res.json();
       Object.assign(backend, { reachable: true, status: h.status, stage: h.stage, llm: h.llm, asr: h.asr, mock: h.mock === true });
+      if (env.TTS_ENABLED === "true") backend.tts = h.tts ? { status: h.tts.status, engines: h.tts.engines, languages: h.tts.languages } : null;
     } catch {
       backend.reachable = false;
     }
   }
-  return { status: "ok", backend };
+  return { status: "ok", backend, tts_enabled: env.TTS_ENABLED === "true" };
 }
 
 export default {
@@ -638,6 +680,12 @@ export default {
           const key = await authenticate(req, env);
           keyId = key.id;
           response = json(200, await transcribe(req, env, key));
+          break;
+        }
+        case "POST /v1/audio/speech": {
+          const key = await authenticate(req, env);
+          keyId = key.id;
+          response = json(200, await speech(req, env, key));
           break;
         }
         case "GET /v1/admin/keys":

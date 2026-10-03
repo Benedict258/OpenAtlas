@@ -8,7 +8,7 @@ One TypeScript SDK for **N-ATLaS**: Nigeria's open LLM and its Hausa, Yoruba, Ig
 | `transcribe()` | Speech-to-text, routed to the right one of the four N-ATLaS ASR models by language code |
 | `normalizeText()` | Repairs Nigerian-language text whose special characters were corrupted by typing or scraping (`Æ™asa` → `ƙasa`, `Şé` → `Ṣé`) |
 | `reportIssue()` | Flags a wrong N-ATLaS output with its correction: every app becomes an opt-in source of corrected local-language data |
-| `speak()` *(stretch)* | Spoken Hausa/Yoruba/Igbo/Pidgin. Not built yet |
+| `speak()` *(optional)* | Spoken Hausa/Yoruba/Igbo/Pidgin from text N-ATLaS already wrote, by a separate speech model. Built; switched off on the hosted gateway until verified against the real speech models |
 
 Plus three starter kits (citizen services, education, customer service) that use all of it, and a website with the kits running live: **https://openatlas-site.isaacbenedict001.workers.dev**.
 
@@ -106,6 +106,14 @@ Local, no network (also available as `client.normalizeText`). Repairs:
 - **Hausa apostrophe spellings** (opt-in, `hausaApostrophes: true`): `k'asa` → `ƙasa`, `d'aya` → `ɗaya`
 
 It does **not** add tone marks that were never typed: missing marks stay missing. Restoring them needs a model; N-ATLaS-based tone restoration is a roadmap item only.
+
+### `client.speak({ text, language, engine?, user })` → `{ audio, seconds, engine, model, attribution, warnings }`
+
+Optional text-to-speech for text your app already has, normally N-ATLaS's reply.
+- **Not N-ATLaS:** it is a separate renderer (SoroTTS, with MMS-TTS as the fallback and for English). It never changes, translates or answers the text.
+- **Languages:** `en`, `ha`, `yo`, `ig` and `pcm` (Nigerian Pidgin).
+- **Output:** `audio` is WAV bytes.
+- **Status:** **switched off on the hosted gateway** (`tts_disabled`) until it has been verified against the real speech models; see deploy/REPORT.md.
 
 ### `client.reportIssue({ kind, output, correction, input?, language?, note?, audio?, user? })` → `{ id, received_at }`
 
@@ -247,7 +255,7 @@ Measured, not estimated. Details and verbatim outputs are in [`deploy/REPORT.md`
 - **`normalizeText()` repairs; it doesn't restore.** Missing tone marks stay missing.
 - **`reportIssue()` collects; it doesn't deliver yet.** There is no agreed channel to the N-ATLaS maintainers yet.
 - **Context length:** about 8k tokens.
-- **`speak()` isn't included.** It's an optional, separate text-to-speech renderer, not N-ATLaS, and isn't built yet.
+- **`speak()` is off on the hosted gateway.** It is built (SoroTTS, MMS-TTS fallback), but not yet verified against the real speech models, and it only renders text: it never reasons, translates or transcribes. It can be removed without touching anything else (one revertable commit; `TTS_ENABLED` on the gateway).
 
 ## License and terms
 

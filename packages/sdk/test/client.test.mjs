@@ -143,3 +143,31 @@ test("an empty OPENATLAS_BASE_URL falls back to the hosted gateway", () => {
     else process.env.OPENATLAS_BASE_URL = saved;
   }
 });
+
+test("speak posts text and returns the WAV as bytes", async () => {
+  const wav = Buffer.from("RIFF....WAVEfmt ").toString("base64");
+  const s = stub(json(200, { audio: wav, format: "wav", sample_rate: 24000, seconds: 1.2, engine: "sorotts", model: "Shinzmann/sorotts", warnings: [], attribution: "Speech: SoroTTS" }));
+  const res = await make(s.fetch).speak({ text: "Sannu", language: "ha", user: "u" });
+  assert.equal(s.calls[0].url, "https://gw.example/v1/audio/speech");
+  assert.deepEqual(s.calls[0].body, { text: "Sannu", language: "ha", engine: "auto", user: "u" });
+  assert.ok(res.audio instanceof Uint8Array);
+  assert.equal(Buffer.from(res.audio).toString().slice(0, 4), "RIFF");
+  assert.equal(res.engine, "sorotts");
+});
+
+test("speak validates before sending", async () => {
+  const s = stub();
+  const client = make(s.fetch);
+  await assert.rejects(client.speak({ text: "x", language: "en-ng", user: "u" }), OpenAtlasError);
+  await assert.rejects(client.speak({ text: " ", language: "ha", user: "u" }), OpenAtlasError);
+  await assert.rejects(client.speak({ text: "x".repeat(1001), language: "ha", user: "u" }), OpenAtlasError);
+  await assert.rejects(client.speak({ text: "x", language: "ha", engine: "elevenlabs", user: "u" }), OpenAtlasError);
+  await assert.rejects(client.speak({ text: "x", language: "ha" }), OpenAtlasError);
+  assert.equal(s.calls.length, 0);
+});
+
+test("speak surfaces tts_disabled as a typed error, not retried", async () => {
+  const s = stub(json(404, { error: { code: "tts_disabled", message: "Speech output is switched off on this gateway." } }));
+  await assert.rejects(make(s.fetch).speak({ text: "x", language: "pcm", user: "u" }), (e) => e instanceof OpenAtlasAPIError && e.code === "tts_disabled");
+  assert.equal(s.calls.length, 1);
+});

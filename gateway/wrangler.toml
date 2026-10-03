@@ -19,6 +19,9 @@ RUNPOD_API_BASE = "https://api.runpod.ai/v2"
 #   use up every other developer's headroom.
 DEFAULT_DAILY_REQUEST_LIMIT = "1000"
 DEFAULT_KEY_MAX_ACTIVE_USERS = "100"
+# Optional speech output (POST /v1/audio/speech, the SDK's speak()): a final-stage renderer of text N-ATLaS has
+# already written. "true" allows it; anything else switches the route off without touching the rest.
+TTS_ENABLED = "false"
 
 # Secrets (set with `wrangler secret put NAME`, or in .dev.vars locally).
 # deploy/set-backend.mjs sets the backend ones; changing them needs no redeploy.

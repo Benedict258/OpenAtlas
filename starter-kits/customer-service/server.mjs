@@ -3,10 +3,10 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { OpenAtlas } from "@openatlas/sdk";
-import { ticket, report } from "./kit.mjs";
+import { ticket, report, speakDraft } from "./kit.mjs";
 
 const client = new OpenAtlas();
-const ROUTES = { "POST /api/support/ticket": ticket, "POST /api/support/report": report };
+const ROUTES = { "POST /api/support/ticket": ticket, "POST /api/support/report": report, "POST /api/support/speak": speakDraft };
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 
 async function readJson(req) {
@@ -27,7 +27,8 @@ createServer(async (req, res) => {
     if (ROUTES[route]) return send(res, 200, await ROUTES[route](client, await readJson(req)));
     if (route === "GET /api/status") {
       const health = await fetch(`${client.baseURL}/v1/health`).then((r) => r.json());
-      return send(res, 200, { mock: health.backend?.mock === true });
+      // speech: the gateway allows speak() and the backend's speech renderer is loaded.
+      return send(res, 200, { mock: health.backend?.mock === true, speech: health.tts_enabled === true && health.backend?.tts?.status === "ok" });
     }
     if (req.method === "GET") {
       const file = req.url === "/" ? "index.html" : req.url.slice(1);

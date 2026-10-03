@@ -468,6 +468,31 @@ Findings:
 
 **Not checked by a native speaker:** the Hausa, Yoruba and Igbo example declines in the Citizen Services kit were written by the developer.
 
+### 19. Speech output (`speak()`): built and stub-tested; real-model check pending
+
+**What was built.** A separate, final-stage renderer: it turns text N-ATLaS has already written into audio.
+- **Backend:** `deploy/server/tts_renderer.py`.
+  - It receives only the HTTP app, the API-key check and the GPU lock, and has no access to the N-ATLaS models.
+  - Engines:
+    - **SoroTTS** (`Shinzmann/sorotts`, a LoRA adapter on `hypaai/hypaai_orpheus_v5` + SNAC; yo/ha/ig/pcm; loaded in 4-bit to fit beside N-ATLaS on a T4);
+    - **MMS-TTS** as the fallback and for English: `facebook/mms-tts-{eng,hau,yor,pcm}`. For Igbo it uses `Shinzmann/soro-tts-ibo`, because `facebook/mms-tts-ibo` is not publicly available (HTTP 401).
+  - One sentence per generation, joined with 0.25 s of silence. The GPU lock is released between sentences, so chat and speech-recognition requests can interleave.
+- **Notebook:** `natlas_colab.ipynb` section 7b, two new cells behind `ENABLE_TTS`. They attach to the running server; the notebook diff is additions only.
+- **Gateway:** `POST /v1/audio/speech` behind `TTS_ENABLED` (default `"false"`).
+- **SDK:** `speak()` with the same typed errors as `chat()` and `transcribe()`.
+- **Customer Service kit:** "Play response audio", which speaks only the draft's "Draft reply:" text. It is shown only when the site's `LIVE_SPEECH` switch is on *and* the gateway reports the renderer ready.
+
+**Checked:**
+- **Stub test of the renderer:** 18/18, with the real FastAPI routing and stand-in engines. Covered: auth, validation, `auto` routing per language, fallback with its reason, valid WAV output (rate, channels, duration), sentence splitting, safe re-install, `/health` merging, and the SNAC frame layout.
+- **SDK:** 3 new unit tests; the suite is 32/32.
+- **Live gateway with TTS off** (version `ecdd7525`): `speak()` returns `404 tts_disabled` as a typed error, and `chat()` is unaffected (1.6 s).
+
+**Not yet checked:** real models, real audio. This needs the TTS cells run in Colab. Then `deploy/tts-check.mjs` will:
+1. take N-ATLaS's own reply in each language;
+2. render it with both engines;
+3. save the WAVs;
+4. send each one back through the N-ATLaS ASR model, as an intelligibility check (WER against the spoken text).
+
 ### 20. API keys: audited, then limits and revocation built (tested locally; live migration not applied)
 
 **What existed (live D1, 2026-10-03 02:3x UTC):**

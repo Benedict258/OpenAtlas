@@ -26,11 +26,12 @@
 <span class="hint" id="s-status" hidden></span>
 <div class="out"><b>Transcribed</b><span id="s-transcript">The N-ATLaS ASR transcript appears here.</span></div>
 <div class="out"><b>Drafted response</b><span id="s-draft">The N-ATLaS LLM draft appears here.</span></div>
+<button class="wbtn sec" type="button" id="s-speak" hidden>Play response audio</button>
+<div class="out" id="s-speech" hidden><b>Response audio</b><span class="hint">Read aloud by a separate text-to-speech model from N-ATLaS's drafted reply, unchanged: <span id="s-speech-credit"></span></span><audio id="s-speech-audio" controls style="width:100%"></audio></div>
 <button class="wbtn sec" type="button" id="s-report" hidden>Correct this transcript</button>
 <div class="fld" id="s-fix" hidden><label for="s-fix-text">Corrected transcript</label><textarea id="s-fix-text"></textarea><span class="hint">Your voice note and the corrected text are sent to OpenAtlas as a correction for N-ATLaS speech recognition (reportIssue()). Audio paired with a human-checked transcript is the data Nigerian-language speech recognition is shortest of.</span></div>
 <button class="wbtn" type="button" id="s-send" hidden>Send correction</button>
 <span class="hint" id="s-fix-status"></span>
-<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><button class="wbtn dash" type="button" disabled title="Spoken replies are not available yet">Play response audio</button><span class="badge">Stretch</span></div>
 </div>
 </div>
 <!-- /window:support -->
