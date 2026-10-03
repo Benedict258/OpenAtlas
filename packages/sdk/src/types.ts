@@ -98,7 +98,8 @@ export interface SpeakParams {
   text: string;
   language: SpeakLanguage;
   /**
-   * "auto" (default): SoroTTS where it covers the language and is loaded, otherwise (or if it fails) MMS-TTS.
+   * "auto" (default): SoroTTS for a single sentence where it covers the language and is loaded; MMS-TTS for
+   * longer text, other languages, or if SoroTTS fails (SoroTTS is too slow on a T4 for whole replies).
    * "sorotts": SoroTTS only (ha, yo, ig, pcm); natural but slow. "mms": Meta MMS-TTS only; fast, more robotic.
    */
   engine?: "auto" | "sorotts" | "mms";

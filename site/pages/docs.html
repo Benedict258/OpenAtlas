@@ -226,7 +226,7 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <div class="scroll"><table class="tbl"><thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead><tbody>
 <tr><td>text</td><td>string</td><td>Required, up to 1,000 characters. Spoken unchanged.</td></tr>
 <tr><td>language</td><td>"en" | "ha" | "yo" | "ig" | "pcm"</td><td>Required. "pcm" is Nigerian Pidgin.</td></tr>
-<tr><td>engine</td><td>"auto" | "sorotts" | "mms"</td><td>Default "auto": SoroTTS where it covers the language (natural, slow), otherwise or on failure MMS-TTS (fast).</td></tr>
+<tr><td>engine</td><td>"auto" | "sorotts" | "mms"</td><td>Default "auto": SoroTTS for a single sentence where it covers the language (natural, slow); MMS-TTS (fast) for longer text, English, or on failure.</td></tr>
 <tr><td>user</td><td>string</td><td>Required, as for chat().</td></tr>
 <tr><td>returns</td><td>{ audio, seconds, engine, model, attribution, warnings }</td><td>audio is WAV bytes. model is the TTS model's Hugging Face ID, e.g. "Shinzmann/sorotts" or "facebook/mms-tts-hau". attribution is its license credit.</td></tr>
 </tbody></table></div>

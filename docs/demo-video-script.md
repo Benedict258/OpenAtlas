@@ -1,6 +1,6 @@
 # OpenAtlas demo video: script and shot list
 
-**Target length:** 4:30. NAIC requires 3–5 minutes.
+**Target length:** 4:35. NAIC requires 3–5 minutes.
 
 **Sources:** every number on screen comes from [`deploy/REPORT.md`](../deploy/REPORT.md). Don't add claims that aren't there.
 
@@ -14,6 +14,7 @@
 - **Browser:** clean window, 125% zoom, site open at `/starter-kits`, a second tab on `/docs`.
 - **Terminal:** large font, an empty folder ready for the fresh-install shot.
 - **Customer Service shot:** have a ~20 s spoken Hausa voice note ready to record live, plus `test-audio/eval/51s.wav` (Yoruba, 51 s) for the "sent in parts" shot.
+- **Speech shot (6b):** the gateway's `/v1/health` must show `tts_enabled: true` and the backend's `tts` as `ok`.
 - **Rehearse the waits:**
   - chat replies take 5–13 s (Hausa/Igbo/English) and 15–20 s for Yoruba;
   - plan to cut the waits in editing, and leave the timer visible once, so the latency is shown honestly.
@@ -28,9 +29,10 @@
 | 4 | 1:30–2:00 | **Best shot: Citizen Services, Hausa.** Type "Ina zan je don yin rajistar katin zabe?" and press Ask. The answer appears (INEC). | "The starter kits are reference apps for developers, not products. Citizen Services: ask in Hausa, and N-ATLaS answers from a small civic dataset. Here it correctly points to INEC." |
 | 5 | 2:00–2:25 | Education: the same question at Primary, then Secondary. Show both answers. | "Education reframes the same `chat()` call by level. The primary answer is short and simple. At secondary level the model isn't always consistent: in our tests it sometimes still answered for a young child, and made small factual slips. We document that rather than hide it." |
 | 6 | 2:25–3:20 | **Best shot: Customer Service, live recording.** Press Record; the countdown runs. Speak a ~20 s Hausa complaint, then Stop. In the review step, play it back, then Send. The transcript and draft appear; status: "NCAIR1/Hausa-ASR → NCAIR1/N-ATLaS. Powered by Awarri." Then upload `51s.wav` (Yoruba) and show the warning: "sent as 2 parts … only reliable on 30 s at a time." | "Customer Service chains two models: speech in, transcript, drafted reply. That's a real browser recording; webm decoding was fixed and checked live. Nothing is sent until you confirm. Recording stops at 30 seconds, because we measured that longer audio lost words. Longer files are split into 25-second parts, and the user is told so before sending." |
-| 7 | 3:20–3:40 | Customer Service: "Correct this transcript", edit a word, Send: "Thanks, recorded … with audio". Then the operator export (terminal), showing `has_audio: 1`. | "When a transcript is wrong, the correction goes back with its audio. Every OpenAtlas app becomes an opt-in source of corrected Nigerian-language speech data, which is exactly what these languages are short of." |
-| 8 | 3:40–4:15 | **Best shot: the evidence.** Scroll `deploy/REPORT.md`: the WER table, then the Yoruba loop excerpt ("afẹ́fẹ́fẹ́…"), then the known-issues table. | "Every claim here is backed by a recorded test. Speech-recognition error rates on real recordings: Nigerian English 26%, Hausa 41%, Yoruba 56%. Yoruba is the weakest: its chat replies occasionally fall into a repetition loop, about one in eleven runs in our tests. So the Citizen Services demo opens in Hausa. These are the models' limits, measured and published, not hidden." |
-| 9 | 4:15–4:30 | The architecture page diagram, then the end card with the repo link, the site link, and the attribution line. | "One SDK, a license-aware gateway, three verified starter kits, and an open record of what works and what doesn't. N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies." |
+| 6b | 3:20–3:35 | **Speech out, English only.** Customer Service run locally (`npm start` in `starter-kits/customer-service`; the website keeps speech off). Language: English. Send a short English voice note. When the draft appears, press "Play response audio" and let ~5 s play. Status: `facebook/mms-tts-eng`. | "Optionally, the drafted reply can be read back aloud. This is a separate speech renderer, not N-ATLaS. We show it in English only: for Hausa, Yoruba and Igbo, our own tests show it isn't accurate enough yet." |
+| 7 | 3:35–3:50 | Customer Service: "Correct this transcript", edit a word, Send: "Thanks, recorded … with audio". Then the operator export (terminal), showing `has_audio: 1`. | "When a transcript is wrong, the correction goes back with its audio. Every OpenAtlas app becomes an opt-in source of corrected Nigerian-language speech data, which is exactly what these languages are short of." |
+| 8 | 3:50–4:20 | **Best shot: the evidence.** Scroll `deploy/REPORT.md`: the WER table, then the Yoruba loop excerpt ("afẹ́fẹ́fẹ́…"), then the known-issues table. | "Every claim here is backed by a recorded test. Speech-recognition error rates on real recordings: Nigerian English 26%, Hausa 41%, Yoruba 56%. Yoruba is the weakest: its chat replies occasionally fall into a repetition loop, about one in eleven runs in our tests. So the Citizen Services demo opens in Hausa. These are the models' limits, measured and published, not hidden." |
+| 9 | 4:20–4:35 | The architecture page diagram, then the end card with the repo link, the site link, and the attribution line. | "One SDK, a license-aware gateway, three verified starter kits, and an open record of what works and what doesn't. N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies." |
 
 ## Best moments to screen-record live (ranked)
 
@@ -53,6 +55,7 @@
   - level framing varies (KI-10);
   - Customer Service drafts sometimes break format or restate the customer (KI-12).
 - Audio is reliable up to 30 s per request (KI-11).
+- Speech output is shown in English only. Hausa, Yoruba and Igbo speech is heard back with 36–79% WER (KI-14).
 
 ## Open items before recording
 

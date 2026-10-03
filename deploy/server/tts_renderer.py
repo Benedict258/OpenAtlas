@@ -15,7 +15,8 @@ Engines:
              decoder. Yoruba, Hausa, Igbo, Nigerian Pidgin. CC BY-NC-SA 4.0. Slow (autoregressive).
     mms      Meta MMS-TTS (VITS): facebook/mms-tts-{eng,hau,yor,pcm}; for Igbo, Shinzmann/soro-tts-ibo
              (an MMS-TTS fine-tune; facebook/mms-tts-ibo is not publicly available). CC BY-NC 4.0. Fast.
-    auto     sorotts where it covers the language and is loaded; otherwise, or if it fails, mms.
+    auto     sorotts for a single sentence where it covers the language and is loaded; mms for longer
+             text, for other languages, or if sorotts fails.
 
 Environment (natlas_server.py): ENABLE_TTS=1 turns this on; TTS_SOROTTS=0 loads MMS only;
 SOROTTS_QUANT="4bit" (default, fits next to N-ATLaS on a 16 GB T4) or "none".
@@ -195,7 +196,9 @@ def render(text: str, language: str, engine: str, gpu_lock):
         raise HTTPException(400, "text is empty")
     use = engine
     if engine == "auto":
-        use = "sorotts" if tts_state["sorotts"] and language in SOROTTS_VOICES else "mms"
+        # sorotts renders at ~10 s per second of audio on a T4, so anything past one sentence outlasts a
+        # quick tunnel's ~100 s timeout (REPORT.md section 24). auto keeps it for single sentences only.
+        use = "sorotts" if tts_state["sorotts"] and language in SOROTTS_VOICES and len(sentences) == 1 else "mms"
     warnings, fallback_reason = [], None
     started = time.time()
     if use == "sorotts":

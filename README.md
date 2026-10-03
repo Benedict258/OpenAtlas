@@ -110,10 +110,13 @@ It does **not** add tone marks that were never typed: missing marks stay missing
 ### `client.speak({ text, language, engine?, user })` → `{ audio, seconds, engine, model, attribution, warnings }`
 
 Optional text-to-speech for text your app already has, normally N-ATLaS's reply.
-- **Not N-ATLaS:** it is a separate renderer (SoroTTS, with MMS-TTS as the fallback and for English). It never changes, translates or answers the text.
+- **Not N-ATLaS:** it is a separate renderer. It never changes, translates or answers the text.
+- **Engines:** SoroTTS for single sentences in `ha`, `yo`, `ig` and `pcm`; MMS-TTS for longer text, for English, and as the fallback.
 - **Languages:** `en`, `ha`, `yo`, `ig` and `pcm` (Nigerian Pidgin).
 - **Output:** `audio` is WAV bytes.
-- **Status:** **switched off on the hosted gateway** (`tts_disabled`) until it has been verified against the real speech models; see deploy/REPORT.md.
+- **Status:** verified on the real models (deploy/REPORT.md, sections 24–25).
+  - English is clear.
+  - Hausa, Yoruba and Igbo are rendered, but heard back with high error rates (KI-14).
 
 ### `client.reportIssue({ kind, output, correction, input?, language?, note?, audio?, user? })` → `{ id, received_at }`
 
@@ -255,7 +258,9 @@ Measured, not estimated. Details and verbatim outputs are in [`deploy/REPORT.md`
 - **`normalizeText()` repairs; it doesn't restore.** Missing tone marks stay missing.
 - **`reportIssue()` collects; it doesn't deliver yet.** There is no agreed channel to the N-ATLaS maintainers yet.
 - **Context length:** about 8k tokens.
-- **`speak()` is off on the hosted gateway.** It is built (SoroTTS, MMS-TTS fallback), but not yet verified against the real speech models, and it only renders text: it never reasons, translates or transcribes. It can be removed without touching anything else (one revertable commit; `TTS_ENABLED` on the gateway).
+- **`speak()` is reliable in English only.** It has been verified against the real speech models.
+  - Hausa, Yoruba and Igbo audio is heard back by the N-ATLaS ASR models with high error rates, and SoroTTS is too slow on a T4 for whole replies (KI-14).
+  - It only renders text: it never reasons, translates or transcribes. It can be removed without touching anything else (one revertable commit; `TTS_ENABLED` on the gateway).
 
 ## License and terms
 
