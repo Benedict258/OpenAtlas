@@ -571,6 +571,104 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   - Cell 4 was run against a stand-in `kaggle_secrets` module: it loads both secrets, and gives a clear message when one isn't attached.
   - **Not yet run on Kaggle.**
 
+### 24. Kaggle backend live; fresh-install check; speech output verified on real models
+
+**Backend: Kaggle, T4 x2** (`natlas_kaggle.ipynb`, `ENABLE_TTS = True`). The server's own `/health` reported N-ATLaS, all four ASR models and both TTS engines loaded, with `sorotts_error: null`. SoroTTS loaded in 52.3 s on the first run and 7.6 s after a session restart (cached).
+- The first tunnel URL went offline (Cloudflare `530`) a few minutes after it was printed, while the server inside the session was still healthy. Re-running the tunnel cell gave a working URL. (The earlier 404s on that URL were a `/v1` suffix in `.env`, not a Kaggle problem.)
+
+**Live database migration and gateway deploy:**
+- The migration was applied. `api_keys` now has `daily_request_limit`, `max_active_users` and `revoked_reason`.
+- The gateway was deployed with `TTS_ENABLED=true`, and `set-backend.mjs` connected it to the Kaggle URL. The gateway reported `reachable: true`, `mock: false` and `tts_enabled: true`.
+- `deploy/keys.mjs` read back live limits per key. `website-demos` is at 3,000 requests per 24 h and 300 active users. `owner-testing` has no limits. **KI-4's fix is live.**
+
+**Fresh-install check:**
+- In an empty folder, `npm install @openatlas/sdk@latest` installed `0.1.0` from the public registry.
+- `examples/quickstart.mjs` ran with only `OPENATLAS_API_KEY` set, using the SDK's default gateway URL.
+- It returned a real Hausa N-ATLaS answer about voter-card registration in 10.2 s, with the "NCAIR1/N-ATLaS, Powered by Awarri" credit. **Passes.**
+
+**Speech output: `deploy/tts-check.mjs`**
+- Each text is N-ATLaS's own two-sentence customer-service reply.
+- It was spoken through the gateway with `speak()`, saved to `test-audio/tts/`, then sent back through the N-ATLaS ASR model for that language. WER is measured against the spoken text.
+- There is no Pidgin ASR model; `pcm` audio is heard back by the Nigerian-English model.
+- The full rows are in `deploy/tts-results.jsonl`.
+
+| Lang | `engine` | Model used | Audio | Render time | Heard-back WER (ignoring tone marks) |
+|---|---|---|---|---|---|
+| ha | auto | SoroTTS (Hau1) | — | **failed: HTTP 524** (tunnel timeout) | — |
+| ha | mms | `facebook/mms-tts-hau` | 10.2 s | 2.8 s | 32% (32%) |
+| yo | auto | SoroTTS (Yor1) | — | **failed: HTTP 524** | — |
+| yo | mms | `facebook/mms-tts-yor` | 9.4 s | 12.3 s | 79% (38%) |
+| ig | auto | SoroTTS (Ibo1) | — | **failed: HTTP 524** | — |
+| ig | mms | `Shinzmann/soro-tts-ibo` | 10.7 s | 9.4 s | 72% (72%) |
+| pcm | auto | SoroTTS (NaijaA) | 13.4 s | **126.3 s** | **4%** (4%) |
+| pcm | mms | `facebook/mms-tts-pcm` | 11.5 s | 2.6 s | 57% (57%) |
+| en | auto | `facebook/mms-tts-eng` (SoroTTS has no English voice) | 15.9 s | 1.9 s | 7% (7%) |
+| en | mms | `facebook/mms-tts-eng` | 16.9 s | 1.9 s | 2% (2%) |
+
+**SoroTTS is too slow for a whole reply on a T4.**
+- It rendered at about 9–10 s per second of audio, measured on the Pidgin reply and on two single short sentences:
+  - Hausa: 5.1 s of audio in 50.7 s;
+  - Yoruba: 3.8 s of audio in 37.7 s.
+- A two-sentence Hausa, Yoruba or Igbo reply takes longer than the Cloudflare tunnel will hold a request open, so the gateway got `524` and returned `503 backend_unavailable`.
+- The `auto` fallback to MMS-TTS never ran: it only triggers when SoroTTS raises an error, and here the connection was cut first.
+- **No fallback from GPU memory pressure was seen.** SoroTTS loaded next to N-ATLaS and the ASR models on T4 x2, `sorotts_error` stayed `null`, and every SoroTTS request that finished came from SoroTTS.
+
+**Quality where it rendered:**
+- **SoroTTS Pidgin is the best result of the run:** it was heard back at 4% WER.
+- **MMS-TTS English is clear:** 2–7%, mostly "reship" heard as "worship".
+- **MMS-TTS Hausa is intelligible:** 32%, mostly word-joining spellings ("zasu" for "za su").
+- **Yoruba and Igbo are weak.** The Yoruba ASR returns tone marks the spoken text didn't have, which is why the WER drops to 38% when they are ignored. Igbo is at 72%; on the Igbo row, MMS-TTS means the `Shinzmann/soro-tts-ibo` stand-in for Igbo, because `facebook/mms-tts-ibo` is gated.
+- **MMS Pidgin is 57%:** words were swapped ("weekend", "madam").
+- **Not checked by a native speaker:** WER through ASR is a proxy for intelligibility. The WAVs are saved for listening.
+
+**What this means:**
+- **Works today:** English and Hausa with `engine: "mms"`, and SoroTTS for short Pidgin replies.
+- **Not usable through the tunnel:** `auto` for Hausa, Yoruba and Igbo whole replies.
+- **Fix options (not built):**
+  - make `auto` choose MMS-TTS for replies longer than one sentence;
+  - stream sentence by sentence;
+  - put SoroTTS on a faster GPU.
+- The website's speech switch (`LIVE_SPEECH`) stays off.
+
+### 25. Speech output: `auto` limited to one sentence on SoroTTS, re-verified
+
+**Change:** `auto` now uses SoroTTS only for single-sentence text. Anything longer goes to MMS-TTS, in every language (`tts_renderer.py`).
+- **Stand-in test:** 20/20. New checks: three sentences on `auto` → MMS; one sentence → SoroTTS.
+
+**Kaggle notebook rebuilt as 3 cells:** instructions, the renderer file, and one run-everything cell.
+- Speech output now loads before the tunnel opens.
+- The notebook asserts that two sentences on `auto` come back from MMS.
+- `cloudflared` now runs in its own session and logs to a file. Before, its log went to an unread pipe, and it shared the kernel's process group; the tunnel had dropped with Cloudflare `530` three times on Kaggle.
+- The 3-cell notebook ran end to end on Kaggle T4 x2 after a kernel restart. The first attempt hit `CUDA out of memory`: it ran in the old kernel, with the previous run's models still loaded.
+
+**Live check of the rule through the gateway (Hausa):**
+- Two sentences → `facebook/mms-tts-hau`, 4.1 s of audio in 2.3 s.
+- One sentence → SoroTTS, 14.6 s of audio in 121.9 s. The same sentence gave 4.1 s of audio in 40 s earlier, so this output was probably garbled.
+
+**`deploy/tts-check.mjs` re-run: 10/10 renders returned audio, no 524s.** WER is heard back by the N-ATLaS ASR model for that language; the last column ignores tone marks.
+
+| Lang | `engine` | Sentences | Model used | Audio | Render time | WER | WER (no tone marks) |
+|---|---|---|---|---|---|---|---|
+| ha | auto | 2 | `facebook/mms-tts-hau` | 10.0 s | 2.0 s | 40% | 40% |
+| ha | mms | 2 | `facebook/mms-tts-hau` | 9.8 s | 1.7 s | 36% | 36% |
+| yo | auto | 1 | SoroTTS (Yor1) | 14.0 s | 116.6 s | 65% | 26% |
+| yo | mms | 1 | `facebook/mms-tts-yor` | 6.3 s | 1.4 s | 61% | 26% |
+| ig | auto | 1 | SoroTTS (Ibo1) | 9.5 s | 79.3 s | **0%** | 0% |
+| ig | mms | 1 | `Shinzmann/soro-tts-ibo` | 10.1 s | 1.6 s | 79% | 79% |
+| pcm | auto | 2 | `facebook/mms-tts-pcm` | 11.2 s | 1.6 s | 54% | 54% |
+| pcm | mms | 2 | `facebook/mms-tts-pcm` | 9.9 s | 1.6 s | 43% | 43% |
+| en | auto | 2 | `facebook/mms-tts-eng` | 16.2 s | 1.8 s | **2%** | 2% |
+| en | mms | 2 | `facebook/mms-tts-eng` | 15.6 s | 2.1 s | 5% | 5% |
+
+**Results:**
+- **No timeouts on multi-sentence replies in any language.** Every one went to MMS-TTS and rendered in about 2 s.
+- **The fresh MMS-TTS numbers confirm the quality gap.** Hausa 36–40%, Yoruba 61% (26% ignoring tone marks), Igbo 79% and Pidgin 43–54%, against English 2–5%.
+- **This run's Yoruba and Igbo replies were single sentences,** so `auto` used SoroTTS:
+  - it took 79–117 s;
+  - it sounded better: Igbo 0% WER against 79% on MMS-TTS.
+  - Those requests finished, but a long single sentence is close to the tunnel's limit, as the 121.9 s Hausa sentence shows. A 524 on a long single sentence is still possible.
+- **Decision:** speech output is shown in English only (demo video shot 6b). The website's speech switch stays off.
+
 ---
 
 ## Known issues
@@ -580,7 +678,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 | KI-1 | Citizen Services: on a question outside the demo notes (Hausa airfare), N-ATLaS gave general advice instead of saying the notes don't cover it. It ignores the "answer only from the notes" system instruction. | **Fixed in the kit code for the reported case** (section 18): structured prompt; out-of-scope declined cleanly 5/6 (was 1/6), the Hausa airfare case declines in Hausa. One case still answered from outside knowledge (Hausa farm loan). Not yet deployed to the website. |
 | KI-2 | Yoruba chat can degenerate into repeated or mutated syllables around "afẹ́fẹ́" ("afẹ́fẹ́fẹ́…", "fúnfúnfún…"). Without the guard: 1 full loop and 2 stutters in 11 runs. With `no_repeat_ngram_size = 10`: 1 full loop and 3 stutters in 12 runs. | **Closed as a known model limitation.** The n-gram guard was tried and removed. Citizen Services opens in Hausa (site version `a5b4ade5`); Yoruba is still selectable, with this caveat. |
 | KI-3 | Yoruba is the weakest language so far: most tone marks missing in chat replies, invented details, 74% WER on the one ASR clip, and the slowest chat (11–23 s vs 4–8 s for the other languages). | Known limitation of the current models; stated as a caveat. |
-| KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | **Fix built, not yet live** (section 20): per-key daily quota and share of the license cap, plus a per-IP limit on the website demos. Waits on the live database migration. Until then, still open. Must be listed in the final pre-submission status. |
+| KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | **Fixed, live** (sections 20, 23, 24): per-key daily quota and share of the license cap, with `website-demos` at 3,000 requests per 24 h and 300 users, plus a per-IP limit on the website demos. The per-IP limit is approximate (Cloudflare's counters are per location). Must be listed in the final pre-submission status. |
 | KI-5 | The Colab notebook couldn't decode browser recordings (webm), and had no GPU lock for concurrent requests. | **Fixed.** ffmpeg decoding and one GPU lock (`998a946`), both verified live (section 17, steps 2–3). |
 | KI-6 | The Colab notebook's chat reply has no token `usage` field, so the smoke test prints `undefined` for it. | Cosmetic. |
 | KI-7 | `transcribe()` failed (HTTP 500) on every clip over 30 s: Colab notebook without chunking. | **Fixed.** With `chunk_length_s=30`, 10/10 long clips transcribe (section 11). The earlier 0/10 was a patch cell run twice (section 9). |
@@ -590,3 +688,4 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 | KI-11 | Audio over ~30 s lost words in the backend's chunked ASR mode: transcripts were 39–79% of reference length on clips over ~37 s. | **Fixed for 38–54 s clips:** the backend now sends plain 25 s pieces, and words kept went from 39–61% to 83–99% (section 17). On 89–123 s free speech some loss remains with clean pieces too (model). Documented reliable limit: 30 s per request. The Customer Service recorder caps at 30 s and splits uploads. |
 | KI-12 | Customer Service drafts: with a Yoruba note, N-ATLaS translated the required format labels and picked a category outside the allowed list. With a Hausa note it kept the format, but its "reply" restated the customer's words instead of answering them. | **Format fixed in the kit code** (section 18): followed 10/10 (was 3/10), both reported notes re-run and passing. Category choice is still model judgment (6–8/10 as expected). Not yet deployed to the website. |
 | KI-13 | The notebook's `latency_seconds` includes time spent waiting for the GPU lock, so it overstates model time under concurrent load. | Cosmetic. Measurement note only. |
+| KI-14 | Speech output, two separate problems (section 24). **(1) Too slow:** SoroTTS renders at about 10 s per second of audio on a T4, so multi-sentence Hausa, Yoruba and Igbo replies don't finish within the free tunnel's timeout (HTTP 524; failed in 3 of 3 languages). **(2) Low quality:** the MMS-TTS engine has much higher heard-back word error rates for Hausa (32%), Yoruba (79%; 38% ignoring tone marks) and Igbo (72%) than for English (2%). That is a real quality gap, not a timeout artifact. | **(1) Fixed for multi-sentence replies** (section 25): `auto` sends anything past one sentence to MMS-TTS. Re-verified: 10/10 renders, no 524s. A long *single* sentence still goes to SoroTTS (79–122 s measured), so a 524 there is still possible. **(2) Open, confirmed on re-test:** MMS-TTS Hausa 36–40%, Yoruba 61% (26% ignoring tone marks), Igbo 79%, against English 2–5%. A limit of the available speech models. Speech is shown in English only; the website's speech switch stays off. |

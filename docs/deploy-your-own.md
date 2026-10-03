@@ -16,7 +16,7 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 | Path | Status |
 |---|---|
 | **Colab backend** (`natlas_colab.ipynb`) + gateway | **Proven.** This is what has served the public OpenAtlas gateway since 2026-10-02. Every check in [`deploy/REPORT.md`](../deploy/REPORT.md) ran on it. |
-| Optional speech renderer (TTS cells in the same notebook) | Built and tested with stand-in models. **Not yet verified against real models** (see REPORT.md). |
+| Optional speech renderer (TTS cells in the same notebook) | **Verified on real models on Kaggle T4 x2** (REPORT.md section 24). MMS-TTS renders in seconds. SoroTTS runs at about 10 s per second of audio, so whole replies outlast a quick tunnel's timeout; use `engine: "mms"` there, or short texts. |
 | `deploy/setup-gateway.mjs` (one-command gateway setup) | Checked with `--dry-run` only. **Not yet run against a fresh Cloudflare account.** The individual steps it runs are the ones used to set up the live gateway. |
 | `deploy/server/natlas_server.py` on any other GPU host | Shares the notebook's audio handling and GPU lock. **Not verified end to end by us** on a GPU. |
 | **RunPod Serverless** (`deploy/llm`, `deploy/asr`, gateway `BACKEND_KIND=runpod`) | Scripted, **never run**: no RunPod endpoint has ever been created for OpenAtlas. The ASR container image builds in CI and is publicly pullable. See the known gaps below. |
@@ -66,7 +66,7 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
    node --env-file=.env.selfhost examples/quickstart.mjs
    ```
 
-**Kaggle instead of Colab:** `deploy/colab/natlas_kaggle.ipynb` is the same notebook with Kaggle secrets: GPU T4 x2, Internet on, and `HF_TOKEN` and `NATLAS_API_KEY` under Add-ons → Secrets. Not yet run by us.
+**Kaggle instead of Colab:** `deploy/colab/natlas_kaggle.ipynb` is the same notebook with Kaggle secrets: GPU T4 x2, Internet on, and `HF_TOKEN` and `NATLAS_API_KEY` under Add-ons → Secrets. It is three cells: Run all, then leave it running. Run by us on 2026-10-03 (REPORT.md sections 24–25). The tunnel now runs detached and restarts itself if it exits; check the cell output for a new URL.
 
 **What to expect from Colab:**
 - A free session ends when idle or after about 12 hours, and the tunnel URL changes every run.

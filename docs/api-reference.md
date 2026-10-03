@@ -40,7 +40,8 @@ A text-to-speech renderer for text the app already has, normally N-ATLaS's reply
 - **Not N-ATLaS:** the speech models are separate. It never changes, translates or answers the text.
 - **Request:** `{ text (≤1,000 chars), language: "en"|"ha"|"yo"|"ig"|"pcm", engine?: "auto"|"sorotts"|"mms", user }`.
 - **Response:** `{ audio (base64 WAV), format, sample_rate, seconds, language, engine, model, voice, sentences, warnings, fallback_reason?, attribution }`.
-- **Engines:** `auto` uses SoroTTS (`Shinzmann/sorotts`) where it covers the language and is loaded, and MMS-TTS otherwise or if SoroTTS fails.
+- **Engines:** `auto` uses SoroTTS (`Shinzmann/sorotts`) for a single sentence where it covers the language and is loaded. It uses MMS-TTS for longer text, for English, or if SoroTTS fails.
+  - **Why:** SoroTTS needs about 10 s per second of audio on a T4, so whole replies time out (deploy/REPORT.md, KI-14).
 - **Errors:**
   - `404 tts_disabled` when the gateway has it switched off;
   - `501 tts_unsupported_backend` on the RunPod backend.
