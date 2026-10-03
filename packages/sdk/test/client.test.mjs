@@ -132,3 +132,14 @@ test("transcribe rejects oversized or empty audio before sending anything", asyn
   await assert.rejects(make(s.fetch).transcribe({ audio: new Uint8Array(0), language: "ha", user: "u" }), /empty audio/);
   assert.equal(s.calls.length, 0);
 });
+
+test("an empty OPENATLAS_BASE_URL falls back to the hosted gateway", () => {
+  const saved = process.env.OPENATLAS_BASE_URL;
+  process.env.OPENATLAS_BASE_URL = "";
+  try {
+    assert.equal(new OpenAtlas({ apiKey: "oa_test" }).baseURL, "https://openatlas-gateway.isaacbenedict001.workers.dev");
+  } finally {
+    if (saved === undefined) delete process.env.OPENATLAS_BASE_URL;
+    else process.env.OPENATLAS_BASE_URL = saved;
+  }
+});

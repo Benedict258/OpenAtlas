@@ -40,8 +40,9 @@ export interface OpenAtlasOptions {
   normalize?: boolean;
 }
 
+// An empty variable (common in .env templates) counts as unset, so the defaults still apply.
 const env = (name: string): string | undefined =>
-  typeof process !== "undefined" ? process.env?.[name] : undefined;
+  (typeof process !== "undefined" ? process.env?.[name] : undefined) || undefined;
 
 export class OpenAtlas {
   readonly baseURL: string;
