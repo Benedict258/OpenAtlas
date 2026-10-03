@@ -672,6 +672,21 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   - Those requests finished, but a long single sentence is close to the tunnel's limit, as the 121.9 s Hausa sentence shows. A 524 on a long single sentence is still possible.
 - **Decision:** speech output is shown in English only (demo video shot 6b). The website's speech switch stays off.
 
+### 26. Speech flag from the config file alone; site redeployed
+
+**Gateway:**
+- `gateway/wrangler.toml` is now `TTS_ENABLED = "true"`. Before, speech was on only because of a one-off `--var` override.
+- Plain `npx wrangler deploy` with no `--var`: version `ba20d871`. Wrangler reported `env.TTS_ENABLED ("true")` as an environment variable from the file.
+- The backend secret survived the deploy. `/v1/health` showed `reachable: true` and `tts_enabled: true`, with the backend's `tts` `ok`.
+- **Real round trip with the SDK through the gateway:**
+  - `speak()` on two English sentences returned `facebook/mms-tts-eng`, 4.43 s of audio in 2.1 s.
+  - `transcribe()` with `NCAIR1/NigerianAccentedEnglish` heard it back as "thank you for your patience! your order will arrive tomorrow." That matches the input word for word, apart from punctuation.
+
+**Site:** version `f69b8935`.
+- `/docs` now shows the new `auto` rule ("SoroTTS for a single sentence … MMS-TTS (fast) for longer text, English, or on failure").
+- `/api/status` is `{"mock":false,"speech":false}`, and `/api/support/speak` returns `503`.
+- **The public website still has no speech.** Speech is used only through the API/SDK and the locally run demo kit.
+
 ---
 
 ## Known issues
