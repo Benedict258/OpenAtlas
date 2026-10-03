@@ -26,7 +26,7 @@ The gateway also sends N-ATLaS two settings that the caller doesn't control. Bot
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `audio` | base64 string | yes | Any format ffmpeg decodes. About 7 MB before encoding |
+| `audio` | base64 string | yes | wav, flac, ogg or mp3 on any backend; webm/m4a only on an ffmpeg backend (not the current Colab notebook). About 7 MB before encoding. **Keep to 30 s of audio or less**: longer audio is accepted but currently loses words |
 | `language` | `"en-ng"\|"ha"\|"yo"\|"ig"` | yes | Selects the ASR model |
 | `user` | string | **yes** | As above |
 
@@ -75,7 +75,7 @@ Every error looks like `{ "error": { "code": string, "message": string, "job_id"
 | 401 | `missing_api_key`, `invalid_api_key`, `invalid_admin_token` | Auth |
 | 413 | `audio_too_large`, `issue_too_large` | Over a size limit |
 | 429 | `license_cap_reached` | 1,000 active end-users reached; only new users are refused |
-| 502 | `upstream_error`, `upstream_failed`, `model_error`, `unexpected_upstream_shape`, `backend_auth_failed` | The backend or the model failed |
+| 502 | `backend_error`, `upstream_error`, `upstream_failed`, `model_error`, `unexpected_upstream_shape`, `backend_auth_failed`, `backend_route_missing` | The backend or the model failed on this request. Not retried by the SDK |
 | 503 | `upstream_not_configured`, `backend_unavailable` | No backend connected, or it's down or still loading models |
 | 504 | `upstream_timeout` | Didn't finish within the gateway's wait (default 300 s) |
 
@@ -109,7 +109,7 @@ await client.reportIssue({
 });
 ```
 
-Retries: network errors and 502/503 are retried with backoff (1 s, 2 s, …), up to `maxRetries`. 4xx errors are never retried. A `429 license_cap_reached` won't go away by retrying.
+Retries: network errors and 503 are retried with backoff (1 s, 2 s, …), up to `maxRetries`. 4xx, 502 and 504 errors are never retried. A `429 license_cap_reached` won't go away by retrying.
 
 ## Language codes
 

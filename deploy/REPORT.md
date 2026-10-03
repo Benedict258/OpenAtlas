@@ -295,6 +295,17 @@ So the level framing varies from run to run, and the answers can contain factual
 - On the three 89–123 s recordings, splitting helps less, or not at all (yo-34). There, some loss also comes from the model or the recordings themselves.
 - Not pursued further, as agreed. The likely fix is to split long audio into ≤30 s pieces on the server, instead of using the pipeline's chunked mode. Until that is done and verified, **30 s per request is the documented reliable limit.**
 
+### 14. README quickstart, run exactly as published: PASS
+
+`examples/quickstart.mjs` is the README quickstart. It was run with only `OPENATLAS_API_KEY` set, so the SDK's default gateway URL was tested too.
+- **Time:** 6 s.
+- **Output:**
+  - `normalizeText()` repaired "zaÉ“e" → "zaɓe".
+  - The reply, in Hausa: "Don yin rijistar katin zabe, ya kamata ku ziyarci ofishin zabe na gida a unguwar ku ko jihar ku."
+  - `NCAIR1/N-ATLaS, Powered by Awarri`.
+
+**Bug found on the first attempt:** an *empty* `OPENATLAS_BASE_URL`, common in `.env` templates, stopped the SDK falling back to the hosted gateway ("Missing gateway URL"). Fixed: empty environment variables now count as unset. New unit test; SDK tests 24/24.
+
 ---
 
 ## Known issues

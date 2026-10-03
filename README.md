@@ -16,12 +16,16 @@ Plus three starter kits (citizen services, education, customer service) that use
 >
 > OpenAtlas is a **non-commercial developer and research resource**. N-ATLaS's Terms of Use cap usage at **1,000 active end-users per rolling 30 days**; the gateway enforces that cap.
 
-> **Status (2026-10-02):** the gateway is live at `https://openatlas-gateway.isaacbenedict001.workers.dev`, and `reportIssue()` and `normalizeText()` work against it today. `chat()` and `transcribe()` return `503 upstream_not_configured` until a GPU backend is connected. The next step is an interim Colab backend, then the persistent NiHub host. This notice will be updated once a real N-ATLaS request has gone end to end.
+> **Status (2026-10-03):**
+> - **Checked against the real N-ATLaS models through the public gateway:** `chat()` in English, Hausa, Yoruba and Igbo; `transcribe()` in all four ASR languages on 90 real recordings; `reportIssue()`; and the Citizen Services and Education kits in a browser.
+> - **Evidence:** every check, with verbatim outputs, timings and failures, is in [`deploy/REPORT.md`](deploy/REPORT.md).
+> - **Hosting is interim:** the models run on Google Colab, which is up only while the notebook runs. At other times calls return `503 backend_unavailable`. NiHub is the planned persistent host.
+> - **Not yet checked live:** the Customer Service kit.
 
 ## Quickstart
 
 ```bash
-npm install openatlas
+npm install openatlas   # not on npm yet: until it is, use `npm install ./packages/sdk` from this repo (after `npm run build`)
 ```
 
 ```ts
@@ -29,21 +33,39 @@ import { OpenAtlas, normalizeText } from "openatlas";
 
 const client = new OpenAtlas({ apiKey: process.env.OPENATLAS_API_KEY });
 
+// Repairs text whose special characters were corrupted on the way in ("zaÉ“e" → "zaɓe").
+const question = normalizeText("Ina zan je don yin rajistar katin zaÉ“e?", { language: "ha" });
+
 const response = await client.chat({
-  messages: [{ role: "user", content: normalizeText("Ṣe o le ṣàlàyé ìdí tí ọ̀run fi jẹ́ búlúù?", { language: "yo" }) }],
-  user: "your-end-user-id", // required: counts active users against the license cap
+  messages: [{ role: "user", content: question }],
+  language: "ha",
+  user: "your-end-user-id", // required: a stable, opaque ID for your end user (license-cap counting)
 });
 console.log(response.content);
-
-// The answer was wrong? Send the correction back.
-await client.reportIssue({ kind: "chat", input: "…", output: response.content, correction: "…", language: "yo" });
+console.log(`${response.model}, ${response.attribution}`); // NCAIR1/N-ATLaS, Powered by Awarri
 ```
 
-**Getting a key:** request one with the form at [https://openatlas-site.isaacbenedict001.workers.dev/request-key](https://openatlas-site.isaacbenedict001.workers.dev/request-key). Keys are reviewed and issued by hand (there is no signup dashboard). The SDK points at the hosted gateway by default.
+This is [`examples/quickstart.mjs`](examples/quickstart.mjs). Run on 2026-10-03 against the hosted gateway, it took 6 s and printed:
 
-**Not published to npm yet.** Until it is, install from this repo: `npm install ./packages/sdk` (after `npm run build`).
+```
+Ina zan je don yin rajistar katin zaɓe?
+Don yin rijistar katin zabe, ya kamata ku ziyarci ofishin zabe na gida a unguwar ku ko jihar ku.
+NCAIR1/N-ATLaS, Powered by Awarri
+```
 
-**First-call latency:** the first request after the backend starts can be slow while models load. Measured warm response times: **[PLACEHOLDER: not yet measured]**. The SDK waits up to 5 minutes by default.
+(In English, the answer says: "To register for a voter card, you should visit the local electoral office in your area or state." N-ATLaS answers are often this general; see [Known limitations](#known-limitations).)
+
+**Getting a key:** request one with the form at [https://openatlas-site.isaacbenedict001.workers.dev/request-key](https://openatlas-site.isaacbenedict001.workers.dev/request-key). Keys are reviewed and issued by hand; there is no signup dashboard. The SDK points at the hosted gateway by default.
+
+**Response times** (measured 2026-10-02/03 through the gateway, with the models already loaded):
+
+| Call | Typical | Range seen |
+|---|---|---|
+| `chat()`, English, Hausa, Igbo | 5–13 s | 4.5–17 s; long answers up to 35 s |
+| `chat()`, Yoruba | 15–20 s | 7.5–23 s |
+| `transcribe()`, ≤30 s of audio | 2–6 s | 1.7–11.8 s |
+
+The SDK waits up to 5 minutes by default, so a backend that is still loading its models doesn't fail the call. Startup time on a fresh backend hasn't been measured.
 
 ## Why OpenAtlas
 
@@ -60,16 +82,21 @@ Full details: [docs/api-reference.md](docs/api-reference.md).
 | `apiKey` | `process.env.OPENATLAS_API_KEY` | Your OpenAtlas key |
 | `baseURL` | `process.env.OPENATLAS_BASE_URL`, then the hosted gateway | Gateway URL |
 | `timeoutMs` | `300000` | Per request; long because models may be loading |
-| `maxRetries` | `2` | Retries network errors and 502/503 only |
+| `maxRetries` | `2` | Retries network errors and 503 only |
 | `normalize` | `false` | Apply `normalizeText()` to chat messages, replies and transcripts automatically |
 
 ### `client.chat({ messages, user, language?, max_tokens?, temperature? })` → `{ content, model, attribution, usage }`
 
-Text generation with the N-ATLaS LLM. `language` (`en`, `ha`, `yo`, `ig`) adds a "Respond in …" instruction; it doesn't switch models.
+Text generation with the N-ATLaS LLM. `language` (`en`, `ha`, `yo`, `ig`) adds a "Respond in …" instruction; it doesn't switch models. `model` is `"NCAIR1/N-ATLaS"`. `attribution` is `"Powered by Awarri"`, the credit N-ATLaS's terms require: show it wherever you show the output.
 
 ### `client.transcribe({ audio, language, user })` → `{ text, language, model, attribution }`
 
-Speech-to-text with the N-ATLaS ASR model for `language`. `audio` is raw bytes (`Uint8Array`/`ArrayBuffer`/`Buffer`) or a base64 string, in any common format (wav, mp3, ogg, webm, m4a). Maximum about 7 MB.
+Speech-to-text with the N-ATLaS ASR model for `language`. `model` is that model's ID (e.g. `"NCAIR1/Hausa-ASR"`).
+
+`audio` can be raw bytes (`Uint8Array`/`ArrayBuffer`/`Buffer`), a `Blob`/`File` (e.g. a browser recording) or a base64 string.
+- **Formats:** wav, flac, ogg and mp3 work on every backend. webm and m4a work only on a backend that decodes through ffmpeg. `deploy/server/natlas_server.py` does; the Colab notebook currently serving does not.
+- **Length:** keep each request to **30 seconds of audio or less.** Longer audio is accepted, but currently loses words (see [Known limitations](#known-limitations)). Split longer recordings into ≤30 s pieces.
+- **Size:** about 7 MB per request. The SDK refuses larger audio before uploading. 16 kHz mono WAV, which is what the models use internally, is about 32 KB per second.
 
 ### `normalizeText(text, { language?, hausaApostrophes? })` → `string`
 
@@ -93,7 +120,7 @@ N-ATLaS's license caps usage at 1,000 active **end users** per rolling 30 days, 
 
 | Class | When |
 |---|---|
-| `OpenAtlasAPIError` | Gateway returned an error. Has `.status`, `.code` (e.g. `invalid_api_key`, `missing_user`, `license_cap_reached`, `backend_unavailable`, `upstream_timeout`, `audio_too_large`) and `.jobId` |
+| `OpenAtlasAPIError` | The gateway returned an error. Has `.status`, `.code` and `.jobId`. Codes include `invalid_api_key`, `missing_user`, `license_cap_reached`, `backend_unavailable` (503: no backend is serving right now; retried automatically), `backend_error` (502: the backend failed on this particular request; not retried), `upstream_timeout` and `audio_too_large` |
 | `OpenAtlasTimeoutError` | No response within `timeoutMs`. Retry shortly |
 | `OpenAtlasConnectionError` | Gateway unreachable |
 
@@ -113,9 +140,9 @@ N-ATLaS's license caps usage at 1,000 active **end users** per rolling 30 days, 
 
 Minimal reference implementations, not products. Each one runs with `npm install && npm start`.
 
-- [Citizen Services](starter-kits/citizen-services/): local-language Q&A over a small, labeled demo dataset. The question goes through `normalizeText()`, then `chat()`.
-- [Education](starter-kits/education/): tutor explanations at primary or secondary level (`chat()`), with **Report a wrong answer** (`reportIssue()`).
-- [Customer Service](starter-kits/customer-service/): a voice note goes through `transcribe()` → `normalizeText()` → `chat()` for triage and a drafted reply, with **Correct this transcript** (`reportIssue()` with the audio).
+- [Citizen Services](starter-kits/citizen-services/): local-language Q&A over a small, labeled demo dataset. The question goes through `normalizeText()`, then `chat()`. **Checked live**; running on the website.
+- [Education](starter-kits/education/): tutor explanations at primary or secondary level (`chat()`), with **Report a wrong answer** (`reportIssue()`). **Checked live**; running on the website.
+- [Customer Service](starter-kits/customer-service/): a voice note goes through `transcribe()` → `normalizeText()` → `chat()` for triage and a drafted reply, with **Correct this transcript** (`reportIssue()` with the audio). **Not yet checked live**; paused on the website.
 
 ## How it's built
 
@@ -128,7 +155,7 @@ your app → openatlas SDK → OpenAtlas gateway (Cloudflare Worker + D1) → GP
 ```
 
 The backend is a config value, not code: `deploy/set-backend.mjs <url> <key>` repoints the live gateway. Hosting plan:
-- **Google Colab** (`deploy/colab/openatlas_colab.ipynb`): **interim dev/test only.** Not persistent: it disconnects when idle, sessions end after about 12 hours, and the URL changes every run.
+- **Google Colab** ([`natlas_colab.ipynb`](natlas_colab.ipynb), the notebook currently serving): **interim only.** Not persistent: it disconnects when idle, sessions end after about 12 hours, and the URL changes on every run. `deploy/colab/openatlas_colab.ipynb` is the same idea, generated from `natlas_server.py`.
 - **NiHub:** the intended persistent host for submission and judging. Not live yet.
 - **RunPod Serverless:** fallback (`BACKEND_KIND=runpod`, scripts in `deploy/llm`, `deploy/asr`). Not deployed.
 
@@ -140,20 +167,51 @@ Repo map:
 - [`site`](site/): the website (Cloudflare Worker + static pages converted from the Claude Design file). Its Starter kits page runs the kits' own `kit.mjs` and window markup; see [`site/DESIGN_CHANGES.md`](site/DESIGN_CHANGES.md) for every copy change from the design
 - [`deploy/key-requests.mjs`](deploy/key-requests.mjs): list, approve (issues a key) or decline requests from the website form
 - [`dev/mock-backend`](dev/mock-backend/): **mock** backend for local development only. Every output is prefixed `[MOCK — not N-ATLaS output]`, and `/v1/health` reports `"mock": true`
-- [`dev/fetch-test-audio.mjs`](dev/fetch-test-audio.mjs): real speech clips with human reference transcripts, for testing `transcribe()`
+- [`dev/fetch-test-audio.mjs`](dev/fetch-test-audio.mjs), [`dev/fetch-asr-eval.mjs`](dev/fetch-asr-eval.mjs), [`deploy/asr-eval.mjs`](deploy/asr-eval.mjs): real speech clips with human reference transcripts, and the multi-clip WER evaluation that uses them
+- [`deploy/REPORT.md`](deploy/REPORT.md): the running record of every check against the live models
+- [`examples/quickstart.mjs`](examples/quickstart.mjs): the quickstart above, runnable
 
 ## Known limitations
 
-- **Hosting is interim until NiHub is live.** On Colab the service is only up while the notebook runs.
-- **License cap.** At most 1,000 active end-users per rolling 30 days across the whole hosted service. New users get `429 license_cap_reached` once it's reached; existing users keep working. The count is only as accurate as the `user` IDs apps send.
+Measured, not estimated. Details and verbatim outputs are in [`deploy/REPORT.md`](deploy/REPORT.md).
+
+**Hosting and access**
+- **Hosting is interim until NiHub is live.** On Colab the service is up only while the notebook runs. At other times calls return `503 backend_unavailable`. There are no uptime or SLA claims.
+- **License cap.** N-ATLaS's terms allow at most 1,000 active end users per rolling 30 days across the whole hosted service. Once the cap is reached, new users get `429 license_cap_reached`; existing users keep working. The count is only as accurate as the `user` IDs apps send.
 - **Non-commercial.** Commercial or large-scale use needs a separate license from Awarri Technologies and the Federal Ministry.
-- **Model quality varies by language.** N-ATLaS's own human evaluation (from its model card) gives average scores of English 4.21/5, Hausa 3.98, Igbo 3.87 and **Yoruba 2.69**. OpenAtlas hasn't run its own evaluation.
-- **Speech-recognition limitations stated by N-ATLaS:** dialect and accent bias, reduced accuracy on children's speech, limited handling of code-switching, and worse performance in noise.
+- **Shared demo key is not rate-limited.** The website's live demos share one OpenAtlas key (`website-demos`). Anyone could send made-up user IDs through it and use up the 1,000-user cap. Its usage shows separately in the gateway's `/v1/usage` report. Per-IP limits are not built.
+
+**`chat()` quality**
+- **Quality varies by language.** N-ATLaS's own human evaluation (model card) scores English 4.21/5, Hausa 3.98, Igbo 3.87 and **Yoruba 2.69**. Our runs agree:
+  - English, Hausa and Igbo answers were fluent and on-topic.
+  - Yoruba answers often lack tone marks and are slower (7.5–23 s).
+- **Yoruba replies can degenerate into repeated syllables.** For example "afẹ́fẹ́fẹ́…", until the token limit. This happened in 1 of 11 runs of one prompt, plus stutters that recovered. A repetition guard (`no_repeat_ngram_size`) was tried, didn't help, and was removed. The Citizen Services demo opens in Hausa for this reason.
+- **Factual slips happen.** Examples seen:
+  - NIMC described as handling e-passports (that's the Immigration Service);
+  - glucose called "a sweet drink";
+  - a chemical equation missing a coefficient.
+- **Instructions are followed loosely:**
+  - Told to answer only from given notes, N-ATLaS answered an out-of-scope question with general advice instead of declining.
+  - Asked for secondary-school level, it sometimes answers as if to a young child.
+
+**`transcribe()` quality**, word error rate (WER) on 10–20 real recordings per source (2026-10-02). These are small samples, not benchmarks, and the clips may overlap the models' training data:
+
+| Language | Recordings | WER | WER ignoring tone marks |
+|---|---|---|---|
+| Hausa | conversational, 20–30 s | 41% | 41% |
+| Yoruba | conversational, 20–30 s | 56% | 45% |
+| Igbo | short dictionary sentences | 26% | 23% |
+| Igbo | IgboSynCorp, every syllable tone-marked, several dialects | 101% (the model doesn't write tone marks) | 61% |
+| Nigerian English | read and spontaneous speech | 26% | 26% |
+
+- **Audio over 30 s loses words.** It transcribes without error, but on clips over ~37 s the transcript had only 39–79% as many words as the reference, against 91% for shorter clips. A check showed that splitting the audio into plain 25 s pieces recovers most of them, so this is mostly fixable chunking behaviour on the backend; it is not fixed yet. **Keep requests to 30 s or less.**
+- **webm/m4a audio** (typical browser recordings) doesn't decode on the current Colab backend. wav, flac, ogg and mp3 do.
+- **Stated by N-ATLaS:** dialect and accent bias, reduced accuracy on children's speech, limited handling of code-switching, and worse performance in noise.
+
+**OpenAtlas methods**
 - **`normalizeText()` repairs; it doesn't restore.** Missing tone marks stay missing.
-- **`reportIssue()` collects; it doesn't deliver yet.** There's no agreed channel to the N-ATLaS maintainers yet.
-- **Context length:** about 8k tokens. **Audio:** about 7 MB per request.
-- **Shared demo key is not rate-limited.** The website's live demos use one OpenAtlas key (`website-demos`). Anyone could send made-up user IDs through it and use up the 1,000-user licence cap. Its usage is visible on its own in the gateway's `/v1/usage` report; per-IP limits are not built.
-- **No uptime or SLA claims.**
+- **`reportIssue()` collects; it doesn't deliver yet.** There is no agreed channel to the N-ATLaS maintainers yet.
+- **Context length:** about 8k tokens.
 - **`speak()` isn't included.** It's a stretch component waiting on an eligibility clarification from NAIC.
 
 ## License and terms
