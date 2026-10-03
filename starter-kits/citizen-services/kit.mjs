@@ -1,6 +1,6 @@
 // Citizen Services kit logic: normalizeText() the question, then chat() over a small demo dataset.
 // Used by this kit's server.mjs and by the OpenAtlas website's live demo.
-import { buildPrompt, normalizeText } from "openatlas";
+import { buildPrompt, normalizeText } from "@openatlas/sdk";
 import { DEMO_DATASET } from "./demo-dataset.mjs";
 
 const LANGUAGES = new Set(["en", "ha", "yo", "ig"]);

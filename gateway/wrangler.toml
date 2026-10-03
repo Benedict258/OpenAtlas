@@ -14,6 +14,11 @@ UPSTREAM_TIMEOUT_MS = "300000"
 BACKEND_KIND = "http"
 # Only used when BACKEND_KIND = "runpod".
 RUNPOD_API_BASE = "https://api.runpod.ai/v2"
+# Limits given to each newly issued key (change per key with deploy/keys.mjs limits). "0" = no limit.
+#   daily: requests per rolling 24 h. users: the key's share of the license cap above, so one key can't
+#   use up every other developer's headroom.
+DEFAULT_DAILY_REQUEST_LIMIT = "1000"
+DEFAULT_KEY_MAX_ACTIVE_USERS = "100"
 
 # Secrets (set with `wrangler secret put NAME`, or in .dev.vars locally).
 # deploy/set-backend.mjs sets the backend ones; changing them needs no redeploy.

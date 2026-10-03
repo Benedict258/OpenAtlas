@@ -1,7 +1,7 @@
 // OpenAtlas website: static pages (site/dist) plus the API behind the live starter-kit windows and the
 // key request form. The kit logic is imported from starter-kits/*/kit.mjs, the same code the
 // standalone kits run. The site's OpenAtlas key is a Worker secret and never reaches the browser.
-import { OpenAtlas } from "openatlas";
+import { OpenAtlas } from "@openatlas/sdk";
 import { ask } from "../../starter-kits/citizen-services/kit.mjs";
 import { explain, report as reportExplanation } from "../../starter-kits/education/kit.mjs";
 import { ticket, report as reportTranscript } from "../../starter-kits/customer-service/kit.mjs";
@@ -31,6 +31,11 @@ export default {
         return json(200, { mock: health.backend?.mock === true });
       }
       if (req.method !== "POST") return json(405, { error: "Method not allowed." });
+      // Per-IP limit (site/wrangler.toml), so one visitor can't drain the shared demo key.
+      if (env.DEMO_LIMITER) {
+        const { success } = await env.DEMO_LIMITER.limit({ key: req.headers.get("CF-Connecting-IP") ?? "unknown" });
+        if (!success) return json(429, { error: "Too many requests from your network. Wait a minute and try again." });
+      }
       const body = await req.json().catch(() => null);
       if (!body || typeof body !== "object") return json(400, { error: "Request body must be JSON." });
 

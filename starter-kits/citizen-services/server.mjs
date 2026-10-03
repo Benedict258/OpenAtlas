@@ -2,7 +2,7 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
-import { OpenAtlas } from "openatlas";
+import { OpenAtlas } from "@openatlas/sdk";
 import { ask } from "./kit.mjs";
 
 const client = new OpenAtlas();

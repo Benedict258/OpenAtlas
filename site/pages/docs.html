@@ -53,12 +53,15 @@ p{text-wrap:pretty}
 .step{display:grid;grid-template-columns:44px minmax(0,1fr);gap:16px}
 .step .num{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--green);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px}
 .step .body{display:flex;flex-direction:column;gap:12px}
+.doc ul.dots,.doc ol.dots{list-style:disc;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+.doc ol.dots{list-style:decimal}
 .tbl{width:100%;border-collapse:collapse;background:var(--paper);border:1px solid var(--line);font-size:15.5px}
 .tbl th{text-align:left;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:12px 18px;background:#F1F2EC;border-bottom:1px solid var(--line)}
 .tbl td{padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--muted)}
 .tbl tr:last-child td{border-bottom:none}
 .tbl td:first-child{color:var(--ink);font-family:'JetBrains Mono',ui-monospace,monospace;font-size:14.5px;white-space:nowrap}
 .scroll{overflow-x:auto}
+.tbl.wrap1 td:first-child{white-space:normal;width:36%}
 .method{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:28px;display:flex;flex-direction:column;gap:16px}
 .method .sig{font-size:17px;color:var(--green);font-weight:500}
 .ep{display:inline-flex;align-self:flex-start;gap:10px;align-items:center;padding:6px 12px;background:#F1F2EC;border-radius:4px;font-size:13.5px}
@@ -125,6 +128,8 @@ OpenAtlas
 <h4>Good to know</h4>
 <a href="#expect">What to expect</a>
 <a href="#limits">Known limitations</a>
+<h4>Self-hosting</h4>
+<a href="#self-host">Deploy your own</a>
 </aside>
 
 <div class="doc">
@@ -134,14 +139,14 @@ OpenAtlas
 <p>Three steps. No GPU, no model weights, no local setup beyond Node.</p>
 <div class="step"><span class="num">1</span><div class="body"><h3>Install the SDK</h3>
 <div class="codebox"><pre class="mono code"><span class="c"># from your project</span>
-npm install openatlas</pre></div></div></div>
+npm install @openatlas/sdk</pre></div></div></div>
 <div class="step"><span class="num">2</span><div class="body"><h3>Request an API key</h3>
 <p>Keys are issued on request. There is no dashboard yet. Request one through the <a href="/request-key" style="font-weight:600;color:var(--green);border-bottom:1.5px solid var(--green)">key request form</a>, then export it.</p>
 <div class="codebox"><pre class="mono code">export OPENATLAS_API_KEY=<span class="s">"your-key"</span></pre></div></div></div>
 <div class="step"><span class="num">3</span><div class="body"><h3>Make your first call</h3>
 <p>Ask a question in Yoruba. Copy, paste, run.</p>
 <div class="codebox"><div class="codebar"><i></i><i></i><i></i><span class="mono" style="margin-left:6px">quickstart.ts</span></div>
-<pre class="mono code"><span class="k">import</span> { OpenAtlas } <span class="k">from</span> <span class="s">"openatlas"</span>;
+<pre class="mono code"><span class="k">import</span> { OpenAtlas } <span class="k">from</span> <span class="s">"@openatlas/sdk"</span>;
 
 <span class="k">const</span> client = <span class="k">new</span> <span class="f">OpenAtlas</span>({ apiKey: process.env.OPENATLAS_API_KEY });
 
@@ -193,7 +198,7 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <span class="sig mono">normalizeText(text, { language?, hausaApostrophes? })</span>
 <span class="ep mono"><b>LOCAL</b> no request</span>
 <p>Repairs Nigerian-language text whose special characters were corrupted by typing or scraping: encoding damage (Æ™asa to ƙasa), look-alike letters (Ş to Ṣ for Yoruba, ķ to ƙ for Hausa), invisible characters and Unicode composition. Hausa apostrophe spellings such as k'asa to ƙasa are opt-in. Also available as client.normalizeText().</p>
-<div class="codebox"><pre class="mono code"><span class="k">import</span> { normalizeText } <span class="k">from</span> <span class="s">"openatlas"</span>;
+<div class="codebox"><pre class="mono code"><span class="k">import</span> { normalizeText } <span class="k">from</span> <span class="s">"@openatlas/sdk"</span>;
 
 <span class="f">normalizeText</span>(<span class="s">"Ina zan sabunta katin Æ™asa?"</span>, { language: <span class="s">"ha"</span> });
 <span class="c">// → "Ina zan sabunta katin ƙasa?"</span></pre></div>
@@ -267,6 +272,42 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <tr><td>Corrections</td><td>reportIssue() collects and exports corrections. There is no agreed hand-off to the N-ATLaS maintainers yet.</td></tr>
 <tr><td>Languages of the SDK</td><td>TypeScript and Node only. A Python SDK is a roadmap item.</td></tr>
 </tbody></table></div>
+</section>
+
+<section id="self-host">
+<p class="eyebrow">Deploy your own</p>
+<h2 class="h2">Run the whole stack yourself.</h2>
+<p>Two halves:</p>
+<ul class="dots">
+<li><b>Backend:</b> a GPU host running the N-ATLaS LLM and the four speech-recognition models.</li>
+<li><b>Gateway:</b> a Cloudflare Worker with a D1 database, which holds the keys, counts users against the license cap and forwards requests.</li>
+</ul>
+<p>Moving the backend is a config change on the gateway, not a code change. The full guide is <span class="mono">docs/deploy-your-own.md</span> in the repository.</p>
+<div class="scroll"><table class="tbl wrap1"><thead><tr><th>Path</th><th>Status</th></tr></thead><tbody>
+<tr><td>Colab backend + gateway</td><td><b>Proven.</b> Serves the public OpenAtlas gateway; every published check ran on it.</td></tr>
+<tr><td>One-command gateway setup</td><td>Checked with a dry run only; not yet run against a fresh Cloudflare account.</td></tr>
+<tr><td>natlas_server.py on another GPU host</td><td>Same audio handling as the Colab notebook; not verified end to end by us.</td></tr>
+<tr><td>RunPod Serverless</td><td>Scripted, never run. Its ASR worker still uses the older audio chunking, so keep requests to 30 s or less.</td></tr>
+</tbody></table></div>
+<div class="step"><span class="num">1</span><div class="body"><h3>Get access</h3>
+<ul class="dots">
+<li><b>Hugging Face:</b> accept the terms on NCAIR1/N-ATLaS and the four NCAIR1 ASR repos, then create a read token.</li>
+<li><b>Cloudflare:</b> an API token on the free plan with Workers Scripts Edit and D1 Edit.</li>
+</ul></div></div>
+<div class="step"><span class="num">2</span><div class="body"><h3>Start the backend on Colab</h3>
+<ol class="dots">
+<li>Upload <span class="mono">natlas_colab.ipynb</span> to Colab and choose a T4 GPU.</li>
+<li>Add the secrets <span class="mono">HF_TOKEN</span> and <span class="mono">NATLAS_API_KEY</span>.</li>
+<li>Run all. After the models load (several minutes), it prints a public URL and the key.</li>
+</ol></div></div>
+<div class="step"><span class="num">3</span><div class="body"><h3>Set up the gateway in one command</h3>
+<div class="codebox"><pre class="mono code">CLOUDFLARE_API_TOKEN=… node deploy/setup-gateway.mjs --name my-openatlas \
+  --backend <span class="s">&lt;NATLAS_BASE_URL&gt;</span> <span class="s">&lt;NATLAS_API_KEY&gt;</span>
+<span class="c"># creates the database, deploys, sets an admin token, connects the backend,</span>
+<span class="c"># issues your first key and writes .env.selfhost. Add --dry-run to preview.</span></pre></div></div></div>
+<div class="step"><span class="num">4</span><div class="body"><h3>Check it with a real answer</h3>
+<div class="codebox"><pre class="mono code">node --env-file=.env.selfhost examples/quickstart.mjs</pre></div></div></div>
+<div class="note"><h4>Your deployment, your obligations</h4><p>N-ATLaS is non-commercial and capped at 1,000 active users per 30 days; your gateway enforces the cap. Show "Powered by Awarri" with model output. A free Colab session ends when idle or after about 12 hours, and its URL changes each run. Reconnect with <span class="mono">deploy/set-backend.mjs</span>; no redeploy is needed.</p></div>
 </section>
 </div>
 </div>
