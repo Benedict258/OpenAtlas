@@ -17,3 +17,4 @@ deploy/prompt-eval-results.jsonl
 deploy/tts-results.jsonl
 .env.selfhost
 .env.selfhost.bak
+.npmrc

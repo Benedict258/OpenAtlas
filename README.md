@@ -24,7 +24,7 @@ Plus three starter kits (citizen services, education, customer service) that use
 ## Quickstart
 
 ```bash
-npm install @openatlas/sdk   # not on npm yet: until it is, use `npm install ./packages/sdk` from this repo (after `npm run build`)
+npm install @openatlas/sdk
 ```
 
 ```ts

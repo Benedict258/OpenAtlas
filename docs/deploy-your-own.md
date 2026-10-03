@@ -66,6 +66,8 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
    node --env-file=.env.selfhost examples/quickstart.mjs
    ```
 
+**Kaggle instead of Colab:** `deploy/colab/natlas_kaggle.ipynb` is the same notebook with Kaggle secrets: GPU T4 x2, Internet on, and `HF_TOKEN` and `NATLAS_API_KEY` under Add-ons → Secrets. Not yet run by us.
+
 **What to expect from Colab:**
 - A free session ends when idle or after about 12 hours, and the tunnel URL changes every run.
 - After a restart, run the notebook again, then reconnect the gateway: `node --env-file=.env.selfhost deploy/set-backend.mjs <new URL> <key>`. No redeploy is needed.

@@ -537,6 +537,14 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   - `speak()` returned the typed `404 tts_disabled` from the live gateway.
 - **Not yet run:** the quickstart's real answer. It returned `503 backend_unavailable`, because the Colab tunnel had gone down (Cloudflare 1033, about 02:33–02:45 UTC). To re-run once a backend is up.
 
+**Published 2026-10-03 12:28:32 UTC: `@openatlas/sdk@0.1.0`** (npm org `openatlas`, owner `benedict258`).
+- **Gate:** the publish ran the full test suite first (32/32).
+- **First attempt:** refused with `403`, because publishing needs 2FA or a token that bypasses it. The second attempt used the account's `NPM_TOKEN` and succeeded.
+- **Placeholder:** for a new package name, npm first published a `0.0.0-stage` placeholder (12:27:37 UTC), then `0.1.0` a minute later. `latest` now points to 0.1.0.
+- **Registry match:** the registry checksum is `4e189fef…`, the same tarball as the dry run and the clean-install check above.
+- **Install from the public registry:** `npm install @openatlas/sdk` in a new empty folder installs 0.1.0, and all exports load.
+- **Still pending:** the real-answer quickstart from this install. The backend is still down.
+
 ### 22. Deploy Your Own: documented
 
 - **Guide:** `docs/deploy-your-own.md`, plus a "Deploy your own" section on the website's docs page (checked at 1280 px and 390 px, with no sideways scroll). It covers the proven Colab path, any other GPU host, and RunPod Serverless.
@@ -545,6 +553,23 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   - no endpoint has ever been created;
   - the ASR image (`ghcr.io/benedict258/openatlas-asr:latest`, CI build of 2026-10-02) is anonymously pullable (manifest HTTP 200);
   - but `workers/asr/handler.py` still uses `chunk_length_s=30`, the chunking that lost words in KI-11. This is stated in the guide; the worker code was not changed.
+
+### 23. Push, site redeploy, and a Kaggle copy of the backend notebook (2026-10-03)
+
+- **Pushed** `79b3a25`, `2adfa79`, `73b22a2` to `main` (`503f296..73b22a2`).
+- **Website redeployed** (version `57c63aca`). It now carries the structured kit prompts, the "Deploy your own" docs section, the `@openatlas/sdk` name on the docs page, and the per-IP rate limit. Checked live:
+  - the docs page has the new section, the install line and the `speak()` status;
+  - `/api/status` returns `{"mock":false,"speech":false}`;
+  - exactly one "Play response audio" control exists in the Customer Service window, hidden while speech is off.
+- **The per-IP limit works, but approximately.**
+
+  Cloudflare documents these counters as approximate and per location. The limit slows abuse; it is not a hard cap.
+- **Gateway not redeployed:** it stays on `ecdd7525` until the live database migration (section 20) is applied.
+- **Backend:** still down (Colab tunnel unreachable). The Colab GPU quota has run out, so hosting is moving to Kaggle. `deploy/colab/natlas_kaggle.ipynb` was generated from `natlas_colab.ipynb`.
+  - Only cells 0, 4, 14 and 19 and the notebook metadata differ. Cell 4 now reads its secrets with `kaggle_secrets.UserSecretsClient().get_secret(...)`.
+  - All code cells parse.
+  - Cell 4 was run against a stand-in `kaggle_secrets` module: it loads both secrets, and gives a clear message when one isn't attached.
+  - **Not yet run on Kaggle.**
 
 ---
 
