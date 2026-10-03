@@ -10,11 +10,13 @@ import { OpenAtlas, normalizeText } from "openatlas";
 const client = new OpenAtlas({ apiKey: process.env.OPENATLAS_API_KEY });
 
 const response = await client.chat({
-  messages: [{ role: "user", content: "Ṣe o le ṣàlàyé ìdí tí ọ̀run fi jẹ́ búlúù?" }],
+  messages: [{ role: "user", content: "Ina zan je don yin rajistar katin zaɓe?" }],
+  language: "ha",
   user: "your-end-user-id", // required: counts active users against the license cap
 });
-console.log(response.content);
+console.log(response.content, `(${response.model}, ${response.attribution})`); // NCAIR1/N-ATLaS, Powered by Awarri
 
+// Keep each clip to 30 s or less (longer audio currently loses words).
 const { text } = await client.transcribe({ audio: audioBytes, language: "ha", user: "your-end-user-id" });
 
 // Repair corrupted Nigerian-language characters locally (no request): "Æ™asa" → "ƙasa"
@@ -24,4 +26,4 @@ const clean = normalizeText(scraped, { language: "ha" });
 await client.reportIssue({ kind: "transcription", output: text, correction: "…", language: "ha", audio: audioBytes });
 ```
 
-Node 18+, no runtime dependencies. Full docs: the [OpenAtlas README](../../README.md) and the [API reference](../../docs/api-reference.md).
+Node 18+, no runtime dependencies. Full docs: the [OpenAtlas README](../../README.md), including its measured known limitations, and the [API reference](../../docs/api-reference.md).
