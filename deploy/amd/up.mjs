@@ -3,7 +3,7 @@
 // you'd run there by hand), then points the gateway at the new tunnel URL. Run it after every new droplet
 // or restart: the tunnel URL changes each time.
 //
-// Usage (repo root): node --env-file=.env deploy/amd/up.mjs <droplet-ip> [--no-tts]
+// Usage (repo root): [SSH_KEY=<private key>] node --env-file=.env deploy/amd/up.mjs <droplet-ip> [--no-tts]
 //
 // Needs in .env: HF_TOKEN, NATLAS_API_KEY (the backend's key, shared with the gateway), OPENATLAS_BASE_URL
 // and CLOUDFLARE_API_TOKEN (for deploy/set-backend.mjs), plus your SSH key on the droplet for root.
@@ -23,7 +23,9 @@ if (!HF_TOKEN || !NATLAS_API_KEY || NATLAS_API_KEY.length < 16) throw new Error(
 const root = fileURLToPath(new URL("../..", import.meta.url));
 const host = `root@${ip}`;
 // accept-new: a freshly created droplet's host key is trusted on first contact and checked after that.
-const SSH = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "StrictHostKeyChecking=accept-new"];
+const SSH = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "StrictHostKeyChecking=accept-new",
+  // SSH_KEY=<path> picks a specific private key (e.g. one made for this droplet); otherwise ssh's default keys.
+  ...(process.env.SSH_KEY ? ["-i", process.env.SSH_KEY, "-o", "IdentitiesOnly=yes"] : [])];
 const CODE = "/shared-docker/openatlas";
 const FILES = ["deploy/amd-bootstrap.sh", "deploy/amd", "deploy/server/natlas_server.py", "deploy/server/tts_renderer.py"];
 

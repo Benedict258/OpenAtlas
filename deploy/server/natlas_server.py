@@ -16,7 +16,6 @@ Environment:
     BACKEND_API_KEY   shared secret with the gateway, 16+ chars (required)
     PORT              default 8000
     HOST              default 127.0.0.1 (put a tunnel or reverse proxy in front for HTTPS)
-    LLM_QUANT         "none" (default: bf16/fp16, needs ~17 GB) or "4bit" (fits a 16 GB T4; needs bitsandbytes)
     ASR_LANGUAGES     comma-separated subset of ha,yo,ig,en-ng to load (default: all four)
     ENABLE_TTS        "1" adds the optional speech renderer (tts_renderer.py, POST /v1/audio/speech),
                       loaded after the N-ATLaS models. Off by default. TTS_SOROTTS=0 loads MMS-TTS only.
@@ -58,10 +57,10 @@ MAX_INPUT_TOKENS = 7000  # context is ~8k; leave room for the answer
 
 HF_TOKEN = os.environ.get("HF_TOKEN")
 API_KEY = os.environ.get("BACKEND_API_KEY", "")
-# Full precision (bf16, or fp16 where bf16 isn't supported) by default: the 8B LLM needs ~16 GB, which the
-# AMD MI300X host has many times over, and it keeps bitsandbytes out of the picture entirely (it isn't
-# installed there). "4bit" is opt-in for 16 GB NVIDIA cards (the Docker self-host path on a T4-class GPU).
-LLM_QUANT = os.environ.get("LLM_QUANT", "none")
+# No quantization: the LLM loads in bf16 (fp16 where bf16 isn't supported) and needs ~16 GB, which the AMD
+# MI300X host has many times over. bitsandbytes is not used by this server at all (it is the riskiest
+# package on ROCm). The speech renderer is told the same, since it also supports 4-bit for the Kaggle T4.
+os.environ["SOROTTS_QUANT"] = "none"
 ASR_TO_LOAD = [l.strip() for l in os.environ.get("ASR_LANGUAGES", ",".join(ASR_REPOS)).split(",") if l.strip()]
 
 state = {"status": "loading", "stage": "starting", "error": None, "load_seconds": {}}
@@ -76,22 +75,11 @@ def load_models():
     try:
         from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
-        state["stage"] = f"loading {LLM_REPO} ({LLM_QUANT})"
+        dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
+        state["stage"] = f"loading {LLM_REPO} ({str(dtype).replace('torch.', '')})"
         t0 = time.time()
         tok = AutoTokenizer.from_pretrained(LLM_REPO, token=HF_TOKEN)
-        kwargs = {"device_map": "auto", "token": HF_TOKEN}
-        if LLM_QUANT == "4bit":
-            from transformers import BitsAndBytesConfig  # needs the bitsandbytes package (NVIDIA only here)
-
-            kwargs["quantization_config"] = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_quant_type="nf4",
-                bnb_4bit_compute_dtype=torch.float16,
-                bnb_4bit_use_double_quant=True,
-            )
-        else:
-            kwargs["torch_dtype"] = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
-        llm = AutoModelForCausalLM.from_pretrained(LLM_REPO, **kwargs)
+        llm = AutoModelForCausalLM.from_pretrained(LLM_REPO, token=HF_TOKEN, device_map="auto", dtype=dtype)
         llm.eval()
         state["load_seconds"]["llm"] = round(time.time() - t0, 1)
         print(f"[openatlas] LLM loaded in {state['load_seconds']['llm']}s", flush=True)
@@ -102,7 +90,7 @@ def load_models():
             state["stage"] = f"loading {ASR_REPOS[lang]}"
             t0 = time.time()
             asr[lang] = pipeline(
-                "automatic-speech-recognition", model=ASR_REPOS[lang], token=HF_TOKEN, torch_dtype=dtype, device=device
+                "automatic-speech-recognition", model=ASR_REPOS[lang], token=HF_TOKEN, dtype=dtype, device=device
             )
             state["load_seconds"][lang] = round(time.time() - t0, 1)
             print(f"[openatlas] {ASR_REPOS[lang]} loaded in {state['load_seconds'][lang]}s", flush=True)

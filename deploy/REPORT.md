@@ -833,6 +833,60 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 
 **Not built:** a customer-service text chat didn't exist yet, so it couldn't be checked.
 
+### 29. Pre-submission re-verification on the MI300X; 4-bit removed from the server
+
+**State found:**
+- The deployment from section 28 was still running on the same droplet (`<droplet-ip>`): `natlas_server.py` and `cloudflared` were up inside the `rocm` container.
+- **SSH:** a second local SSH key was **not** authorized on this droplet; only `~/.ssh/id_ed25519` is, and it was used. `up.mjs` now accepts `SSH_KEY=<path>`.
+
+**Change:** `natlas_server.py` no longer has any quantization path.
+- The LLM always loads in bf16 (fp16 where bf16 isn't supported), and the server forces SoroTTS to full precision as well.
+- bitsandbytes is gone from both requirement files. `transformers>=4.56` is now required: `dtype=` is honoured from that version, while older versions silently load fp32.
+- **The Docker path now needs a 24 GB+ NVIDIA GPU.**
+- The Kaggle notebook keeps its own 4-bit loading, because a T4 can't hold the model otherwise. It's separate code.
+- Redeployed with `up.mjs`: the LLM loaded as **bfloat16** in 7.0 s, and was warmed up and connected to the gateway in about 2.5 min.
+
+**Proof it runs on the GPU:**
+
+| Evidence | Value |
+|---|---|
+| In the container | `torch.cuda.is_available(), torch.cuda.get_device_name(0)` → `True AMD Instinct MI300X VF` |
+| Server log | `LLM loaded in 7.0s`, four ASR models in 0.5–0.6 s each, `ready. GPU memory allocated: 18.1 GB`, then `[openatlas-tts] ready. GPU memory allocated: 25.9 GB` |
+| `amd-smi process` (host) | `/usr/bin/python3.12`, **VRAM_MEM 25.3 GB** |
+| `amd-smi monitor -u -m` | idle: GFX 0%, MEM 0%; during a 1,024-token generation, sampled 4 times 1 s apart: **GFX 100%**, MEM 18–19%, memory clock 900 → 1300 MHz |
+| ROCm tooling | `amd-smi metric -u` crashes on ROCm 7.14 (`AttributeError: 'Namespace' object has no attribute 'partition'`); `amd-smi monitor` works. |
+
+**Direct requests to the backend's tunnel (no gateway):**
+
+| Request | Result |
+|---|---|
+| chat en | 55 tokens, **855 ms on the GPU**, 1.1 s round trip. The NIMC answer is correct. |
+| chat ha | 34 tokens, 527 ms. "Gwagwarmaya na nufin kokari, juriya, ko kuma gwabzawa don cimma wata manufa." |
+| chat yo | 50 tokens, 769 ms. |
+| chat ig | 60 tokens, 908 ms. |
+| ASR ha (26.7 s of real speech) | **644 ms on the GPU**. Same transcript as on Kaggle. |
+| ASR yo (20.2 s) | 955 ms. |
+| ASR ig (3.0 s) | 143 ms. "nwoke ahụ bụ agbara": exact. |
+| ASR en-ng (5.4 s) | 182 ms. Exact. |
+| speak en (MMS-TTS) | 5.15 s of audio rendered in 3.97 s. Heard back by `NCAIR1/NigerianAccentedEnglish` as "thank you for your patience. your order will arrive tomorrow morning.": **exact**. Saved as `test-audio/tts/proof-en-mms.wav`. |
+| speak yo (SoroTTS, Yor1) | 7.17 s of audio in 18.85 s. Heard back as "pádúpé fún sùrú rè̩ síwúù rè̩", from "A dupe fun suuru re, oja re yoo de laipe." Saved as `proof-yo-sorotts.wav`. |
+
+**Through the public website and gateway:**
+
+| Check | Result |
+|---|---|
+| `/api/status` | `{"mock":false,"speech":false,"backend":"online"}` |
+| Citizen Services (Hausa) | 200 in 3.5 s. INEC / CVR answer. |
+| Education (English, primary) | 200 in 3.0 s. |
+| Customer Service (`ha.wav`) | 200 in 11.2 s. Transcript, then a three-line draft in Hausa with "Powered by Awarri". |
+| Speech route on the website | 503, by design (website switch off). |
+| API key auth and limits (throwaway key, revoked afterwards) | no key 401, wrong key 401, a 2nd user over a 1-user share 429, a 4th request over a 3/day limit 429, revoked 401. |
+| `tts-check.mjs` through the gateway | 10/10 renders. en 0–3% WER; ha 18–38%; yo 81% with MMS (38% without tone marks), 19% with SoroTTS; ig 61–76%; pcm 35%. |
+| Website per-IP limit | Enforced (approximate). |
+| Website made-up user IDs | 10 fake IDs moved the website key from 24 to **25** active users (the per-address ceiling holds). |
+
+**Not present:** the site has **no browser playground**; no page or script has one. The interactive parts are the three starter-kit windows and the key request form. The "customer-service chat" from section 28 is also still not built.
+
 ---
 
 ## Known issues

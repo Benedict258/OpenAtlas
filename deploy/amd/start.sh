@@ -13,7 +13,7 @@ LOGS=/shared-docker/openatlas-logs
 CLOUDFLARED=/shared-docker/bin/cloudflared
 
 export HOST=127.0.0.1 PORT=8000 PYTHONUNBUFFERED=1
-export LLM_QUANT=none SOROTTS_QUANT=none            # bf16/fp16 throughout; bitsandbytes isn't installed
+# bf16/fp16 throughout: natlas_server.py never quantizes, and bitsandbytes is not installed.
 export ENABLE_TTS="${ENABLE_TTS:-1}"
 export HF_HOME=/shared-docker/hf-cache              # model files on the host disk
 mkdir -p "$LOGS" "$HF_HOME"

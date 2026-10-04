@@ -275,7 +275,7 @@ node --env-file=.env deploy/set-backend.mjs https://<new-words>.trycloudflare.co
 
 ## Alternative backend: Docker on your own GPU
 
-This is for any machine with an NVIDIA GPU of 16 GB or more and the NVIDIA Container Toolkit. That can be your own, or a rented GPU. Instead of a notebook, run the server in a container. It's one command, with a tunnel included:
+This is for any machine with an NVIDIA GPU of 24 GB or more and the NVIDIA Container Toolkit. The server loads every model unquantized, so a 16 GB card such as a T4 is too small; use the Kaggle notebook there. That can be your own, or a rented GPU. Instead of a notebook, run the server in a container. It's one command, with a tunnel included:
 
 ```bash
 cd deploy/server
@@ -288,7 +288,6 @@ HF_TOKEN=hf_... BACKEND_API_KEY=$(openssl rand -hex 24) docker compose up
 - **Weights** aren't in the image. They download at start-up into a named volume, so the second start is fast.
 - **Options**, set as environment variables:
   - `ENABLE_TTS=1`: the speech renderer;
-  - `LLM_QUANT=none`: full-precision LLM; needs about 17 GB of GPU memory.
   - `ASR_LANGUAGES` is listed at the top of `natlas_server.py`.
 - **Fixed URL:** for one that doesn't change, replace the quick tunnel with a named Cloudflare Tunnel or a reverse proxy with HTTPS. The gateway only calls `https://` backends.
 - **Without Docker:** `pip install -r deploy/server/requirements.txt` (plus CUDA PyTorch and ffmpeg), then `HF_TOKEN=… BACKEND_API_KEY=… python deploy/server/natlas_server.py`. It listens on `127.0.0.1:8000`.

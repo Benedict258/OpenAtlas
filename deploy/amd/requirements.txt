@@ -1,7 +1,7 @@
 # natlas_server.py on the AMD MI300X host (inside the image's `rocm` container). torch comes from the image
 # (ROCm build) and is pinned by setup-container.sh so pip can't replace it with a CUDA build.
 # No bitsandbytes: the models load in bf16/fp16, and bitsandbytes is the riskiest package on ROCm.
-transformers>=4.50
+transformers>=4.56   # `dtype=` in from_pretrained/pipeline (older versions ignore it and load fp32)
 accelerate>=1.0
 fastapi>=0.110
 uvicorn[standard]>=0.29
