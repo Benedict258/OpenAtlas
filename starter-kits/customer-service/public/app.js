@@ -23,10 +23,10 @@
   };
   // speechLive: "Play response audio" is offered only when the server reports speak() switched on and ready.
   let speechLive = false;
-  // Backend state up front: the GPU host isn't up around the clock (a free notebook session), so the
-  // window says so before anyone presses a button, not only after a request fails.
+  // Backend state up front, so the window says so before anyone presses a button, not only after a
+  // request fails.
   const BACKEND_TEXT = {
-    offline: "The N-ATLaS backend isn't running right now. It is hosted on a free GPU session that isn't up around the clock; requests will fail until it's back. Anyone can run their own: see Deploy your own in the docs.",
+    offline: "The N-ATLaS backend isn't reachable right now, so requests will fail until it's back. Anyone can run their own: see Deploy your own in the docs.",
     loading: "The N-ATLaS backend is starting and still loading its models. Requests may wait or fail for a few minutes.",
   };
   const showBackend = (state) => {

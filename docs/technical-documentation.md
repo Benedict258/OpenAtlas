@@ -22,11 +22,11 @@ This document describes the architecture, components, setup and usage of OpenAtl
 N-ATLaS is Nigeria's open language model suite: an 8B LLM for English, Hausa, Yoruba and Igbo, plus four speech recognition models. For a developer it's hard to use directly:
 - **Five separate repos:** it ships as five Hugging Face repositories with different calling conventions.
 - **Hidden settings:** the LLM behaves best with specific settings (its chat template's date, a repetition penalty), which aren't obvious.
-- **A GPU is required:** running the models needs a GPU most developers don't have.
+- **A GPU is required:** running the models needs a GPU most developers don't have. OpenAtlas hosts that infrastructure so they don't have to.
 - **A license condition:** the cap of 1,000 active end users per 30 days has to be counted somewhere.
 - **Broken text:** Nigerian-language text often arrives with corrupted special characters.
 
-**OpenAtlas's answer** is one SDK and one hosted API. Developers call `chat()` or `transcribe()` with an API key. The infrastructure handles the GPU hosting, the model settings, the license accounting and the attribution. **OpenAtlas adds no model capability of its own: every answer and transcript comes from an N-ATLaS model.**
+**OpenAtlas's answer** is one SDK and one hosted API. Developers call `chat()` or `transcribe()` with an API key. The infrastructure handles the model settings, the license accounting and the attribution. **OpenAtlas adds no model capability of its own: every answer and transcript comes from an N-ATLaS model.**
 
 ## 2. Architecture
 
@@ -148,14 +148,13 @@ Backend failures map to stable codes: `502 backend_error` (not retried), `503 ba
 
 | Host | Status | How |
 |---|---|---|
-| **AMD Instinct MI300X** (DigitalOcean AMD Developer Cloud, ROCm 7.14) | **Live host for judging** | `node --env-file=.env deploy/amd/up.mjs <ip>`: uploads the code, runs [`deploy/amd/bootstrap.sh`](../deploy/amd/bootstrap.sh) (container setup with the ROCm PyTorch pinned, server on `127.0.0.1` plus a `cloudflared` tunnel, model load, warm-up), then reconnects the gateway. About 2.5 min on a set-up droplet. |
+| **AMD Instinct MI300X** (DigitalOcean AMD Developer Cloud, ROCm 7.14) | **Live host** | `node --env-file=.env deploy/amd/up.mjs <ip>`: uploads the code, runs [`deploy/amd/bootstrap.sh`](../deploy/amd/bootstrap.sh) (container setup with the ROCm PyTorch pinned, server on `127.0.0.1` plus a `cloudflared` tunnel, model load, warm-up), then reconnects the gateway. About 2.5 min on a set-up droplet. |
 | **Kaggle notebook**, free T4 x2 | Proven, the free path | [`deploy/colab/natlas_kaggle.ipynb`](../deploy/colab/natlas_kaggle.ipynb): Run all. The LLM is 4-bit there, to fit the 16 GB GPUs. |
 | **Docker**, any 24 GB+ NVIDIA GPU | Image built and smoke-tested in CI; not run on a GPU by us | [`deploy/server/docker-compose.yml`](../deploy/server/docker-compose.yml): backend plus tunnel |
 | RunPod Serverless | Scripted, never run | [`deploy/runpod/`](../deploy/runpod/) |
 
 **Why this shape:**
-- **No GPU hosting came with the challenge.** Everything was first built and proven on free tools (Kaggle, Cloudflare's free plan), then moved to the AMD GPU for judging.
-- **The demo isn't up around the clock.** The GPU is billed hourly and destroyed between sessions (powering off still bills), and the website shows "Backend offline" when it's down.
+- **Built and proven on free tools first:** Kaggle's free T4 GPUs and Cloudflare's free plan, then AMD GPU droplets. Moving the backend is a gateway configuration change.
 - **Anyone can reproduce it** with [`deploy-your-own.md`](deploy-your-own.md).
 
 ### 3.5 Website and starter kits ([`site/`](../site/), [`starter-kits/`](../starter-kits/))
@@ -314,7 +313,7 @@ curl -s https://openatlas-gateway.isaacbenedict001.workers.dev/v1/chat/completio
 - **Speech recognition:** 30 s per request is the reliable range. Conversational speech has modest accuracy.
 - **Speech output:** accurate in English only.
 - **Customer Service text chat:** N-ATLaS sometimes states things the shop's policies don't say. Hausa sometimes claims to be looking up an order; Yoruba has said "7 weeks" for 7 days. Measured in REPORT.md section 31.
-- **Availability:** the live GPU isn't up around the clock. The 1,000-user cap is shared across the hosted service.
+- **License cap:** the 1,000-user cap is shared across the hosted service.
 - **Not yet tested:** the AMD bootstrap on a freshly created droplet; the Docker image on a GPU; RunPod.
 - **Not yet routed back:** corrections collected with `reportIssue()` have no agreed channel to the N-ATLaS maintainers yet.
 

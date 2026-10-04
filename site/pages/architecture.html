@@ -149,7 +149,7 @@ OpenAtlas
 </div>
 <div class="two">
 <div class="card"><h3>A thin client</h3><p>A local-first design would contradict the core value proposition: no GPU required to use N-ATLaS. So inference is centralized and the client is kept deliberately small.</p></div>
-<div class="card"><h3>A gateway in front of a swappable host</h3><p>GPU hosts give each endpoint its own URL and key, and count requests rather than people. The gateway gives developers one URL and their own key, measures unique end users against the licence cap, and lets the host move with a configuration change. No GPU hosting came with the challenge, so we built and proved it on a free Kaggle notebook. For judging, the same server runs on an AMD Instinct MI300X (DigitalOcean AMD Developer Cloud), started with one command and destroyed between sessions to save credit, so it isn't up around the clock. Anyone can stand up the same backend with the bootstrap script, the Kaggle notebook or the Docker image (see Deploy your own in the docs).</p></div>
+<div class="card"><h3>A gateway in front of a swappable host</h3><p>GPU hosts give each endpoint its own URL and key, and count requests rather than people. The gateway gives developers one URL and their own key, measures unique end users against the licence cap, and lets the host move with a configuration change. It was built and proven on a free Kaggle notebook first; the live demo runs the same server on an AMD Instinct MI300X (DigitalOcean AMD Developer Cloud), started with one command. Anyone can stand up the same backend with the bootstrap script, the Kaggle notebook or the Docker image (see Deploy your own in the docs).</p></div>
 </div>
 </div>
 </section>
@@ -199,7 +199,7 @@ OpenAtlas
 <div class="scroll"><table class="tbl"><thead><tr><th>Days</th><th>Work</th></tr></thead><tbody>
 <tr><td class="day">Oct 2</td><td>Docs repositioned around the SDK. Backend server and hosting notebook. Gateway made host-agnostic. normalizeText() and reportIssue().</td></tr>
 <tr><td class="day">Oct 2–3</td><td>N-ATLaS on a free notebook GPU (Kaggle). First real chat() and transcribe() calls through the gateway.</td></tr>
-<tr><td class="day">Oct 4</td><td>Backend moved to an AMD Instinct MI300X (ROCm) for judging: full precision, one-command bootstrap, every check re-run.</td></tr>
+<tr><td class="day">Oct 4</td><td>Backend moved to an AMD Instinct MI300X (ROCm): full precision, one-command bootstrap, every check re-run.</td></tr>
 <tr><td class="day">Oct 3–4</td><td>Move the backend to NiHub with a configuration change, then re-verify everything.</td></tr>
 <tr><td class="day">Oct 4–7</td><td>Starter kits and website against the real SDK. Check for the NAIC reply; go or no-go on TTS.</td></tr>
 <tr><td class="day">Oct 8–9</td><td>If confirmed, build speak(). If not, harden the core. End-to-end test of every kit on the persistent host, with no mocks.</td></tr>
