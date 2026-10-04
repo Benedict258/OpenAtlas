@@ -26,4 +26,4 @@ const clean = normalizeText(scraped, { language: "ha" });
 await client.reportIssue({ kind: "transcription", output: text, correction: "…", language: "ha", audio: audioBytes });
 ```
 
-Node 18+, no runtime dependencies. Full docs: the [OpenAtlas README](../../README.md), including its measured known limitations, and the [API reference](../../docs/api-reference.md).
+Node 18+, no runtime dependencies. Full docs: the [OpenAtlas README](https://github.com/Benedict258/OpenAtlas/blob/main/README.md), including its measured known limitations, and the [API reference](https://github.com/Benedict258/OpenAtlas/blob/main/docs/api-reference.md).

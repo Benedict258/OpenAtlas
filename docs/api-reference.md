@@ -98,10 +98,12 @@ Every error looks like `{ "error": { "code": string, "message": string, "job_id"
 
 | Status | `code` | Meaning |
 |---|---|---|
-| 400 | `invalid_json`, `invalid_messages`, `invalid_language`, `invalid_audio`, `missing_user`, `invalid_issue`, `invalid_request` | Bad request |
+| 400 | `invalid_json`, `invalid_messages`, `invalid_language`, `invalid_audio`, `invalid_text`, `invalid_engine`, `missing_user`, `invalid_issue`, `invalid_request` | Bad request |
 | 401 | `missing_api_key`, `invalid_api_key`, `invalid_admin_token` | Auth |
-| 413 | `audio_too_large`, `issue_too_large` | Over a size limit |
-| 429 | `license_cap_reached` | 1,000 active end-users reached; only new users are refused |
+| 404 / 501 | `tts_disabled` / `tts_unsupported_backend` | Speech output switched off on this gateway, or not available on its backend |
+| 413 | `audio_too_large`, `issue_too_large`, `text_too_long` | Over a size limit |
+| 429 | `license_cap_reached` | 1,000 active end users reached; only new users are refused |
+| 429 | `key_user_share_reached`, `key_quota_exceeded` | This key's share of the cap, or its daily request limit |
 | 502 | `backend_error`, `upstream_error`, `upstream_failed`, `model_error`, `unexpected_upstream_shape`, `backend_auth_failed`, `backend_route_missing` | The backend or the model failed on this request. Not retried by the SDK |
 | 503 | `upstream_not_configured`, `backend_unavailable` | No backend connected, or it's down or still loading models |
 | 504 | `upstream_timeout` | Didn't finish within the gateway's wait (default 300 s) |
@@ -136,9 +138,79 @@ await client.reportIssue({
 });
 ```
 
-Structured prompts: `buildPrompt(spec, input)` returns `messages` for `chat()`. The base layer comes from OpenAtlas; your app adds `role`, `task`, and optional `reference`, `format`, `example` and `reminder`. See the README and docs/REPORT.md, section 18 for what it measurably changed.
+### `new OpenAtlas(options?)`
 
-Retries: network errors and 503 are retried with backoff (1 s, 2 s, …), up to `maxRetries`. 4xx, 502 and 504 errors are never retried. A `429 license_cap_reached` won't go away by retrying.
+| Option | Default | |
+|---|---|---|
+| `apiKey` | `process.env.OPENATLAS_API_KEY` | Your OpenAtlas key |
+| `baseURL` | `process.env.OPENATLAS_BASE_URL`, then the hosted gateway | Gateway URL |
+| `timeoutMs` | `300000` | Per request; matches the gateway's own wait |
+| `maxRetries` | `2` | Retries network errors and 503 only |
+| `normalize` | `false` | Apply `normalizeText()` to chat messages, replies and transcripts automatically |
+
+Use the SDK from server-side code. The gateway sends no CORS headers, and an API key in a browser is visible to anyone.
+
+**Retries:** network errors and 503 are retried with backoff (1 s, 2 s, …), up to `maxRetries`. 4xx, 502 and 504 errors are never retried. A `429 license_cap_reached` won't go away by retrying.
+
+### `user` is required on `chat`, `transcribe` and `speak`
+
+N-ATLaS's license caps usage at 1,000 active **end users** per rolling 30 days, meaning the people interacting with N-ATLaS output through your app.
+- **What to send:** a stable, opaque ID for the person your app is serving, such as a database ID or a random per-browser ID. Don't send names or emails.
+- **How it's used:** the gateway hashes the ID and uses it only for this count.
+- **If it's missing:** the request is refused with `400 missing_user`.
+
+### `transcribe()` audio
+
+- **Input:** raw bytes (`Uint8Array`/`ArrayBuffer`/`Buffer`), a `Blob`/`File` (e.g. a browser recording), or a base64 string.
+- **Formats:** anything ffmpeg decodes: wav, mp3, ogg, flac, and the webm (Chrome, Firefox) and m4a (Safari) that browsers record.
+- **Length:** **30 seconds or less per request is the reliable range.** Longer audio is cut into plain 25 s pieces by the backend, but on very long free speech some words are still lost (REPORT.md, KI-11).
+- **Size:** about 7 MB per request; the SDK refuses larger audio before uploading. 16 kHz mono WAV, which is what the models use, is about 32 KB per second.
+
+### `normalizeText(text, { language?, hausaApostrophes? })`
+
+Local, no network (also available as `client.normalizeText`). It repairs:
+- **Encoding damage:** UTF-8 read as Windows-1252/Latin-1 (`á»` → `ọ`, `Æ™` → `ƙ`).
+- **Look-alike letters** (with `language`): Hausa `ķ`→`ƙ`, `ɖ`→`ɗ`; Yoruba and Igbo cedilla or ogonek in place of the dot below (`ş`→`ṣ`, `ę`→`ẹ`, `ǫ`→`ọ`, `į`→`ị`, `ų`→`ụ`), keeping tone marks.
+- **Invisible characters** (zero-width spaces, BOM, soft hyphens), and Unicode composition (NFC).
+- **Hausa apostrophe spellings** (opt-in, `hausaApostrophes: true`): `k'asa` → `ƙasa`, `d'aya` → `ɗaya`.
+
+It does **not** add tone marks that were never typed.
+
+### `buildPrompt(spec, input)` → `messages`
+
+Local, no network. It builds a structured system prompt for `chat()`.
+- **From OpenAtlas, the base layer:** a role line, and rules: follow the task, reply in the reply language, keep format labels in English, don't guess, be concise.
+- **From your app:** `role` and `task`, plus optional `reference`, `format`, `example` and `reminder`. The reminder is repeated after the user's input.
+
+```ts
+const messages = buildPrompt({
+  language: "ha",
+  role: "You help a small business triage customer messages.",
+  task: "Classify the message, then draft a reply that answers the customer.",
+  format: "Category: one of billing, delivery, other\nDraft reply: <the reply>",
+  reminder: "Reply in that format: labels in English, the draft reply in {language}.",
+  inputLabel: "Customer message:",
+}, transcript);
+const { content } = await client.chat({ messages, user }); // no `language`: the prompt already states it
+```
+
+**Measured on the starter kits** (REPORT.md, section 18):
+- **Customer Service:** the three-line format was followed 10/10, against 3/10 with the earlier free-form prompt.
+- **Citizen Services:** out-of-scope questions were declined cleanly 5/6, against 1/6.
+- **Education:** no measurable change.
+
+**Cautions:**
+- **Examples are copied closely,** including their language, so write an example reply in the reply language.
+- **With fixed format labels, don't pass `language` to `chat()`.** The gateway's added "Respond in …" line comes last, and it made the model translate the labels.
+
+### Errors
+
+| Class | When |
+|---|---|
+| `OpenAtlasError` | Invalid arguments, thrown before any request is made |
+| `OpenAtlasAPIError` | The gateway returned an error. Has `.status`, `.code` (typed as `OpenAtlasErrorCode`; the codes are in the HTTP table above) and `.jobId` |
+| `OpenAtlasTimeoutError` | No response within `timeoutMs`; retry shortly |
+| `OpenAtlasConnectionError` | The gateway couldn't be reached |
 
 ## Language codes
 

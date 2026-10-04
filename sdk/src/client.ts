@@ -26,8 +26,8 @@ export interface OpenAtlasOptions {
   /** Defaults to `process.env.OPENATLAS_BASE_URL`, then the hosted gateway. */
   baseURL?: string;
   /**
-   * Per-request timeout. Default 300 000 ms (5 min), because a cold start on the
-   * scaled-to-zero endpoint includes loading the model.
+   * Per-request timeout. Default 300 000 ms (5 min), the same as the gateway's own wait, so a request that
+   * arrives while the backend is still starting gets an answer rather than a client-side timeout.
    */
   timeoutMs?: number;
   /**
@@ -48,7 +48,32 @@ export interface OpenAtlasOptions {
 const env = (name: string): string | undefined =>
   (typeof process !== "undefined" ? process.env?.[name] : undefined) || undefined;
 
+/**
+ * Client for the OpenAtlas gateway: N-ATLaS text (`chat()`), speech recognition (`transcribe()`), optional
+ * speech output (`speak()`) and corrections (`reportIssue()`), with one API key.
+ *
+ * Use it from server-side code: the gateway sends no CORS headers, and an API key in a browser is public.
+ * Every model call needs `user`, a stable opaque ID for your end user, which the gateway counts (hashed)
+ * against the N-ATLaS license cap of 1,000 active users per 30 days.
+ *
+ * Errors: invalid arguments throw {@link OpenAtlasError} before any request is made; gateway errors throw
+ * {@link OpenAtlasAPIError} with a `status` and a `code`; {@link OpenAtlasTimeoutError} and
+ * {@link OpenAtlasConnectionError} cover the rest. Network failures and `503` are retried (`maxRetries`).
+ *
+ * @example
+ * ```ts
+ * import { OpenAtlas } from "@openatlas/sdk";
+ * const client = new OpenAtlas(); // reads OPENATLAS_API_KEY
+ * const { content, attribution } = await client.chat({
+ *   messages: [{ role: "user", content: "Ina zan je don yin rajistar katin zabe?" }],
+ *   language: "ha",
+ *   user: "user-123",
+ * });
+ * console.log(content, `(${attribution})`);
+ * ```
+ */
 export class OpenAtlas {
+  /** The gateway URL this client calls, without a trailing slash. */
   readonly baseURL: string;
   private readonly apiKey: string;
   private readonly timeoutMs: number;
@@ -71,7 +96,22 @@ export class OpenAtlas {
     this.normalize = options.normalize ?? false;
   }
 
-  /** Text reasoning with the N-ATLaS LLM. */
+  /**
+   * Text generation with the N-ATLaS LLM (`NCAIR1/N-ATLaS`, a Llama-3 8B fine-tune for English, Hausa,
+   * Yoruba and Igbo). Pass the whole conversation each time; the gateway keeps no history.
+   *
+   * @param params.messages The conversation, oldest first. Must not be empty.
+   * @param params.language Optional: asks for the reply in this language (adds an instruction; same model).
+   * @param params.user Required: stable, opaque ID of your end user (license-cap counting).
+   * @returns The reply, the model ID and the "Powered by Awarri" attribution to show with it.
+   * @throws {OpenAtlasError} Empty `messages`, unsupported `language` or missing `user`, before any request.
+   * @throws {OpenAtlasAPIError} E.g. `invalid_api_key` (401), `license_cap_reached` (429), `upstream_timeout` (504).
+   *
+   * @example
+   * ```ts
+   * const { content } = await client.chat({ messages: [{ role: "user", content: "Kedu?" }], language: "ig", user: id });
+   * ```
+   */
   async chat(params: ChatParams): Promise<ChatResponse> {
     if (!Array.isArray(params?.messages) || params.messages.length === 0) {
       throw new OpenAtlasError("chat() needs a non-empty `messages` array.");
@@ -87,7 +127,25 @@ export class OpenAtlas {
     return { ...res, content: normalizeText(res.content, opts) };
   }
 
-  /** Speech-to-text with the N-ATLaS ASR model for `language`. */
+  /**
+   * Speech to text with the N-ATLaS ASR model for `language` (Whisper-small fine-tunes: `NCAIR1/Hausa-ASR`,
+   * `NCAIR1/Yoruba-ASR`, `NCAIR1/Igbo-ASR`, `NCAIR1/NigerianAccentedEnglish`).
+   *
+   * Up to 30 s per call is the reliable range. Longer audio is cut into 25 s pieces by the backend, but long
+   * free speech can still lose words, so split long recordings yourself.
+   *
+   * @param params.audio Bytes, a base64 string or a Blob/File (browser recordings: webm and m4a work). About 7 MB at most.
+   * @param params.language The language being spoken: `"en-ng"`, `"ha"`, `"yo"` or `"ig"`.
+   * @param params.user Required: stable, opaque ID of your end user.
+   * @returns The transcript, the model ID and the "Powered by Awarri" attribution.
+   * @throws {OpenAtlasError} Unsupported `language`, missing `user`, empty or oversized audio, before any request.
+   * @throws {OpenAtlasAPIError} E.g. `invalid_audio` (400, audio that can't be decoded), `audio_too_large` (413).
+   *
+   * @example
+   * ```ts
+   * const { text } = await client.transcribe({ audio: await readFile("note.ogg"), language: "yo", user: id });
+   * ```
+   */
   async transcribe(params: TranscribeParams): Promise<TranscribeResponse> {
     if (!TRANSCRIBE_LANGUAGES.has(params?.language)) {
       throw new OpenAtlasError(`Unsupported transcription language "${params?.language}". Use one of: en-ng, ha, yo, ig.`);
@@ -105,9 +163,25 @@ export class OpenAtlas {
   }
 
   /**
-   * Text-to-speech: renders text (normally N-ATLaS's own reply) as audio. A separate, final-stage renderer
-   * (SoroTTS / MMS-TTS), not an N-ATLaS model: it never reasons, translates or transcribes. Optional on the
-   * gateway; when it is switched off this throws `OpenAtlasAPIError` with code `tts_disabled`.
+   * Text to speech: renders text (normally N-ATLaS's own reply) as WAV audio. A separate, final-stage renderer
+   * (SoroTTS / Meta MMS-TTS), not an N-ATLaS model: it never reasons, translates or transcribes.
+   *
+   * Quality differs by language: English is clear; Hausa, Yoruba and Igbo are experimental (measured in
+   * docs/REPORT.md, KI-14). Optional on the gateway.
+   *
+   * @param params.text Up to 1,000 characters. Split into sentences and rendered one by one.
+   * @param params.language `"en"`, `"ha"`, `"yo"`, `"ig"` or `"pcm"` (Nigerian Pidgin).
+   * @param params.engine `"auto"` (default), `"sorotts"` or `"mms"`; see {@link SpeakParams.engine}.
+   * @param params.user Required: stable, opaque ID of your end user.
+   * @returns WAV bytes plus the engine, model, voice and license credit actually used.
+   * @throws {OpenAtlasError} Unsupported `language` or `engine`, empty or too-long `text`, missing `user`.
+   * @throws {OpenAtlasAPIError} `tts_disabled` (404) when the gateway has speech off; `tts_unsupported_backend` (501).
+   *
+   * @example
+   * ```ts
+   * const { audio } = await client.speak({ text: content, language: "en", user: id });
+   * await writeFile("reply.wav", audio);
+   * ```
    */
   async speak(params: SpeakParams): Promise<SpeakResponse> {
     if (!SPEAK_LANGUAGES.has(params?.language)) {

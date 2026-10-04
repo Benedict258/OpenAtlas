@@ -891,6 +891,42 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 
 **Not present:** the site has **no browser playground**; no page or script has one. The interactive parts are the three starter-kit windows and the key request form. The "customer-service chat" from section 28 is also still not built.
 
+### 30. Submission prep: repository restructure, SDK docs, integration evidence
+
+**Restructure (`247997a`):** the top-level folders are now `sdk/`, `gateway/`, `deploy/`, `starter-kits/`, `docs/`, `scripts/`, `site/` and `.github/`.
+- `packages/sdk` → `sdk`, with `examples/` moved under it.
+- The operations and verification scripts (from `deploy/*.mjs` and `dev/`) → `scripts/`.
+- RunPod files → `deploy/runpod/`.
+- The AMD bootstrap → `deploy/amd/bootstrap.sh`.
+- This report and the planning documents → `docs/`.
+- 197 path references were rewritten across code, CI and docs, and four relative paths were fixed in files that moved one level deeper.
+
+**Checked after the move:**
+- `npm install`, the build and the 32 SDK tests;
+- the gateway type-check and the site build;
+- `wrangler deploy --dry-run` for both Workers;
+- moved scripts run (`scripts/keys.mjs`; `sdk/examples/quickstart.mjs` returned a real Hausa answer from the MI300X);
+- the site was deployed (`9ee2f7bb`), and the AMD backend redeployed from the new layout and reconnected;
+- CI: `backend-image.yml` and `asr-image.yml` both succeeded on `247997a`.
+
+**SDK API review:** documentation and types only, no runtime change.
+- Class-level docs with an example, plus `@param`, `@returns`, `@throws` and `@example` on `chat()`, `transcribe()` and `speak()`.
+- Every response field is documented.
+- `ChatResponse.model` is typed `"NCAIR1/N-ATLaS"`, and `TranscribeResponse.model` as the union of the four ASR IDs.
+- `OpenAtlasAPIError.code` is typed `OpenAtlasErrorCode`, every code the gateway can return (checked against the gateway source), kept open for future codes.
+- The out-of-date `timeoutMs` and `engine` notes (scale-to-zero, T4) are fixed.
+- **The published `@openatlas/sdk@0.1.0` doesn't contain these doc and type changes;** a 0.1.1 publish would.
+
+**New documents:**
+- `docs/natlas-integration.md`
+- `docs/technical-documentation.md`
+- A rewritten root README.
+- The detailed SDK material moved into `docs/api-reference.md`, whose error table now lists every code.
+
+All relative links in the main docs resolve.
+
+**Evidence package:** `python scripts/package-evidence.py` builds `dist/submission/OpenAtlas-NATLaS-Integration-Evidence.zip`. It contains the integration document, this report, the 22 source files that implement the integration, and a manifest that maps each file to what it shows. It refuses to build if a packaged file looks like it contains a secret.
+
 ---
 
 ## Known issues
