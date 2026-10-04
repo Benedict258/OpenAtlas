@@ -5,14 +5,14 @@ import { buildPrompt, normalizeText } from "@openatlas/sdk";
 
 // ASR language code → chat language code (Nigerian-accented English replies in English).
 const CHAT_LANGUAGE = { ha: "ha", yo: "yo", ig: "ig", "en-ng": "en" };
-// Speech recognition is reliable on up to 30 s at a time (deploy/REPORT.md, KI-11), so longer notes
+// Speech recognition is reliable on up to 30 s at a time (docs/REPORT.md, KI-11), so longer notes
 // arrive as several pieces of up to ~25 s, cut in the browser. Five pieces is about two minutes.
 const MAX_PIECES = 5;
 // reportIssue() accepts up to ~1 MB of base64 audio; longer clips are reported as text only.
 const MAX_REPORT_AUDIO = 1_400_000;
 
 // Structured prompt (the SDK's base layer + this task), with the format repeated after the customer's
-// message. Measured against the previous free-form prompt in deploy/REPORT.md, section 18: the
+// message. Measured against the previous free-form prompt in docs/REPORT.md, section 18: the
 // three-line format with English labels was followed 10/10 instead of 3/10.
 const triageSpec = (language) => ({
   language,

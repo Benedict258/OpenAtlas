@@ -1,5 +1,5 @@
 // Starts the OpenAtlas backend on the AMD MI300X droplet and connects the gateway to it, in one command.
-// It uploads this checkout's server code and runs deploy/amd-bootstrap.sh on the droplet (the same script
+// It uploads this checkout's server code and runs deploy/amd/bootstrap.sh on the droplet (the same script
 // you'd run there by hand), then points the gateway at the new tunnel URL. Run it after every new droplet
 // or restart: the tunnel URL changes each time.
 //
@@ -27,7 +27,7 @@ const SSH = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "StrictHost
   // SSH_KEY=<path> picks a specific private key (e.g. one made for this droplet); otherwise ssh's default keys.
   ...(process.env.SSH_KEY ? ["-i", process.env.SSH_KEY, "-o", "IdentitiesOnly=yes"] : [])];
 const CODE = "/shared-docker/openatlas";
-const FILES = ["deploy/amd-bootstrap.sh", "deploy/amd", "deploy/server/natlas_server.py", "deploy/server/tts_renderer.py"];
+const FILES = ["deploy/amd", "deploy/server/natlas_server.py", "deploy/server/tts_renderer.py"];
 
 console.log(`Uploading ${FILES.join(", ")} to ${ip}:${CODE}…`);
 const tar = spawnSync("tar", ["-czf", "-", ...FILES], { cwd: root, maxBuffer: 50e6 });
@@ -36,12 +36,12 @@ const up = spawnSync("ssh", [...SSH, host, `mkdir -p ${CODE} && tar -xzf - -C ${
 if (up.status !== 0) throw new Error(`Upload failed (exit ${up.status}). Can you run: ssh ${host} ?`);
 
 const tts = args.includes("--no-tts") ? "0" : "1";
-const remote = `read -r HF_TOKEN; read -r BACKEND_API_KEY; export HF_TOKEN BACKEND_API_KEY OPENATLAS_CODE=uploaded ENABLE_TTS=${tts}; bash ${CODE}/deploy/amd-bootstrap.sh`;
+const remote = `read -r HF_TOKEN; read -r BACKEND_API_KEY; export HF_TOKEN BACKEND_API_KEY OPENATLAS_CODE=uploaded ENABLE_TTS=${tts}; bash ${CODE}/deploy/amd/bootstrap.sh`;
 const output = await new Promise((resolve, reject) => {
   const p = spawn("ssh", [...SSH, host, remote], { stdio: ["pipe", "pipe", "inherit"] });
   let out = "";
   p.stdout.on("data", (d) => { out += d; process.stdout.write(d); });
-  p.on("close", (code) => (code === 0 ? resolve(out) : reject(new Error(`amd-bootstrap.sh failed (exit ${code}); see the output above.`))));
+  p.on("close", (code) => (code === 0 ? resolve(out) : reject(new Error(`deploy/amd/bootstrap.sh failed (exit ${code}); see the output above.`))));
   p.stdin.end(`${HF_TOKEN}\n${NATLAS_API_KEY}\n`);
 });
 const url = /^TUNNEL_URL=(https:\S+)$/m.exec(output)?.[1];

@@ -1,5 +1,5 @@
 # Copy to .dev.vars for `wrangler dev`. Values below point at the MOCK backend
-# (dev/mock-backend), which speaks both the http contract and RunPod's job API.
+# (scripts/dev/mock-backend), which speaks both the http contract and RunPod's job API.
 # Every mock output is prefixed "[MOCK — not N-ATLaS output]".
 BACKEND_KIND=http
 BACKEND_URL=http://127.0.0.1:8788

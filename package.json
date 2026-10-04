@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/sdk",
+    "sdk",
     "gateway",
     "starter-kits/citizen-services",
     "starter-kits/education",
@@ -13,7 +13,7 @@
   "scripts": {
     "build": "npm run build -w @openatlas/sdk",
     "test": "npm test -w @openatlas/sdk",
-    "dev:mock-backend": "node dev/mock-backend/server.mjs",
+    "dev:mock-backend": "node scripts/dev/mock-backend/server.mjs",
     "dev:gateway": "npm run dev -w openatlas-gateway",
     "dev:site": "npm run dev -w openatlas-site"
   }

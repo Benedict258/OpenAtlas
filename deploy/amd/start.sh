@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Starts (or restarts) the OpenAtlas backend and its tunnel inside the `rocm` container, then prints the
-# tunnel URL as TUNNEL_URL=... Run by deploy/amd-bootstrap.sh. Secrets come from the environment
+# tunnel URL as TUNNEL_URL=... Run by deploy/amd/bootstrap.sh. Secrets come from the environment
 # (`docker exec -e NAME`), so they never appear in a command line or on disk.
 #
 # The server listens on 127.0.0.1 only. The image's container publishes port 8000 to the internet, and

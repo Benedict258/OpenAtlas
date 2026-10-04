@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One-time setup inside the `rocm` container of DigitalOcean's "PyTorch on AMD Instinct" image (MI300X):
-# ffmpeg, the Python packages, cloudflared. Run by deploy/amd-bootstrap.sh; skips itself once done in this
+# ffmpeg, the Python packages, cloudflared. Run by deploy/amd/bootstrap.sh; skips itself once done in this
 # container (a new droplet has a new container, so it runs again there).
 set -euo pipefail
 MARKER=/root/.openatlas-setup-done   # inside the container, not on the shared host folder

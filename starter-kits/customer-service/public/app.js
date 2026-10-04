@@ -2,7 +2,7 @@
 // transcript corrections → /api/support/report (reportIssue() with the audio).
 // A recorded or chosen note is staged for review (play it back, change the language) and only sent
 // when the user presses "Send voice note".
-// Speech recognition is reliable on up to 30 s at a time (deploy/REPORT.md, KI-11), so recording stops
+// Speech recognition is reliable on up to 30 s at a time (docs/REPORT.md, KI-11), so recording stops
 // at 30 s, and every note is converted here to 16 kHz mono WAV (what the models use) and, if longer
 // than 30 s, cut into plain pieces of up to 25 s, which the user is told about before sending.
 (() => {

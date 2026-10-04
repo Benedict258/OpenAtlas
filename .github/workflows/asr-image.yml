@@ -3,7 +3,7 @@ name: Build ASR worker image
 on:
   push:
     branches: [main]
-    paths: ["workers/asr/**", ".github/workflows/asr-image.yml"]
+    paths: ["deploy/runpod/asr-worker/**", ".github/workflows/asr-image.yml"]
   workflow_dispatch:
 
 permissions:
@@ -30,7 +30,7 @@ jobs:
 
       - uses: docker/build-push-action@v6
         with:
-          context: workers/asr
+          context: deploy/runpod/asr-worker
           push: true
           platforms: linux/amd64
           tags: |

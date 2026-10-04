@@ -54,7 +54,7 @@ for (let i = 0; i < 30; i++) {
   const h = await fetch(`${gateway}/v1/health`).then((r) => r.json()).catch(() => null);
   if (h?.backend?.host === host && h.backend.reachable) {
     console.log("    gateway health:", JSON.stringify(h));
-    console.log(`\nGateway ${gateway} now proxies to ${host}. Next: node --env-file=.env deploy/smoke-gateway.mjs`);
+    console.log(`\nGateway ${gateway} now proxies to ${host}. Next: node --env-file=.env scripts/smoke-gateway.mjs`);
     process.exit(0);
   }
   await new Promise((r) => setTimeout(r, 3000));
