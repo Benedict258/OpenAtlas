@@ -5,6 +5,9 @@
 // Usage: node --env-file=.env deploy/concurrency-check.mjs   (NATLAS_BASE_URL / NATLAS_API_KEY from the notebook)
 import { readFileSync } from "node:fs";
 
+// The notebook reports latency_seconds; natlas_server.py (AMD host, Docker) reports inference_ms.
+const computeSeconds = (body) => body?.latency_seconds ?? (body?.inference_ms ?? 0) / 1000;
+
 const base = process.env.NATLAS_BASE_URL.replace(/\/+$/, "").replace(/\/v1$/, "");
 const auth = { Authorization: `Bearer ${process.env.NATLAS_API_KEY}` };
 const chat = (q) => async () => {
@@ -38,10 +41,10 @@ const out = await Promise.all(jobs.map(async ([name, run]) => {
 const total = (Date.now() - t0) / 1000;
 let compute = 0;
 for (const o of out) {
-  const c = o.body?.latency_seconds ?? 0;
+  const c = computeSeconds(o.body);
   compute += c;
   const text = (o.body?.content ?? o.body?.text ?? JSON.stringify(o.body)).slice(0, 70);
   console.log(`${o.status === 200 ? "OK  " : "FAIL"} ${o.name.padEnd(16)} HTTP ${o.status}  wall ${o.wall.toFixed(1)}s  compute ${c}s  ${text}`);
 }
-const longest = Math.max(...out.map((o) => o.body?.latency_seconds ?? 0));
+const longest = Math.max(...out.map((o) => computeSeconds(o.body)));
 console.log(`\nall OK: ${out.every((o) => o.status === 200)} | total wall ${total.toFixed(1)}s | sum of compute ${compute.toFixed(1)}s | longest single compute ${longest}s`);

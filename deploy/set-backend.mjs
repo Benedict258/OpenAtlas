@@ -1,7 +1,9 @@
 // Points the live OpenAtlas gateway at an N-ATLaS backend (Colab tunnel, NiHub, or any host running
 // deploy/server/natlas_server.py). Config only: sets two Worker secrets; no code change or redeploy.
 //
-// Usage (repo root): node --env-file=.env deploy/set-backend.mjs <backend-url> <backend-api-key>
+// Usage (repo root): node --env-file=.env deploy/set-backend.mjs <backend-url>
+// The backend's key comes from NATLAS_API_KEY in .env (kept off the command line, where any process
+// list would show it). Passing it as a second argument still works.
 //
 // 1. checks the backend directly (reachable, models loaded, key accepted)
 // 2. stores BACKEND_URL and BACKEND_API_KEY as Cloudflare Worker secrets
@@ -11,10 +13,11 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const [url, key] = process.argv.slice(2);
+const [url, keyArg] = process.argv.slice(2);
+const key = keyArg ?? process.env.NATLAS_API_KEY;
 const gateway = process.env.OPENATLAS_BASE_URL;
 if (!url || !key) {
-  console.error("Usage: node --env-file=.env deploy/set-backend.mjs <backend-url> <backend-api-key>");
+  console.error("Usage: node --env-file=.env deploy/set-backend.mjs <backend-url>   (key from NATLAS_API_KEY in .env)");
   process.exit(1);
 }
 if (!gateway) throw new Error("Set OPENATLAS_BASE_URL in .env (the gateway URL).");

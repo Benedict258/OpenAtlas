@@ -184,15 +184,16 @@ Minimal reference implementations, not products. Each one runs with `npm install
 ```
 your app → openatlas SDK → OpenAtlas gateway (Cloudflare Worker + D1) → GPU backend
                             · OpenAtlas keys                               natlas_server.py:
-                            · 1,000-user cap accounting                    · N-ATLaS LLM (4-bit)
+                            · 1,000-user cap accounting                    · N-ATLaS LLM (bf16)
                             · issue reports                                · N-ATLaS ASR ×4
                             · backend credential stays here
 ```
 
-The backend is a config value, not code: `deploy/set-backend.mjs <url> <key>` repoints the live gateway. Hosting plan:
-- **Google Colab** ([`natlas_colab.ipynb`](natlas_colab.ipynb), the notebook currently serving): **interim only.** Not persistent: it disconnects when idle, sessions end after about 12 hours, and the URL changes on every run. `deploy/colab/openatlas_colab.ipynb` is the same idea, generated from `natlas_server.py`.
-- **NiHub:** the intended persistent host for submission and judging. Not live yet.
-- **RunPod Serverless:** fallback (`BACKEND_KIND=runpod`, scripts in `deploy/llm`, `deploy/asr`). Not deployed.
+The backend is a config value, not code: `deploy/set-backend.mjs <url>` repoints the live gateway (key from `NATLAS_API_KEY`). Hosting:
+- **AMD Developer Cloud (MI300X): the live host for judging.** `node --env-file=.env deploy/amd/up.mjs <droplet-ip>` takes a fresh droplet to serving, and reconnects the gateway. It's billed hourly from a time-limited credit, so the droplet is destroyed between sessions and the demo isn't up around the clock. See [`docs/deploy-your-own.md`](docs/deploy-your-own.md).
+- **Kaggle notebook** ([`deploy/colab/natlas_kaggle.ipynb`](deploy/colab/natlas_kaggle.ipynb)): the free path, proven on 2026-10-03. Sessions end after at most 12 hours.
+- **Docker** ([`deploy/server/`](deploy/server/)): `docker compose up` on any NVIDIA GPU. The image is built and smoke-tested in CI, but not run on a GPU by us.
+- **Colab** ([`natlas_colab.ipynb`](natlas_colab.ipynb)) was the first host. **RunPod Serverless** (`BACKEND_KIND=runpod`, `deploy/llm`, `deploy/asr`) is scripted but never run.
 
 Repo map:
 - [`packages/sdk`](packages/sdk/): the `@openatlas/sdk` npm package

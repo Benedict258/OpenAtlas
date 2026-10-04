@@ -87,13 +87,14 @@ console.log("6/7 Backend");
 if (BACKEND) {
   console.log(`  $ node deploy/set-backend.mjs ${BACKEND.url} <key>`);
   if (!DRY) {
-    const r = spawnSync("node", [join(root, "deploy", "set-backend.mjs"), BACKEND.url, BACKEND.key], {
-      cwd: root, stdio: "inherit", env: { ...process.env, OPENATLAS_BASE_URL: gatewayUrl },
+    // The key goes through the environment (NATLAS_API_KEY), not the command line, where process lists show it.
+    const r = spawnSync("node", [join(root, "deploy", "set-backend.mjs"), BACKEND.url], {
+      cwd: root, stdio: "inherit", env: { ...process.env, OPENATLAS_BASE_URL: gatewayUrl, NATLAS_API_KEY: BACKEND.key },
     });
     if (r.status !== 0) throw new Error("Connecting the backend failed (see above). The gateway is deployed; re-run deploy/set-backend.mjs once the backend is up.");
   }
 } else {
-  console.log("    skipped (no --backend). Later: OPENATLAS_BASE_URL=<gateway> node deploy/set-backend.mjs <backend-url> <backend-key>");
+  console.log("    skipped (no --backend). Later: OPENATLAS_BASE_URL=<gateway> NATLAS_API_KEY=<backend-key> node deploy/set-backend.mjs <backend-url>");
 }
 
 console.log("7/7 First API key");
