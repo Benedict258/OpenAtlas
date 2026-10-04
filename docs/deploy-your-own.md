@@ -1,16 +1,21 @@
 # Deploy your own OpenAtlas
 
-**No GPU or hosting came with the challenge.** So we built and proved OpenAtlas entirely on free tools:
+**No GPU or hosting came with the challenge.** We built and proved OpenAtlas entirely on free tools:
 - **GPU:** a Kaggle notebook (2× NVIDIA T4).
 - **Public HTTPS link:** a Cloudflare quick tunnel.
 - **Gateway:** the Cloudflare free plan.
 - **Models:** a free Hugging Face account.
 
-**This guide is the deliverable.** Any developer, including a judge, can follow it and stand up the same working deployment we run. It costs nothing, and takes about 45 minutes, most of it waiting for models to download.
+**For judging, the live demo runs on an AMD Instinct MI300X** on DigitalOcean's AMD Developer Cloud, paid from a time-limited credit. The architecture is the same: the same server code, tunnel and gateway. Only the GPU host changes.
+
+**This guide is the deliverable.** Any developer, including a judge, can follow it and stand up the same working deployment:
+- **AMD Developer Cloud,** if you have GPU credit: one command, about 3 minutes.
+- **Kaggle,** free: about 45 minutes, mostly model downloads.
+- **Docker,** on your own GPU.
 
 **Why the hosted demo may be offline when you visit:**
-- It runs on a free Kaggle session, which stops after at most 12 hours and draws on a weekly GPU allowance.
-- Each restart gets a new URL that has to be reconnected.
+- The AMD machine is billed by the hour, and stopping it doesn't stop the billing; only destroying it does. So we destroy it between sessions and create it again when needed.
+- Each new start gets a new tunnel URL, which `deploy/amd/up.mjs` reconnects to the gateway.
 
 If the website's demos say "Backend offline", this guide is how to run it yourself.
 
@@ -28,10 +33,11 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 
 | Path | Status |
 |---|---|
-| **Kaggle notebook backend** (`deploy/colab/natlas_kaggle.ipynb`) | **Proven.** It runs the public OpenAtlas gateway today. The LLM, all four ASR models, the speech renderer and the three starter kits were checked live through it on 2026-10-03 (REPORT.md sections 24–26). |
+| **AMD Developer Cloud, MI300X** (`deploy/amd-bootstrap.sh`, `deploy/amd/up.mjs`) | **Proven; this is the live host.** On 2026-10-04 everything was checked through it (REPORT.md section 28): the LLM, all four ASR models and the speech renderer, all in bf16/fp16 with no quantization; the three starter kits; API key auth and limits. Restarts on the same droplet were tested. **Not yet run on a freshly created droplet:** that path is scripted, but untried end to end. |
+| **Kaggle notebook backend** (`deploy/colab/natlas_kaggle.ipynb`) | **Proven; the free path.** It ran the public gateway on 2026-10-03, where the LLM, all four ASR models, the speech renderer and the three starter kits were checked live (REPORT.md sections 24–26). |
 | Gateway, set up step by step (Step 2b) | **Proven.** These are the steps the live gateway was built with. |
 | Gateway in one command (`deploy/setup-gateway.mjs`, Step 2a) | Checked with `--dry-run` only. **Not yet run against a fresh Cloudflare account.** |
-| **Docker on your own GPU** (`deploy/server/`) | **The image builds, starts, answers `/health` and refuses requests without the key, in CI** (no GPU there). **We have not run it on a GPU.** The server inside it, `natlas_server.py`, shares its audio handling and GPU lock with the notebook but has not served real requests end to end. |
+| **Docker on your own GPU** (`deploy/server/`) | **The image builds, starts, answers `/health` and refuses requests without the key, in CI** (no GPU there). **The image itself has not been run on a GPU.** The server inside it, `natlas_server.py`, is the same file that serves the live AMD host. |
 | Colab notebook (`natlas_colab.ipynb`) | Ran the gateway on 2026-10-02/03, until the free Colab GPU quota ran out. The same fixes went in as for Kaggle, but **it hasn't been re-run since**. |
 | RunPod Serverless (`deploy/llm`, `deploy/asr`) | Scripted, **never run.** See the end of this guide. |
 
@@ -53,7 +59,90 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 
    The optional speech models have their own non-commercial licenses: CC BY-NC-SA 4.0 for SoroTTS, CC BY-NC 4.0 for MMS-TTS.
 
-## Step 1: Start the backend on Kaggle (exactly what we run)
+## AMD Developer Cloud (the live host)
+
+This is how the judging demo runs. It needs DigitalOcean / AMD Developer Cloud GPU credit, and it's billed by the hour while the droplet exists.
+
+**Set up your gateway first** (Step 2 below), because the last step here connects it. The rest takes about 3 minutes on a new droplet once you've done it before: the scripts handle setup, model download, warm-up and the gateway connection.
+
+### Once: an SSH key
+
+1. On your machine, check for a key with `ls ~/.ssh/id_ed25519.pub` (Windows: `C:\Users\<you>\.ssh\id_ed25519.pub`). If there isn't one, run `ssh-keygen -t ed25519` and press Enter through the prompts.
+2. In the DigitalOcean control panel, add the **public** key: the contents of `id_ed25519.pub`, a single line starting `ssh-ed25519`. Go to **Settings → Security → SSH Keys → Add SSH Key**. Once added there, every new droplet can include it.
+
+### Each time: create the droplet
+
+1. **Create → GPU Droplets.**
+2. **GPU:** AMD Instinct **MI300X**, a single GPU (192 GB).
+3. **Image:** the 1-Click **"PyTorch on AMD Instinct"**: Ubuntu 24.04 with ROCm 7.14, and PyTorch 2.12 inside a Docker container named `rocm`, which starts automatically.
+4. **Authentication:** **SSH Key**, with your key **ticked**. Without it, you can't log in as root non-interactively, and the scripts can't connect.
+5. Create it, then copy its **public IPv4 address**. Give it a minute or two to boot.
+6. Check that you can log in: `ssh root@<ip> docker ps` should list a container named `rocm`.
+
+   **If SSH says `REMOTE HOST IDENTIFICATION HAS CHANGED`:** a new droplet reused an address you've connected to before. Remove the old entry with `ssh-keygen -R <ip>` and try again. `up.mjs` trusts a new droplet's host key the first time it connects, and checks it after that.
+
+### Each time: start OpenAtlas on it (one command, from your machine)
+
+`.env` needs `HF_TOKEN`, `NATLAS_API_KEY` (16+ random characters: the backend's key), `OPENATLAS_BASE_URL` and `CLOUDFLARE_API_TOKEN` (from Step 2). Then:
+
+```bash
+node --env-file=.env deploy/amd/up.mjs <droplet-ip>
+```
+
+It does two things. First it uploads this checkout's server code and runs `deploy/amd-bootstrap.sh` on the droplet, which:
+1. checks that the GPU is visible inside the `rocm` container;
+2. installs ffmpeg, the Python packages and `cloudflared` in the container. This happens once per droplet. The image's ROCm build of PyTorch is pinned, so pip can't replace it, and bitsandbytes isn't installed.
+3. starts the server and a Cloudflare quick tunnel, both detached;
+4. waits for the models to load in bf16/fp16, about 30 GB on a new droplet;
+5. warms up every model with one real request each.
+
+Then it connects your gateway to the new tunnel URL, with `deploy/set-backend.mjs`.
+
+**Measured on 2026-10-04 on the same droplet** (models cached): 2.5 minutes from the command to the gateway serving. On the first start, the models loaded in 94 s. The cloud's download speed made the first full start quick, but **a freshly created droplet hasn't been timed end to end yet.**
+
+**Without your machine,** log in to the droplet and run the same script there. It clones the repo, which needs a read-only `GH_TOKEN` while the repo is private:
+```bash
+git clone https://github.com/Benedict258/OpenAtlas.git /tmp/oa   # or: curl/scp just deploy/amd-bootstrap.sh
+HF_TOKEN=hf_... BACKEND_API_KEY=... [GH_TOKEN=...] bash /tmp/oa/deploy/amd-bootstrap.sh
+```
+It prints `TUNNEL_URL=...` and the exact `set-backend.mjs` command to run on your machine.
+
+**Where things live on the droplet:**
+- **Code:** `/shared-docker/openatlas`.
+- **Model files:** `/shared-docker/hf-cache`.
+- **Logs:** `/shared-docker/openatlas-logs/server.log` and `cloudflared.log`.
+
+`/shared-docker` is a host folder that the `rocm` container mounts.
+
+**Security:**
+- **The server listens on 127.0.0.1 only, inside the container.** The image publishes the container's ports 8000, 8888 and 30000 to the internet, and Docker-published ports bypass the UFW firewall. So the tunnel is the only way in. We checked from outside that port 8000 doesn't answer.
+- **Port 8888 is the image's JupyterLab,** which is reachable from the internet but needs its login token.
+- **Secrets** go from your machine to the container as environment variables over SSH. They're never written to the droplet's disk.
+
+### When you're done: destroy it
+
+**Powering a droplet off does not stop the billing. Only destroying it does.** Choose **Destroy** on the droplet's page. Next time, create a new one and run `up.mjs` again; the steps above are all there is to it.
+
+### ROCm notes (measured on this host, 2026-10-04)
+
+**The good:**
+- Everything in OpenAtlas runs on ROCm unchanged: the LLM and the four ASR models in bf16/fp16, MMS-TTS, and SoroTTS in fp16.
+- No HIP errors appeared, and no ROCm warnings in the server log.
+
+**Chat and ASR are fast:**
+- Chat: 0.4–3 s, against 4–8 s on Kaggle.
+- ASR: 27 s of audio in 0.7 s of GPU time.
+
+**MMS-TTS is slower than on a T4:** about 2 s per short sentence against 0.3 s, after a first-call warm-up of about 11 s. SoroTTS is about 3× faster than on a T4, at 2.8 s per second of audio, but still slower than real time.
+
+**One CPU thread is always at 100%:**
+- The ROCm runtime's event loop (`rocr::core::Runtime::AsyncEventsLoop`) busy-polls.
+- This is the runtime's default behaviour on this virtual-function GPU; nothing in the image sets it.
+- It uses 1 of the 20 vCPUs and doesn't affect results.
+
+**The first call of each model is slower:** 8 s for the first chat, 7–12 s for the first MMS render. That's why the bootstrap warms each model up before reporting ready.
+
+## Step 1: Start the backend on Kaggle (free)
 
 1. On [kaggle.com](https://www.kaggle.com), choose **Create → New Notebook**, then **File → Import Notebook**, and upload `deploy/colab/natlas_kaggle.ipynb`.
 2. Change the settings in the right-hand panel:
@@ -132,7 +221,7 @@ npx wrangler d1 execute my-openatlas-db --remote --file schema.sql
 npx wrangler deploy
 npx wrangler secret put ADMIN_TOKEN             # any long random string
 cd ..
-OPENATLAS_BASE_URL=https://<your-gateway>.workers.dev node deploy/set-backend.mjs https://<random-words>.trycloudflare.com <NATLAS_API_KEY>
+OPENATLAS_BASE_URL=https://<your-gateway>.workers.dev NATLAS_API_KEY=… node deploy/set-backend.mjs https://<random-words>.trycloudflare.com
 OPENATLAS_BASE_URL=… OPENATLAS_ADMIN_TOKEN=… node deploy/keys.mjs issue owner
 ```
 
@@ -177,10 +266,12 @@ Then open the URL it prints. Each kit window shows **Backend offline** or **Back
 
 ## When the backend restarts
 
-A new Kaggle session, or a restarted tunnel, gets a new URL. Reconnect it in one command; there's no redeploy:
+A new droplet or Kaggle session, or a restarted tunnel, gets a new URL. Reconnect it in one command; there's no redeploy:
 ```bash
-node --env-file=.env.selfhost deploy/set-backend.mjs https://<new-words>.trycloudflare.com <NATLAS_API_KEY>
+node --env-file=.env deploy/amd/up.mjs <droplet-ip>        # AMD: restarts everything and reconnects
+node --env-file=.env deploy/set-backend.mjs https://<new-words>.trycloudflare.com    # any host
 ```
+`set-backend.mjs` reads the backend's key from `NATLAS_API_KEY` in `.env`, so it never appears on a command line. Passing it as a second argument still works.
 
 ## Alternative backend: Docker on your own GPU
 
@@ -189,7 +280,8 @@ This is for any machine with an NVIDIA GPU of 16 GB or more and the NVIDIA Conta
 ```bash
 cd deploy/server
 HF_TOKEN=hf_... BACKEND_API_KEY=$(openssl rand -hex 24) docker compose up
-# wait for "trycloudflare.com" in the log, then: node deploy/set-backend.mjs <that URL> <BACKEND_API_KEY>
+# wait for "trycloudflare.com" in the log, then (with NATLAS_API_KEY=<BACKEND_API_KEY> in .env):
+# node --env-file=.env deploy/set-backend.mjs <that URL>
 ```
 
 - **Image:** `ghcr.io/benedict258/openatlas-backend`, built from `deploy/server/Dockerfile` by `.github/workflows/backend-image.yml` on every change. `docker compose build` builds it locally instead.

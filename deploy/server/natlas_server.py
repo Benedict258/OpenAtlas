@@ -1,8 +1,8 @@
 """OpenAtlas backend server: N-ATLaS LLM + the four N-ATLaS ASR models behind one HTTP API.
 
 Implements the backend contract the OpenAtlas gateway calls when BACKEND_KIND=http
-(OpenAtlas_Architecture_DevPlan.md §3.3). The same file runs on Colab (interim) and on
-NiHub or any other GPU host, so moving hosts is a gateway config change only.
+(OpenAtlas_Architecture_DevPlan.md §3.3). The same file runs on the AMD MI300X host (deploy/amd), in
+Docker on any NVIDIA GPU, or by hand, so moving hosts is a gateway config change only.
 
     GET  /health                    -> {"status": "ok"|"loading"|"error", "llm": bool, "asr": [...], ...}
     POST /v1/chat/completions       OpenAI-style request/response
@@ -16,7 +16,7 @@ Environment:
     BACKEND_API_KEY   shared secret with the gateway, 16+ chars (required)
     PORT              default 8000
     HOST              default 127.0.0.1 (put a tunnel or reverse proxy in front for HTTPS)
-    LLM_QUANT         "4bit" (default; fits a 16 GB T4) or "none" (bf16/fp16, needs ~17 GB)
+    LLM_QUANT         "none" (default: bf16/fp16, needs ~17 GB) or "4bit" (fits a 16 GB T4; needs bitsandbytes)
     ASR_LANGUAGES     comma-separated subset of ha,yo,ig,en-ng to load (default: all four)
     ENABLE_TTS        "1" adds the optional speech renderer (tts_renderer.py, POST /v1/audio/speech),
                       loaded after the N-ATLaS models. Off by default. TTS_SOROTTS=0 loads MMS-TTS only.
@@ -58,7 +58,10 @@ MAX_INPUT_TOKENS = 7000  # context is ~8k; leave room for the answer
 
 HF_TOKEN = os.environ.get("HF_TOKEN")
 API_KEY = os.environ.get("BACKEND_API_KEY", "")
-LLM_QUANT = os.environ.get("LLM_QUANT", "4bit")
+# Full precision (bf16, or fp16 where bf16 isn't supported) by default: the 8B LLM needs ~16 GB, which the
+# AMD MI300X host has many times over, and it keeps bitsandbytes out of the picture entirely (it isn't
+# installed there). "4bit" is opt-in for 16 GB NVIDIA cards (the Docker self-host path on a T4-class GPU).
+LLM_QUANT = os.environ.get("LLM_QUANT", "none")
 ASR_TO_LOAD = [l.strip() for l in os.environ.get("ASR_LANGUAGES", ",".join(ASR_REPOS)).split(",") if l.strip()]
 
 state = {"status": "loading", "stage": "starting", "error": None, "load_seconds": {}}
@@ -71,13 +74,15 @@ gpu_lock = threading.Lock()  # one forward pass at a time on a single GPU
 def load_models():
     global tok, llm
     try:
-        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, pipeline
+        from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
         state["stage"] = f"loading {LLM_REPO} ({LLM_QUANT})"
         t0 = time.time()
         tok = AutoTokenizer.from_pretrained(LLM_REPO, token=HF_TOKEN)
         kwargs = {"device_map": "auto", "token": HF_TOKEN}
         if LLM_QUANT == "4bit":
+            from transformers import BitsAndBytesConfig  # needs the bitsandbytes package (NVIDIA only here)
+
             kwargs["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",

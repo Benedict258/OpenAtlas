@@ -749,6 +749,94 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   - the Customer Service draft kept the English labels with a Hausa reply;
   - Citizen Services answered within the demo notes.
 
+## 2026-10-04
+
+### 28. Backend moved to an AMD Instinct MI300X (DigitalOcean AMD Developer Cloud) for judging
+
+**Why:** Kaggle sessions end after 12 hours, and the weekly GPU quota can't keep a demo up through judging.
+
+**The host:**
+- One MI300X (192 GB; PyTorch reports 206 GB), a virtual-function GPU, on the 1-Click "PyTorch on AMD Instinct" image: Ubuntu 24.04, ROCm 7.14, PyTorch `2.12.0+rocm7.14.0`, HIP 7.14.60850, Python 3.12.3. It's provisioned by the owner.
+- PyTorch runs inside the image's `rocm` container.
+- Billed hourly from a $100 credit that expires 2026-10-18. Only destroying the droplet stops billing; powering it off does not.
+
+**What changed:**
+- **`natlas_server.py` loads in full precision by default** (`LLM_QUANT=none`: bf16 for the LLM, fp16 for the ASR models and SoroTTS). Its bitsandbytes import now happens only if `LLM_QUANT=4bit` is chosen.
+  - **Deviation from the brief, flagged:** the 4-bit option wasn't deleted. It's kept as opt-in for the Docker self-host path on 16 GB NVIDIA cards, where an fp16 8B model doesn't fit.
+  - On the AMD host, bitsandbytes is **not installed** (checked: `bitsandbytes installed: False`), so it can't be loaded there.
+- **New one-command setup:**
+  - `deploy/amd-bootstrap.sh` runs on the droplet. It checks the GPU in the container; gets the code (git clone/reset, or an upload); does the one-time container setup (ffmpeg, Python packages with the image's ROCm torch pinned, `cloudflared`); starts the server and a quick tunnel, detached; waits for the models; warms each model up; and prints the tunnel URL.
+  - `deploy/amd/up.mjs` runs on our machine. It uploads the code over SSH, runs the bootstrap with the secrets passed as environment variables (never on disk or in a process list), then connects the gateway.
+- **`set-backend.mjs`** now reads the backend key from `NATLAS_API_KEY` instead of a command-line argument; `setup-gateway.mjs` and `up.mjs` pass it that way.
+  - **Reason:** while debugging, a process listing showed the key in `set-backend.mjs`'s arguments, and it ended up in this session's transcript. **Rotate `NATLAS_API_KEY`** (a new value in `.env`, then re-run `up.mjs`).
+- **`concurrency-check.mjs`** reads the server's `inference_ms` as well as the notebook's `latency_seconds`.
+
+**Security:**
+- **The image publishes the container's ports 8000, 8888 and 30000 to the internet,** and Docker's published ports bypass UFW, so UFW's "22/80/443 only" doesn't protect them.
+- **Mitigation:**
+  - the server listens on `127.0.0.1` inside the container, so port 8000 doesn't answer from outside (checked: no connection), while the tunnel answers 200;
+  - JupyterLab on 8888 is the image's own, and an unauthenticated request gets `403` (it needs its token).
+- **No firewall rules were changed.**
+
+**Startup, measured:**
+
+| Run | Result |
+|---|---|
+| First start in this container (models downloaded) | Ready in **94 s**: LLM 27.4 s, each ASR about 5 s, speech renderer including SoroTTS by 94 s. |
+| Restart with cached models, via the bootstrap | Ready in **30 s** (LLM 7.1 s). `up.mjs` from command to gateway serving: **70 s**. |
+| Same, with the warm-up step | **2 min 29 s.** Warm-up times: chat 8.4 s; ASR 0.5–3.5 s per model; MMS 1.0–6.8 s per language; SoroTTS 38 s. |
+
+**Not yet run:**
+- **On a freshly created droplet.** This container was set up once and then restarted; a new droplet means a new container and re-downloading about 30 GB.
+- **The bootstrap's git-clone mode,** because the repo is private and no read-only token was used. `up.mjs` uploads the code instead.
+
+**Checks through the public gateway and website on the MI300X backend:**
+
+| Check | Result |
+|---|---|
+| Citizen Services (Hausa, website) | 200 in 7.7 s. INEC answer in Hausa. |
+| Education (English, primary, website) | 200 in 3.8 s. |
+| Customer Service (`ha.wav`, 26.7 s, website) | 200 in 29.2 s; then 16.4, 19.7 and 27.5 s. Same transcript as on Kaggle; format kept (`Category: other` / `Urgency: low` / Hausa draft; lower case, unlike the 4-bit model's "Other"). **The time is mostly our upload:** directly at the backend, GPU time for that clip is 0.6–0.7 s against a 5.7–7.1 s round trip. The browser recorder sends 16 kHz mono, about 0.85 MB, not this 5 MB file. |
+| Speech route on the website | 503, by design (`LIVE_SPEECH` off). |
+| `smoke-gateway.mjs`: chat | en 2.3 s, ha 1.5 s, yo 2.8 s, ig 3.0 s. On Kaggle: 4–8 s, Yoruba 11–23 s. |
+| `smoke-gateway.mjs`: ASR WER | ha 26%, yo 74%, ig 0%, en-ng 0%: **the same transcripts as on Kaggle.** |
+| `smoke-gateway.mjs`: `reportIssue()` | Stored and in the admin export. |
+| Auth and per-key limits (throwaway key, revoked afterwards) | no key → `401 missing_api_key`; wrong key → `401 invalid_api_key`; 2nd user over a 1-user share → `429 key_user_share_reached`; 4th request over a 3/day limit → `429 key_quota_exceeded`; after revoking → `401 invalid_api_key`. |
+| Website per-IP limit (30 parallel POSTs, no model calls) | 15 through, 15 × `429` (limit 10; loose as before). |
+| GPU lock (`concurrency-check.mjs`, 6 at once, direct) | All OK. Wall 12.6 s against a 13.7 s sum of compute, so they queued. ASR 90.6 s of Yoruba in 5.3 s; chat 0.4–1.5 s. |
+| Website user-ID protection, backend-offline banner | Unchanged by the move. `/api/status` reports `backend: online`. |
+
+**`deploy/tts-check.mjs`: 10/10 renders returned audio.**
+
+| Lang | `engine` | Model used | Audio | Request time | WER (no tone marks) |
+|---|---|---|---|---|---|
+| ha | auto | `facebook/mms-tts-hau` | 12.3 s | 14.0 s (first MMS call) | 23% |
+| ha | mms | `facebook/mms-tts-hau` | 13.6 s | 5.6 s | 27% |
+| yo | auto | SoroTTS (Yor1), 1 sentence | 12.4 s | **34.8 s** (T4: 117 s for 14 s of audio) | 50% (13%) |
+| yo | mms | `facebook/mms-tts-yor` | 4.8 s | 3.2 s | 69% (44%) |
+| ig | auto / mms | `Shinzmann/soro-tts-ibo` | 20.9 / 20.0 s | 10.0 / 6.8 s | 82% / 85% |
+| pcm | auto / mms | `facebook/mms-tts-pcm` | 4.9 / 5.1 s | 5.8 / 5.2 s | 63% / 50% |
+| en | auto / mms | `facebook/mms-tts-eng` | 16.9 / 15.8 s | 6.8 / 6.4 s | **0% / 0%** |
+
+**Speech results:**
+- **English is clear: 0% WER.** The quality gap for the other languages (KI-14) is unchanged.
+- **SoroTTS is about 3× faster than on the T4,** but still slower than real time.
+
+**ROCm findings, reported here rather than worked around:**
+1. **MMS-TTS is about 6× slower on ROCm than on a T4.**
+   - Timed in the container: the first call took **11.6 s** (kernel set-up), then **1.8–2.1 s** for each 3-second sentence. The T4 needed about 0.3 s. On the CPU it takes 6.1–6.5 s.
+   - It's not per-input-length compilation: repeated and new texts take the same ~3.8 s for two sentences.
+   - **Effect:** speech is fine for English replies (about 7 s for a 16-second reply), but slower than on Kaggle.
+2. **One CPU thread is at 100% the whole time.**
+   - `gdb` shows `rocr::core::Runtime::AsyncEventsLoop` in `libhsa-runtime64.so.1` busy-polling. That's the ROCm runtime's default on this virtual-function GPU; no `HSA_*`/`HIP_*` variables are set.
+   - It uses 1 of 20 vCPUs; no effect on results seen. **Not tuned:** for example, `HSA_ENABLE_INTERRUPT` is untested here.
+3. **First calls are slower:** 8.4 s for the first chat, 7–12 s for the first MMS render. The bootstrap now warms every model up before reporting ready.
+4. **Python packages:** `pip` could replace the ROCm torch with a CUDA build if any dependency asked for it, so setup pins the image's version. It wasn't needed this time: no package asked for a different torch. Installed: `transformers` 5.18.0, `accelerate` 1.15.0, `peft` 0.21.2, `snac` 1.2.1.
+5. **No HIP errors and no ROCm warnings** in the server log. The only log noise is the same `transformers` deprecation notices as on Kaggle (`torch_dtype`, `forced_decoder_ids`, …).
+6. **Debugging tools left in this container:** `py-spy` and `gdb`, installed while finding item 2. They're harmless and disappear with the droplet.
+
+**Not built:** the "customer-service chat" mentioned in the brief doesn't exist yet, so it couldn't be checked.
+
 ---
 
 ## Known issues
@@ -757,7 +845,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 |---|---|---|
 | KI-1 | Citizen Services: on a question outside the demo notes (Hausa airfare), N-ATLaS gave general advice instead of saying the notes don't cover it. It ignores the "answer only from the notes" system instruction. | **Fixed in the kit code for the reported case** (section 18): structured prompt; out-of-scope declined cleanly 5/6 (was 1/6), the Hausa airfare case declines in Hausa. One case still answered from outside knowledge (Hausa farm loan). Live on the website since 2026-10-03 (section 27). |
 | KI-2 | Yoruba chat can degenerate into repeated or mutated syllables around "afẹ́fẹ́" ("afẹ́fẹ́fẹ́…", "fúnfúnfún…"). Without the guard: 1 full loop and 2 stutters in 11 runs. With `no_repeat_ngram_size = 10`: 1 full loop and 3 stutters in 12 runs. | **Closed as a known model limitation.** The n-gram guard was tried and removed. Citizen Services opens in Hausa (site version `a5b4ade5`); Yoruba is still selectable, with this caveat. |
-| KI-3 | Yoruba is the weakest language so far: most tone marks missing in chat replies, invented details, 74% WER on the one ASR clip, and the slowest chat (11–23 s vs 4–8 s for the other languages). | Known limitation of the current models; stated as a caveat. |
+| KI-3 | Yoruba is the weakest language so far: most tone marks missing in chat replies, invented details, 74% WER on the one ASR clip, and the slowest chat (11–23 s vs 4–8 s for the other languages, on the T4). | Known limitation of the current models; stated as a caveat. On the MI300X (section 28), Yoruba chat takes 2.8 s, so speed is no longer the problem; quality still is. |
 | KI-4 | The shared website demo key is not rate-limited. Per-IP limits are not built. | **Fixed, live** (sections 20, 23, 24): per-key daily quota and share of the license cap, with `website-demos` at 3,000 requests per 24 h and 300 users, plus a per-IP limit on the website demos. The per-IP limit is approximate: about 33 requests got through per minute against a configured 10. Website user IDs are now derived on the server, so made-up IDs can't use up the share (section 27; checked live). Must be listed in the final pre-submission status. |
 | KI-5 | The Colab notebook couldn't decode browser recordings (webm), and had no GPU lock for concurrent requests. | **Fixed.** ffmpeg decoding and one GPU lock (`998a946`), both verified live (section 17, steps 2–3). |
 | KI-6 | The Colab notebook's chat reply has no token `usage` field, so the smoke test prints `undefined` for it. | Cosmetic. |
@@ -768,4 +856,5 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 | KI-11 | Audio over ~30 s lost words in the backend's chunked ASR mode: transcripts were 39–79% of reference length on clips over ~37 s. | **Fixed for 38–54 s clips:** the backend now sends plain 25 s pieces, and words kept went from 39–61% to 83–99% (section 17). On 89–123 s free speech some loss remains with clean pieces too (model). Documented reliable limit: 30 s per request. The Customer Service recorder caps at 30 s and splits uploads. |
 | KI-12 | Customer Service drafts: with a Yoruba note, N-ATLaS translated the required format labels and picked a category outside the allowed list. With a Hausa note it kept the format, but its "reply" restated the customer's words instead of answering them. | **Format fixed in the kit code** (section 18): followed 10/10 (was 3/10), both reported notes re-run and passing. Category choice is still model judgment (6–8/10 as expected). Live on the website since 2026-10-03 (section 27). |
 | KI-13 | The notebook's `latency_seconds` includes time spent waiting for the GPU lock, so it overstates model time under concurrent load. | Cosmetic. Measurement note only. |
-| KI-14 | Speech output, two separate problems (section 24). **(1) Too slow:** SoroTTS renders at about 10 s per second of audio on a T4, so multi-sentence Hausa, Yoruba and Igbo replies don't finish within the free tunnel's timeout (HTTP 524; failed in 3 of 3 languages). **(2) Low quality:** the MMS-TTS engine has much higher heard-back word error rates for Hausa (32%), Yoruba (79%; 38% ignoring tone marks) and Igbo (72%) than for English (2%). That is a real quality gap, not a timeout artifact. | **(1) Fixed for multi-sentence replies** (section 25): `auto` sends anything past one sentence to MMS-TTS. Re-verified: 10/10 renders, no 524s. A long *single* sentence still goes to SoroTTS (79–122 s measured), so a 524 there is still possible. **(2) Open, confirmed on re-test:** MMS-TTS Hausa 36–40%, Yoruba 61% (26% ignoring tone marks), Igbo 79%, against English 2–5%. A limit of the available speech models. Speech is shown in English only; the website's speech switch stays off. |
+| KI-14 | Speech output, two separate problems (section 24). **(1) Too slow:** SoroTTS renders at about 10 s per second of audio on a T4, so multi-sentence Hausa, Yoruba and Igbo replies don't finish within the free tunnel's timeout (HTTP 524; failed in 3 of 3 languages). **(2) Low quality:** the MMS-TTS engine has much higher heard-back word error rates for Hausa (32%), Yoruba (79%; 38% ignoring tone marks) and Igbo (72%) than for English (2%). That is a real quality gap, not a timeout artifact. | **(1) Fixed for multi-sentence replies** (section 25): `auto` sends anything past one sentence to MMS-TTS. Re-verified: 10/10 renders, no 524s. A long *single* sentence still goes to SoroTTS (79–122 s measured on the T4; 34.8 s for 12 s of audio on the MI300X, section 28), so a 524 there is much less likely on AMD, but still possible on a T4. **(2) Open, confirmed on re-test:** MMS-TTS Hausa 36–40%, Yoruba 61% (26% ignoring tone marks), Igbo 79%, against English 2–5%. A limit of the available speech models. Speech is shown in English only; the website's speech switch stays off. |
+| KI-15 | ROCm on the AMD MI300X host (section 28): MMS-TTS is about 6× slower than on a T4 (about 2 s per short sentence, after an 11.6 s first call). One ROCm runtime thread (`AsyncEventsLoop`) busy-polls a CPU core the whole time. The first chat and the first speech render after a start are slower (8–12 s). | Documented. The bootstrap warms each model up before reporting ready. English speech still renders a 16-second reply in about 7 s. Not tuned further. |

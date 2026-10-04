@@ -284,9 +284,10 @@ console.<span class="f">log</span>(result.text);</pre></div>
 <li><b>Backend:</b> a GPU host running the N-ATLaS LLM and the four speech-recognition models.</li>
 <li><b>Gateway:</b> a Cloudflare Worker with a D1 database, which holds the keys, counts users against the license cap and forwards requests.</li>
 </ul>
-<p>No GPU or hosting came with the challenge, so we built and proved the whole stack on free tools: a Kaggle notebook for the GPU, a Cloudflare quick tunnel, and the Cloudflare free plan for the gateway. That is also why the hosted demo may not be live at every hour: a free Kaggle session ends after at most 12 hours. Anyone, including judges, can stand up the same working deployment with the steps below. Moving the backend is a config change on the gateway, not a code change. The full guide is <span class="mono">docs/deploy-your-own.md</span> in the repository.</p>
+<p>No GPU or hosting came with the challenge, so we built and proved the whole stack on free tools: a Kaggle notebook for the GPU, a Cloudflare quick tunnel, and the Cloudflare free plan for the gateway. For judging, the same server runs on an AMD Instinct MI300X (DigitalOcean AMD Developer Cloud), which is billed by the hour and destroyed between sessions, so the hosted demo may not be live at every hour. Anyone, including judges, can stand up the same working deployment with the steps below. Moving the backend is a config change on the gateway, not a code change. The full guide is <span class="mono">docs/deploy-your-own.md</span> in the repository.</p>
 <div class="scroll"><table class="tbl wrap1"><thead><tr><th>Path</th><th>Status</th></tr></thead><tbody>
-<tr><td>Kaggle notebook backend + gateway</td><td><b>Proven.</b> Runs the public OpenAtlas gateway today (free T4 x2).</td></tr>
+<tr><td>AMD Developer Cloud (MI300X)</td><td><b>Proven; the live host.</b> One command (deploy/amd/up.mjs) from a droplet to serving. A freshly created droplet hasn't been timed end to end yet.</td></tr>
+<tr><td>Kaggle notebook backend + gateway</td><td><b>Proven; the free path</b> (T4 x2).</td></tr>
 <tr><td>One-command gateway setup</td><td>Checked with a dry run only; not yet run against a fresh Cloudflare account.</td></tr>
 <tr><td>Docker on your own GPU</td><td>The image builds and starts in CI (no GPU there); not yet run on a GPU by us.</td></tr>
 <tr><td>Colab notebook</td><td>Earlier proven host (Oct 2–3); same code, but not re-run since the latest notebook changes.</td></tr>
