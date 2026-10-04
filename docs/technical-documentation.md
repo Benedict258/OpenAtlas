@@ -19,7 +19,7 @@ This document describes the architecture, components, setup and usage of OpenAtl
 
 ## 1. Problem and approach
 
-N-ATLaS is Nigeria's open language model suite: an 8B LLM for English, Hausa, Yoruba and Igbo, plus four speech recognition models. For a developer it's hard to use directly:
+N-ATLaS is Nigeria's open language model suite: an 8B LLM for English, Hausa, Yoruba and Igbo, plus four speech recognition models, built to improve language inclusion and accessibility for Nigerians. The model exists — what's missing is the infrastructure to bridge it to real-world use by developers, businesses and institutions. In practice, that gap looks like:
 - **Five separate repos:** it ships as five Hugging Face repositories with different calling conventions.
 - **Hidden settings:** the LLM behaves best with specific settings (its chat template's date, a repetition penalty), which aren't obvious.
 - **A GPU is required:** running the models needs a GPU most developers don't have. OpenAtlas hosts that infrastructure so they don't have to.
