@@ -1,7 +1,6 @@
 # natlas_server.py (torch comes from the base image). Same packages the Kaggle notebook installs.
-transformers>=4.50
+transformers>=4.56   # `dtype=` in from_pretrained/pipeline (older versions ignore it and load fp32)
 accelerate>=1.0
-bitsandbytes>=0.45
 fastapi>=0.110
 uvicorn[standard]>=0.29
 python-multipart>=0.0.9
