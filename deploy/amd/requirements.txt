@@ -1,12 +1,19 @@
 # natlas_server.py on the AMD MI300X host (inside the image's `rocm` container). torch comes from the image
 # (ROCm build) and is pinned by setup-container.sh so pip can't replace it with a CUDA build.
 # No bitsandbytes: the models load in bf16/fp16, and bitsandbytes is the riskiest package on ROCm.
-transformers>=4.56   # `dtype=` in from_pretrained/pipeline (older versions ignore it and load fp32)
-accelerate>=1.0
-fastapi>=0.110
-uvicorn[standard]>=0.29
-python-multipart>=0.0.9
-numpy
+# Exact versions: the set verified on the MI300X on 2026-10-04 (docs/REPORT.md, sections 28-31), so a new
+# droplet installs what was tested rather than whatever is newest. Upgrade deliberately, then re-verify.
+transformers==5.18.0   # needs >=4.56 for `dtype=` in from_pretrained/pipeline (older versions load fp32)
+accelerate==1.15.0
+huggingface_hub==1.33.0
+tokenizers==0.23.2
+safetensors==0.8.0
+fastapi==0.142.2
+starlette==1.7.0
+pydantic==2.13.5
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+numpy==2.5.1
 # Speech renderer (ENABLE_TTS=1).
-snac
-peft
+snac==1.2.1
+peft==0.21.2
