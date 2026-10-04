@@ -1,5 +1,6 @@
 // Customer Service window: voice note → POST /api/support/ticket (transcribe() → normalizeText() → chat());
-// transcript corrections → /api/support/report (reportIssue() with the audio).
+// transcript corrections → /api/support/report (reportIssue() with the audio); text chat → /api/support/chat
+// (a multi-turn chat(); the conversation lives only in this page and is sent with each message).
 // A recorded or chosen note is staged for review (play it back, change the language) and only sent
 // when the user presses "Send voice note".
 // Speech recognition is reliable on up to 30 s at a time (docs/REPORT.md, KI-11), so recording stops
@@ -265,4 +266,79 @@
       btn.disabled = false;
     }
   };
+
+  // Voice note / text chat switch. Both share the language picker.
+  const setMode = (mode) => {
+    for (const [m, pane] of [["voice", "s-voice"], ["chat", "s-chat"]]) {
+      $(`s-mode-${m}`).setAttribute("aria-selected", String(m === mode));
+      $(pane).hidden = m !== mode;
+    }
+  };
+  $("s-mode-voice").onclick = () => setMode("voice");
+  $("s-mode-chat").onclick = () => setMode("chat");
+
+  // Text chat.
+  const GREETING = "Hello! How can we help you today?";
+  let thread = [];
+  let chatBusy = false;
+  const chatStatus = (text) => {
+    $("s-chat-status").hidden = !text;
+    $("s-chat-status").textContent = text ?? "";
+  };
+  const bubble = (cls, text, note) => {
+    const el = document.createElement("div");
+    el.className = `msg ${cls}`;
+    el.textContent = text;
+    if (note) {
+      const small = document.createElement("small");
+      small.textContent = note;
+      el.append(small);
+    }
+    $("s-thread").append(el);
+    $("s-thread").scrollTop = $("s-thread").scrollHeight;
+    return el;
+  };
+  const newConversation = () => {
+    thread = [];
+    $("s-thread").replaceChildren();
+    bubble("bot", GREETING);
+    chatStatus("");
+  };
+  $("s-chat-new").onclick = () => !chatBusy && newConversation();
+  // Changing the language mid-conversation starts a new one, so the history stays in one language.
+  $("sl").addEventListener("change", () => thread.length && !chatBusy && newConversation());
+  async function sendChat() {
+    const text = $("s-msg").value.trim();
+    if (!text || chatBusy) return;
+    chatBusy = true;
+    $("s-chat-send").disabled = $("s-chat-new").disabled = true;
+    thread.push({ role: "user", content: text });
+    bubble("me", text);
+    $("s-msg").value = "";
+    const typing = bubble("bot", "…");
+    chatStatus("N-ATLaS is writing a reply…");
+    try {
+      const r = await post("/api/support/chat", { messages: thread, language: $("sl").value, user: uid });
+      typing.remove();
+      thread.push({ role: "assistant", content: r.reply });
+      bubble("bot", r.reply, `${r.model} · ${r.attribution}`);
+      chatStatus(r.truncated ? "Long conversation: only the most recent messages are sent to the model." : "");
+    } catch (e) {
+      typing.remove();
+      thread.pop();
+      bubble("err", `Not sent: ${e.message}`);
+      $("s-msg").value = text;
+      chatStatus("");
+    } finally {
+      chatBusy = false;
+      $("s-chat-send").disabled = $("s-chat-new").disabled = false;
+    }
+  }
+  $("s-chat-send").onclick = sendChat;
+  $("s-msg").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
+      e.preventDefault();
+      sendChat();
+    }
+  });
 })();

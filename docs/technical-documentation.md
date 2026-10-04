@@ -84,12 +84,14 @@ A Cloudflare Worker (TypeScript) with a Cloudflare D1 (SQLite) database, on Clou
 
 **Other public routes:**
 - `GET /v1/health` (no key);
-- `POST /v1/key-requests` (the website's request form).
+- `POST /v1/key-requests` (the website's request form);
+- `POST /v1/tester-sessions` (the website's tester form, see 3.7).
 
 **Admin routes (admin token):**
 - `GET/POST /v1/admin/keys`, `/v1/admin/keys/revoke`, `/v1/admin/keys/limits`;
 - `GET /v1/admin/issues`;
 - `GET/POST /v1/admin/key-requests[/decide]`;
+- `GET /v1/admin/tester-sessions`, `POST /v1/admin/tester-sessions/delete`;
 - `GET /v1/usage`.
 
 **Data model** ([`gateway/schema.sql`](../gateway/schema.sql)):
@@ -101,6 +103,7 @@ A Cloudflare Worker (TypeScript) with a Cloudflare D1 (SQLite) database, on Clou
 | `request_log` | time, key, route, status, latency. **No request or response content.** |
 | `issue_reports` | corrections sent via `reportIssue()`: output, correction, optional input, note and audio; the user hashed |
 | `key_requests` | requests from the website form, pending/approved/declined |
+| `tester_sessions` | real-world validation sessions from the `/tester` form: a tester reference, never a name or contact (see 3.7) |
 
 **Per request** (chat shown):
 1. authenticate the key;
@@ -157,7 +160,18 @@ Backend failures map to stable codes: `502 backend_error` (not retried), `503 ba
 
 ### 3.5 Website and starter kits ([`site/`](../site/), [`starter-kits/`](../starter-kits/))
 
-**The website** is a Cloudflare Worker serving static pages (home, docs, starter kits, architecture, key request) and an `/api/*` backend for the live demos. It calls the gateway with its own key, which never reaches the browser.
+**The website** is a Cloudflare Worker serving static pages (home, docs, starter kits, playground, architecture, key request, tester form) and an `/api/*` backend for the live demos. It calls the gateway with its own key, which never reaches the browser.
+
+**The playground** (`/playground`, logic in [`site/src/playground.mjs`](../site/src/playground.mjs)) lets a visitor call `chat()`, `transcribe()` and `speak()` from the browser with no SDK, key or sign-up:
+- **Chat:** multi-turn, with reply language, optional system prompt, `max_tokens` and `temperature`.
+- **Transcribe:** a recording or uploaded file, converted in the browser to 16 kHz WAV.
+- **Speak:** text in any of the five speech languages, with the engine selectable.
+- **Each response** is shown exactly as the SDK returned it, next to the SDK code that makes the same call, built from the visitor's inputs.
+- **Safeguards on the shared demo key:**
+  - per-IP limit of 10 requests a minute;
+  - the key's own daily quota and share of the license cap;
+  - server-derived end-user IDs;
+  - caps of 10 messages, 2,000 characters a message, 512 tokens, 30 s clips and 300 characters of speech.
 
 **The starter kits** are three reference apps, each a `kit.mjs` (logic), a page and a small Node server. The website imports the same `kit.mjs` files, so the live demos run exactly the kits' code.
 
@@ -165,7 +179,7 @@ Backend failures map to stable codes: `502 backend_error` (not retried), `503 ba
 |---|---|
 | Citizen Services | `normalizeText()` → `chat()` over a small labeled civic dataset, with a structured prompt that declines out-of-scope questions |
 | Education | `chat()` explanation at primary or secondary level; "Report a wrong answer" → `reportIssue()` |
-| Customer Service | browser recording (capped at 30 s, converted to 16 kHz WAV) → `transcribe()` → `normalizeText()` → `chat()` (category, urgency, draft reply); "Correct this transcript" → `reportIssue()` with the audio |
+| Customer Service | **Voice note:** browser recording (capped at 30 s, converted to 16 kHz WAV) → `transcribe()` → `normalizeText()` → `chat()` (category, urgency, draft reply); "Correct this transcript" → `reportIssue()` with the audio. **Text chat:** a multi-turn `chat()` conversation with the support assistant of a made-up shop, grounded in its sample policies; the browser keeps the conversation and sends the last 12 messages each time. |
 
 **Website protections:**
 - **Server-derived end-user IDs:** an HMAC of the visitor's network, with at most 8 IDs per address. The browser can't inflate the license count.
@@ -178,6 +192,21 @@ Backend failures map to stable codes: `502 backend_error` (not retried), `503 ba
 - **What it doesn't do:** it never changes, translates or answers the text.
 - **Accuracy,** heard back through the N-ATLaS ASR models: English 0–3% of words wrong; Hausa, Yoruba and Igbo 18–81%. So the public site doesn't use it, and the demo shows English only.
 
+### 3.7 Real-world validation log
+
+Testers log each session at `/tester` (link: `/tester?ref=T01`). The fields:
+- **Who:** a tester reference given by the operator (no name or contact field exists) and tester type.
+- **What:** the features tested (SDK methods, playground, each kit, key request, self-hosting) and the languages used.
+- **How it went:** outcome (worked, partly, failed) and minutes to the first successful call.
+- **Ratings, 1–5:** setup, output quality, docs.
+- **Problems:** issues with their severity, plus an optional `reportIssue()` id.
+- **Comments:** free feedback, and the label of the API key used (never the key).
+- **Consent:**
+  - to store the answers (required; without it nothing is saved);
+  - to quote them (named, anonymous, or no).
+
+The operator keeps the reference-to-person mapping outside the system. `scripts/testers.mjs` lists, summarizes (Markdown, with quotable feedback only where consent was given), exports CSV, and deletes every session for a reference when a tester withdraws.
+
 ## 4. Security and privacy
 
 | Concern | Handling |
@@ -187,7 +216,8 @@ Backend failures map to stable codes: `502 backend_error` (not retried), `503 ba
 | Backend credential | The backend's key lives in the gateway (Worker secret). Developers never see it. |
 | GPU host exposure | The server binds `127.0.0.1` inside its container, and the tunnel is the only way in. Checked from outside: the droplet's port 8000 doesn't answer. |
 | Secrets in transit to the host | Passed over SSH as environment variables, never written to the droplet's disk or a command line. |
-| Abuse | Per-key daily limits and per-key user shares; website per-IP limits; server-derived website user IDs. |
+| Abuse | Per-key daily limits and per-key user shares; website per-IP limits; server-derived website user IDs; playground input caps (3.5); at most 200 tester sessions an hour. |
+| Tester data | No names or contact details are collected; consent is required to store and asked separately for quoting; deletion by tester reference. |
 | Browser use | The gateway sends no CORS headers: keys belong on servers, as the starter kits do it. |
 
 ## 5. Setup
@@ -248,6 +278,7 @@ curl -s https://openatlas-gateway.isaacbenedict001.workers.dev/v1/chat/completio
 | Usage report (Markdown) | `scripts/keys.mjs report` |
 | Point the gateway at a backend | `node --env-file=.env deploy/set-backend.mjs <tunnel-url>` |
 | Export corrections | `GET /v1/admin/issues?since=<ms>&audio=1` |
+| Tester sessions | `node --env-file=.env scripts/testers.mjs` (`summary`, `csv`, `delete <ref>`) |
 
 ## 7. Verification
 
@@ -265,7 +296,8 @@ curl -s https://openatlas-gateway.isaacbenedict001.workers.dev/v1/chat/completio
 | Server GPU memory (`amd-smi`) | 25.3 GB; GPU activity 0% idle → 100% while generating |
 | Chat, 34–60 tokens | 0.5–0.9 s GPU time; 1.5–3.0 s through the public gateway |
 | Transcription, 26.7 s of Hausa | 0.64 s GPU time |
-| Starter kits via the website | Citizen Services 3.5 s, Education 3.0 s, Customer Service 11.2 s (including the audio upload) |
+| Starter kits via the website | Citizen Services 3.5 s, Education 3.0 s, Customer Service 11.2 s (including the audio upload); Customer Service text chat 1.3–3.9 s a reply |
+| Playground via the website | chat 3.8 s, transcribe 4.0 s, speak 5.7 s; checked in a real browser at desktop and phone width |
 | ASR WER, smoke clips | Hausa 26%, Yoruba 74%, Igbo 0%, Nigerian English 0% |
 | Speech, heard back | English 0–3% WER |
 | Keys and limits | 401 (no key, wrong key, revoked key), 429 (daily limit, user share) as designed |
@@ -281,6 +313,7 @@ curl -s https://openatlas-gateway.isaacbenedict001.workers.dev/v1/chat/completio
   - factual slips occur.
 - **Speech recognition:** 30 s per request is the reliable range. Conversational speech has modest accuracy.
 - **Speech output:** accurate in English only.
+- **Customer Service text chat:** N-ATLaS sometimes states things the shop's policies don't say. Hausa sometimes claims to be looking up an order; Yoruba has said "7 weeks" for 7 days. Measured in REPORT.md section 31.
 - **Availability:** the live GPU isn't up around the clock. The 1,000-user cap is shared across the hosted service.
 - **Not yet tested:** the AMD bootstrap on a freshly created droplet; the Docker image on a GPU; RunPod.
 - **Not yet routed back:** corrections collected with `reportIssue()` have no agreed channel to the N-ATLaS maintainers yet.

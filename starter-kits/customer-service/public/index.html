@@ -16,12 +16,14 @@
 <div class="wbar"><span>OpenAtlas — Customer Service Demo</span><span style="display:flex;gap:8px;flex:none"><span class="badge" data-mock hidden>Mock backend</span><span class="demo">Sample only</span></span></div>
 <div class="wbody">
 <div class="out" data-offline role="status" hidden><b>Backend offline</b><span></span></div>
+<div class="modes" role="tablist" aria-label="How the customer gets in touch"><button type="button" role="tab" id="s-mode-voice" aria-selected="true" aria-controls="s-voice">Voice note</button><button type="button" role="tab" id="s-mode-chat" aria-selected="false" aria-controls="s-chat">Text chat</button></div>
+<div class="fld"><label for="sl">Language</label><select id="sl"><option value="ig">Igbo</option><option value="ha">Hausa</option><option value="yo">Yoruba</option><option value="en-ng">Nigerian English</option></select></div>
+<div class="pane" id="s-voice" role="tabpanel" aria-labelledby="s-mode-voice">
 <div class="rowf" style="align-items:center">
 <button class="wbtn" type="button" id="s-rec"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="7" y="2" width="6" height="10" rx="3"></rect><path d="M4 9a6 6 0 0012 0M10 15v3"></path></svg><span id="s-rec-label">Record voice note</span></button>
 <button class="wbtn sec" type="button" id="s-upload">Upload audio file</button>
 <input type="file" id="s-file" accept="audio/*" hidden>
 </div>
-<div class="fld"><label for="sl">Language</label><select id="sl"><option value="ig">Igbo</option><option value="ha">Hausa</option><option value="yo">Yoruba</option><option value="en-ng">Nigerian English</option></select></div>
 <div class="out" id="s-review" hidden><b>Voice note ready</b><span id="s-review-label"></span><audio id="s-review-audio" controls preload="metadata" style="width:100%"></audio></div>
 <div class="rowf" id="s-review-actions" hidden><button class="wbtn" type="button" id="s-send-note">Send voice note</button><button class="wbtn sec" type="button" id="s-discard">Discard</button></div>
 <span class="hint" id="s-status" hidden></span>
@@ -33,6 +35,14 @@
 <div class="fld" id="s-fix" hidden><label for="s-fix-text">Corrected transcript</label><textarea id="s-fix-text"></textarea><span class="hint">Your voice note and the corrected text are sent to OpenAtlas as a correction for N-ATLaS speech recognition (reportIssue()). Audio paired with a human-checked transcript is the data Nigerian-language speech recognition is shortest of.</span></div>
 <button class="wbtn" type="button" id="s-send" hidden>Send correction</button>
 <span class="hint" id="s-fix-status"></span>
+</div>
+<div class="pane" id="s-chat" role="tabpanel" aria-labelledby="s-mode-chat" hidden>
+<span class="hint">Chat with the support assistant of a made-up shop, Ada &amp; Sons Home Goods. Its replies come from the N-ATLaS LLM, using only the shop's sample policies.</span>
+<div class="thread" id="s-thread" aria-live="polite"><div class="msg bot">Hello! How can we help you today?</div></div>
+<div class="fld"><label for="s-msg">Your message</label><textarea id="s-msg" maxlength="1000" placeholder="e.g. I paid for my order three days ago and it hasn't arrived."></textarea></div>
+<div class="rowf"><button class="wbtn" type="button" id="s-chat-send">Send message</button><button class="wbtn sec" type="button" id="s-chat-new">New conversation</button></div>
+<span class="hint" id="s-chat-status" hidden></span>
+</div>
 </div>
 </div>
 <!-- /window:support -->

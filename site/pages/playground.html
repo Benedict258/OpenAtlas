@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OpenAtlas — Playground</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 30 30%27 fill=%27none%27 stroke=%27%230A6B3B%27 stroke-width=%272.4%27%3E%3Ccircle cx=%2715%27 cy=%2715%27 r=%2712%27/%3E%3Cellipse cx=%2715%27 cy=%2715%27 rx=%275%27 ry=%2712%27/%3E%3Cpath d=%27M3 15h24%27/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/fonts.css">
+<style>
+:root{--bg:#FAFAF7;--ink:#111411;--muted:#4A524C;--line:#D9DCD4;--green:#0A6B3B;--green-d:#064D2A;--orange:#E8590C;--dark:#111411;--dark-2:#1B201C;--on-dark:#ECEFE8;--on-dark-m:#A9B0A6;--paper:#FFFFFF}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Hanken Grotesk',system-ui,sans-serif;font-size:17px;line-height:1.6}
+a{color:inherit;text-decoration:none}
+h1,h2,h3,h4,p,ul{margin:0}
+ul{padding:0;list-style:none}
+p{text-wrap:pretty}
+.wrap{max-width:1200px;margin:0 auto;padding:0 32px}
+.nav{position:sticky;top:0;z-index:10;background:rgba(250,250,247,.94);border-bottom:1px solid var(--line)}
+.navin{display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:72px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:21px;letter-spacing:-.01em}
+.links{display:flex;gap:32px;font-size:15px;font-weight:500}
+.links a{padding:12px 0;color:var(--muted)}
+.links a:hover,.links a.on{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 22px;border-radius:6px;font-weight:600;font-size:16px;border:1.5px solid transparent;cursor:pointer;font-family:inherit;line-height:1}
+.btn-primary{background:var(--green);color:#fff}
+.btn-primary:hover{background:var(--green-d)}
+.btn-light{background:#fff;color:var(--green-d)}
+.btn-light:hover{background:var(--on-dark)}
+.btn-ghost-d{border-color:var(--on-dark);color:var(--on-dark)}
+.btn-ghost-d:hover{background:var(--on-dark);color:var(--ink)}
+.eyebrow{font-size:14px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--green)}
+.h2{font-size:clamp(30px,3.6vw,46px);line-height:1.08;letter-spacing:-.02em;font-weight:500}
+.lead{font-size:19px;color:var(--muted);max-width:680px}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.badge{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#FCE6D8;color:#8A3300}
+.demo{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:#E4EEE8;color:#064D2A}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+.cell{background:var(--paper);padding:32px;display:flex;flex-direction:column;gap:10px}
+.cell h3{font-size:20px;font-weight:600}
+.cell p{color:var(--muted);font-size:16px}
+.cell .n{font-size:14px;color:var(--muted)}
+.kit{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr));gap:64px;align-items:start;padding:80px 0;border-top:1px solid var(--line)}
+.kit .txt{display:flex;flex-direction:column;gap:20px}
+.kit .txt h2{font-size:clamp(30px,3.2vw,40px);line-height:1.1;letter-spacing:-.02em;font-weight:500}
+.kit .txt p{color:var(--muted)}
+.facts{display:flex;flex-direction:column}
+.facts div{display:grid;grid-template-columns:130px minmax(0,1fr);gap:16px;padding:14px 0;border-top:1px solid var(--line);font-size:16px}
+.facts div:last-child{border-bottom:1px solid var(--line)}
+.facts dt,.facts b{font-weight:600}
+.facts span{color:var(--muted)}
+.win{border:1px solid var(--line);background:#fff;border-radius:10px;overflow:hidden}
+.wbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);font-weight:600;font-size:15px;background:#F1F2EC}
+.wbody{padding:24px;display:flex;flex-direction:column;gap:18px}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:600;flex:1 1 160px}
+.wbody select,.wbody textarea{font:inherit;font-weight:400;font-size:16px;padding:12px 14px;border:1px solid #9AA297;border-radius:6px;background:#fff;color:var(--ink);min-height:48px;width:100%}
+.wbody textarea{min-height:96px;resize:none}
+.rowf{display:flex;flex-wrap:wrap;gap:16px}
+.out{border:1px dashed #B9BFB5;border-radius:6px;padding:16px;background:#FAFAF7;color:var(--muted);font-size:15.5px;display:flex;flex-direction:column;gap:6px}
+.out b{color:var(--ink);font-size:12px;letter-spacing:.1em;text-transform:uppercase}
+.wbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 20px;border-radius:6px;font:inherit;font-weight:600;font-size:16px;border:1.5px solid var(--green);background:var(--green);color:#fff;align-self:flex-start;cursor:pointer}
+.wbtn.sec{background:#fff;color:var(--green-d)}
+.wbtn.dash{border-style:dashed;background:#fff;color:var(--muted);border-color:#9AA297}
+.foot{background:var(--dark);color:var(--on-dark-m);font-size:15px}
+.foot h4{color:#fff;font-size:14px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px}
+.foot li{padding:6px 0}
+.foot a:hover{color:#fff}
+@media(max-width:760px){.links{display:none}.wrap{padding:0 20px}.kit{gap:32px;padding:56px 0}.facts div{grid-template-columns:1fr;gap:2px} }
+
+[hidden]{display:none!important}
+.wbody input[type=text],.wbody input[type=email]{font:inherit;font-weight:400;font-size:16px;padding:12px 14px;border:1px solid #9AA297;border-radius:6px;background:#fff;color:var(--ink);min-height:48px;width:100%}
+.wbtn:disabled{opacity:.6;cursor:progress}
+.hint{font-size:14px;font-weight:400;color:var(--muted)}
+.wbody>.fld{flex:none}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:15px;font-weight:400;color:var(--muted)}
+.check input{margin-top:5px;width:18px;height:18px;accent-color:var(--green)}
+.wbody input[type=number]{font:inherit;font-weight:400;font-size:16px;padding:12px 14px;border:1px solid #9AA297;border-radius:6px;background:#fff;color:var(--ink);min-height:48px;width:100%}
+.out{white-space:pre-wrap}
+/* Playground: method tabs, two-column panels (inputs | output), chat thread, code blocks. */
+.modes{display:flex;flex-wrap:wrap;border:1px solid #9AA297;border-radius:6px;overflow:hidden;align-self:flex-start}
+.modes button{font:inherit;font-size:15px;font-weight:600;min-height:44px;padding:0 18px;border:0;background:#fff;color:var(--muted);cursor:pointer}
+.modes button[aria-selected="true"]{background:var(--green);color:#fff}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:32px;align-items:start}
+.pane{display:flex;flex-direction:column;gap:18px;min-width:0}
+.pane>.fld{flex:none}
+.thread{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow-y:auto;padding:4px 2px}
+.msg{max-width:88%;padding:10px 14px;border-radius:10px;font-size:15.5px;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.bot{align-self:flex-start;background:#F1F2EC;color:var(--ink)}
+.msg.me{align-self:flex-end;background:var(--green);color:#fff}
+.msg.err{align-self:flex-start;background:#FCE6D8;color:#8A3300}
+.msg.sys{align-self:center;color:var(--muted);font-size:14px}
+.msg small{display:block;margin-top:4px;font-size:12px;color:var(--muted)}
+.code{border:1px solid var(--line);border-radius:6px;background:#FAFAF7}
+.code summary{cursor:pointer;padding:10px 14px;font-size:14px;font-weight:600}
+.code pre{margin:0;padding:0 14px 14px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:13px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow-y:auto}
+
+</style>
+<link rel="stylesheet" href="/responsive.css">
+</head>
+<body>
+<div>
+<header class="nav">
+<div class="wrap navin">
+<a class="brand" href="/">
+<svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="#0A6B3B" stroke-width="2" aria-hidden="true"><circle cx="15" cy="15" r="12"></circle><ellipse cx="15" cy="15" rx="5" ry="12"></ellipse><path d="M3 15h24"></path></svg>
+OpenAtlas
+</a>
+<nav class="links" aria-label="Primary">
+<a href="/">Product</a>
+<a href="/docs">Docs</a>
+<a href="/starter-kits">Starter kits</a>
+<a class="on" href="/playground">Playground</a>
+<a href="/architecture">Architecture</a>
+</nav>
+<a class="btn btn-primary" href="/request-key">Get an API key</a>
+<button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mnav"><svg class="i-open" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h16M3 11h16M3 16h16"></path></svg><svg class="i-close" width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l12 12M17 5L5 17"></path></svg></button>
+</div>
+<nav class="mnav" id="mnav" aria-label="Mobile">
+<div class="wrap">
+<a class="ml" href="/">Product</a>
+<a class="ml" href="/docs">Docs</a>
+<a class="ml" href="/starter-kits">Starter kits</a>
+<a class="ml on" href="/playground" aria-current="page">Playground</a>
+<a class="ml" href="/architecture">Architecture</a>
+<a class="btn btn-primary" href="/request-key">Get an API key</a>
+</div>
+</nav>
+</header>
+
+<main>
+<section style="padding:80px 0 56px">
+<div class="wrap" style="display:flex;flex-direction:column;gap:20px">
+<p class="eyebrow">Playground</p>
+<h1 style="font-size:clamp(40px,5vw,64px);line-height:1.04;letter-spacing:-.03em;font-weight:500;max-width:900px">Try N-ATLaS in your browser.</h1>
+<p class="lead">Send real requests to the N-ATLaS models through the OpenAtlas gateway, with no SDK, no key and no sign-up. Each response is shown exactly as <span class="mono" style="font-size:17px">@openatlas/sdk</span> returns it, next to the code that makes the same call.</p>
+</div>
+</section>
+
+<section style="padding-bottom:72px">
+<div class="wrap">
+<div class="win" id="pg">
+<div class="wbar"><span>OpenAtlas — Playground</span><span style="display:flex;gap:8px;flex:none"><span class="badge" data-mock hidden>Mock backend</span><span class="demo">Shared demo key</span></span></div>
+<div class="wbody">
+<div class="out" data-offline role="status" hidden><b>Backend offline</b><span></span></div>
+<div class="modes" role="tablist" aria-label="SDK method">
+<button type="button" role="tab" id="t-chat" aria-selected="true" aria-controls="p-chat"><span class="mono">chat()</span></button>
+<button type="button" role="tab" id="t-transcribe" aria-selected="false" aria-controls="p-transcribe"><span class="mono">transcribe()</span></button>
+<button type="button" role="tab" id="t-speak" aria-selected="false" aria-controls="p-speak"><span class="mono">speak()</span></button>
+</div>
+
+<div class="pgrid" id="p-chat" role="tabpanel" aria-labelledby="t-chat">
+<div class="pane">
+<span class="hint">Text generation with <span class="mono">NCAIR1/N-ATLaS</span> in English, Hausa, Yoruba or Igbo. The conversation stays in this page and is sent with each message.</span>
+<div class="rowf">
+<div class="fld"><label for="c-lang">Reply language</label><select id="c-lang"><option value="">Not set</option><option value="en">English</option><option value="ha" selected>Hausa</option><option value="yo">Yoruba</option><option value="ig">Igbo</option></select></div>
+<div class="fld" style="flex:0 1 130px"><label for="c-max">max_tokens</label><input type="number" id="c-max" min="16" max="512" step="16" value="256"></div>
+<div class="fld" style="flex:0 1 130px"><label for="c-temp">temperature</label><input type="number" id="c-temp" min="0" max="1" step="0.1" value="0.1"></div>
+</div>
+<div class="fld"><label for="c-system">System prompt <span class="hint">(optional)</span></label><textarea id="c-system" maxlength="2000" rows="2" placeholder="e.g. You are a helpful assistant for farmers in Kano. Keep answers short."></textarea></div>
+<div class="fld"><label for="c-msg">Message</label><textarea id="c-msg" maxlength="2000" placeholder="e.g. Ina zan je don yin rajistar katin zaɓe?"></textarea></div>
+<div class="rowf"><button class="wbtn" type="button" id="c-send">Send</button><button class="wbtn sec" type="button" id="c-new">New conversation</button></div>
+<span class="hint" id="c-status" hidden></span>
+</div>
+<div class="pane">
+<div class="thread" id="c-thread" aria-live="polite"><div class="msg sys">Replies from N-ATLaS appear here.</div></div>
+<details class="code"><summary>Response</summary><pre id="c-json">—</pre></details>
+<details class="code" open><summary>The same call with the SDK</summary><pre id="c-code"></pre></details>
+</div>
+</div>
+
+<div class="pgrid" id="p-transcribe" role="tabpanel" aria-labelledby="t-transcribe" hidden>
+<div class="pane">
+<span class="hint">Speech to text with the N-ATLaS speech recognition model for the language you pick (there is no auto-detection). Clips of up to 30 seconds.</span>
+<div class="fld"><label for="a-lang">Language spoken</label><select id="a-lang"><option value="ha">Hausa</option><option value="yo">Yoruba</option><option value="ig">Igbo</option><option value="en-ng">Nigerian English</option></select></div>
+<div class="rowf">
+<button class="wbtn sec" type="button" id="a-rec"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="7" y="2" width="6" height="10" rx="3"></rect><path d="M4 9a6 6 0 0012 0M10 15v3"></path></svg><span id="a-rec-label">Record</span></button>
+<button class="wbtn sec" type="button" id="a-upload">Upload audio file</button>
+<input type="file" id="a-file" accept="audio/*" hidden>
+</div>
+<div class="out" id="a-review" hidden><b>Clip ready</b><span id="a-review-label"></span><audio id="a-review-audio" controls preload="metadata" style="width:100%"></audio></div>
+<button class="wbtn" type="button" id="a-send" disabled>Transcribe</button>
+<span class="hint" id="a-status" hidden></span>
+</div>
+<div class="pane">
+<div class="out"><b>Transcript</b><span id="a-text">The N-ATLaS transcript appears here.</span></div>
+<details class="code"><summary>Response</summary><pre id="a-json">—</pre></details>
+<details class="code" open><summary>The same call with the SDK</summary><pre id="a-code"></pre></details>
+</div>
+</div>
+
+<div class="pgrid" id="p-speak" role="tabpanel" aria-labelledby="t-speak" hidden>
+<div class="pane">
+<span class="hint">Reads text aloud with a separate text-to-speech model (SoroTTS or Meta MMS-TTS), not an N-ATLaS model: it is meant for reading out what N-ATLaS has written. Clear in English; experimental in Hausa, Yoruba, Igbo and Pidgin.</span>
+<div class="out" id="s-off" hidden><b>Speech output unavailable</b><span>The backend's speech renderer isn't running right now.</span></div>
+<div class="rowf">
+<div class="fld"><label for="s-lang">Language</label><select id="s-lang"><option value="en">English</option><option value="ha">Hausa (experimental)</option><option value="yo">Yoruba (experimental)</option><option value="ig">Igbo (experimental)</option><option value="pcm">Nigerian Pidgin (experimental)</option></select></div>
+<div class="fld"><label for="s-engine">Engine</label><select id="s-engine"><option value="auto">auto</option><option value="sorotts">sorotts</option><option value="mms">mms</option></select></div>
+</div>
+<div class="fld"><label for="s-text">Text <span class="hint">(up to 300 characters)</span></label><textarea id="s-text" maxlength="300">Your order has been received. We will deliver it within three working days.</textarea></div>
+<button class="wbtn" type="button" id="s-send">Speak</button>
+<span class="hint" id="s-status" hidden></span>
+</div>
+<div class="pane">
+<div class="out"><b>Audio</b><span id="s-credit">The rendered speech appears here.</span><audio id="s-audio" controls hidden style="width:100%"></audio></div>
+<details class="code"><summary>Response</summary><pre id="s-json">—</pre></details>
+<details class="code" open><summary>The same call with the SDK</summary><pre id="s-code"></pre></details>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+<section style="padding-bottom:104px">
+<div class="wrap">
+<div class="grid3">
+<div class="cell"><span class="n mono">01</span><h3>Real models, nothing swapped</h3><p>Chat comes from <span class="mono" style="font-size:15px">NCAIR1/N-ATLaS</span> and transcripts from the four N-ATLaS speech recognition models, on the same GPU backend and gateway your own key would use. A "Mock backend" badge appears if the site is ever pointed at the development mock.</p></div>
+<div class="cell"><span class="n mono">02</span><h3>Shared, so limited</h3><p>Everyone here shares one demo key. Limits: 10 requests a minute per network, a daily quota on the key, chats of up to 10 messages and 512 tokens, clips of up to 30 seconds, speech of up to 300 characters. Your visit counts once toward the N-ATLaS 1,000-user licence cap.</p></div>
+<div class="cell"><span class="n mono">03</span><h3>Build on it</h3><p>Copy the code next to any response, install <span class="mono" style="font-size:15px">@openatlas/sdk</span>, and <a href="/request-key" style="font-weight:600;color:var(--green);border-bottom:1.5px solid var(--green)">request your own key</a>. N-ATLaS is for non-commercial use under its Terms of Use.</p></div>
+</div>
+</div>
+</section>
+</main>
+
+<footer class="foot">
+<div class="wrap" style="padding-top:64px;padding-bottom:40px">
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));gap:40px">
+<div style="display:flex;flex-direction:column;gap:12px;max-width:320px">
+<span style="display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:20px"><svg width="28" height="28" viewBox="0 0 30 30" fill="none" stroke="#5FD08A" stroke-width="2" aria-hidden="true"><circle cx="15" cy="15" r="12"></circle><ellipse cx="15" cy="15" rx="5" ry="12"></ellipse><path d="M3 15h24"></path></svg>OpenAtlas</span>
+<p>Open developer infrastructure for N-ATLaS.</p>
+</div>
+<div><h4>Product</h4><ul><li><a href="/#what">Hosted endpoint</a></li><li><a href="/#sdk">SDK</a></li><li><a href="/starter-kits">Starter kits</a></li><li><a href="/playground">Playground</a></li></ul></div>
+<div><h4>Learn</h4><ul><li><a href="/docs#quickstart">Quickstart</a></li><li><a href="/docs#api">API reference</a></li><li><a href="/architecture">Architecture</a></li></ul></div>
+<div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Team Suiaah &amp; NiHub</li></ul></div>
+</div>
+<p style="margin-top:48px;padding-top:24px;border-top:1px solid #2C352E;font-size:14px">A non-commercial developer and research resource. N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies.</p>
+</div>
+</footer>
+</div>
+<script src="/site.js"></script>
+<script src="/playground.js"></script>
+</body>
+</html>

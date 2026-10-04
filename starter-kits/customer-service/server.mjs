@@ -3,13 +3,13 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import { OpenAtlas } from "@openatlas/sdk";
-import { ticket, report, speakDraft } from "./kit.mjs";
+import { ticket, report, speakDraft, converse } from "./kit.mjs";
 
 // "online" | "loading" | "offline": whether the gateway can reach a GPU backend with its models loaded.
 const backendState = (health) => (health.backend?.reachable !== true ? "offline" : health.backend.status === "ok" ? "online" : health.backend.status === "loading" ? "loading" : "offline");
 
 const client = new OpenAtlas();
-const ROUTES = { "POST /api/support/ticket": ticket, "POST /api/support/report": report, "POST /api/support/speak": speakDraft };
+const ROUTES = { "POST /api/support/ticket": ticket, "POST /api/support/report": report, "POST /api/support/speak": speakDraft, "POST /api/support/chat": converse };
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8" };
 
 async function readJson(req) {

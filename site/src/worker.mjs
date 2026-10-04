@@ -4,8 +4,9 @@
 import { OpenAtlas } from "@openatlas/sdk";
 import { ask } from "../../starter-kits/citizen-services/kit.mjs";
 import { explain, report as reportExplanation } from "../../starter-kits/education/kit.mjs";
-import { ticket, report as reportTranscript, speakDraft } from "../../starter-kits/customer-service/kit.mjs";
-import { LIVE_KITS, LIVE_SPEECH } from "../live-kits.mjs";
+import { ticket, report as reportTranscript, speakDraft, converse } from "../../starter-kits/customer-service/kit.mjs";
+import { playChat, playTranscribe, playSpeak } from "./playground.mjs";
+import { LIVE_KITS, LIVE_SPEECH, PLAYGROUND_SPEECH } from "../live-kits.mjs";
 
 const ROUTES = {
   "/api/citizen/ask": ask,
@@ -14,6 +15,10 @@ const ROUTES = {
   "/api/support/ticket": ticket,
   "/api/support/report": reportTranscript,
   "/api/support/speak": speakDraft,
+  "/api/support/chat": converse,
+  "/api/playground/chat": playChat,
+  "/api/playground/transcribe": playTranscribe,
+  "/api/playground/speak": playSpeak,
 };
 
 const json = (status, body, headers = {}) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...headers } });
@@ -67,7 +72,8 @@ export default {
       if (req.method === "GET" && pathname === "/api/status") {
         const health = await gatewayFetch(`${gateway}/v1/health`).then((r) => r.json());
         const speech = LIVE_SPEECH && health.tts_enabled === true && health.backend?.tts?.status === "ok";
-        return json(200, { mock: health.backend?.mock === true, speech, backend: backendState(health) });
+        const ttsReady = health.tts_enabled === true && health.backend?.tts?.status === "ok";
+        return json(200, { mock: health.backend?.mock === true, speech, playground_speech: PLAYGROUND_SPEECH && ttsReady, backend: backendState(health) });
       }
       if (req.method !== "POST") return json(405, { error: "Method not allowed." });
       // Per-IP limit (site/wrangler.toml), so one visitor can't drain the shared demo key.
@@ -78,9 +84,10 @@ export default {
       const body = await req.json().catch(() => null);
       if (!body || typeof body !== "object") return json(400, { error: "Request body must be JSON." });
 
-      if (pathname === "/api/key-request") {
-        // The gateway owns the database; forward the form as-is.
-        const res = await gatewayFetch(`${gateway}/v1/key-requests`, {
+      // Forms whose data the gateway stores (it owns the database); forwarded as-is.
+      const FORMS = { "/api/key-request": "/v1/key-requests", "/api/tester-session": "/v1/tester-sessions" };
+      if (FORMS[pathname]) {
+        const res = await gatewayFetch(`${gateway}${FORMS[pathname]}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -92,11 +99,14 @@ export default {
       const handler = ROUTES[pathname];
       if (!handler) return json(404, { error: "Not found." });
       const kit = pathname.split("/")[2];
-      if (!LIVE_KITS.includes(kit)) {
+      if (kit !== "playground" && !LIVE_KITS.includes(kit)) {
         return json(503, { error: "This demo is paused until its pipeline has been verified against the live N-ATLaS model." });
       }
       if (pathname === "/api/support/speak" && !LIVE_SPEECH) {
         return json(503, { error: "Spoken replies are switched off until they have been verified against the live backend." });
+      }
+      if (pathname === "/api/playground/speak" && !PLAYGROUND_SPEECH) {
+        return json(503, { error: "Speech output is switched off in the playground." });
       }
       const client = new OpenAtlas({ apiKey: env.OPENATLAS_API_KEY, baseURL: gateway, fetch: gatewayFetch });
       // The browser's `user` is ignored (see siteUser).
