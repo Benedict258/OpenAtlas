@@ -302,8 +302,6 @@ curl -s https://openatlas-gateway.isaacbenedict001.workers.dev/v1/chat/completio
 | Keys and limits | 401 (no key, wrong key, revoked key), 429 (daily limit, user share) as designed |
 | Startup | about 2.5 min from command to serving, on a set-up droplet; first model download ~94 s |
 
-**Earlier evaluation** (REPORT.md section 8): ASR on 90 real recordings gave corpus WER of Hausa 41%, Yoruba 56% (45% ignoring tone marks), Igbo 26% on dictionary sentences, and Nigerian English 26%.
-
 ## 8. Limitations
 
 - **Model quality:**
