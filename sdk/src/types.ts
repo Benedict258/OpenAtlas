@@ -1,10 +1,21 @@
-/** Languages N-ATLaS's LLM was fine-tuned on. */
+/** Languages the N-ATLaS LLM was fine-tuned on: English, Hausa, Yoruba, Igbo. */
 export type ChatLanguage = "en" | "ha" | "yo" | "ig";
 
-/** One code per N-ATLaS ASR model. */
+/**
+ * One code per N-ATLaS speech-recognition model: `"en-ng"` is Nigerian-accented English
+ * (`NCAIR1/NigerianAccentedEnglish`), the others are `NCAIR1/Hausa-ASR`, `NCAIR1/Yoruba-ASR`, `NCAIR1/Igbo-ASR`.
+ */
 export type TranscribeLanguage = "en-ng" | "ha" | "yo" | "ig";
 
+/** The Hugging Face ID of the model that answered `chat()`. There is one LLM for all four languages. */
+export type ChatModel = "NCAIR1/N-ATLaS";
+
+/** The Hugging Face ID of the N-ATLaS speech-recognition model that served `transcribe()`. */
+export type TranscribeModel = "NCAIR1/Hausa-ASR" | "NCAIR1/Yoruba-ASR" | "NCAIR1/Igbo-ASR" | "NCAIR1/NigerianAccentedEnglish";
+
+/** One turn of a conversation, in the OpenAI-style shape the N-ATLaS chat template expects. */
 export interface ChatMessage {
+  /** `"system"` sets instructions, `"user"` is your user's turn, `"assistant"` is an earlier model reply. */
   role: "system" | "user" | "assistant";
   content: string;
 }
@@ -28,11 +39,13 @@ export interface ChatParams {
 }
 
 export interface ChatResponse {
+  /** The model's reply, trimmed. Run through `normalizeText()` first if the client was created with `normalize: true`. */
   content: string;
-  /** The model's Hugging Face ID: "NCAIR1/N-ATLaS". */
-  model: string;
+  /** The model's Hugging Face ID. */
+  model: ChatModel;
   /** "Powered by Awarri", the attribution N-ATLaS's terms require. Show it where you show model output. */
   attribution: string;
+  /** Token counts, when the backend reports them. */
   usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
 }
 
@@ -44,17 +57,20 @@ export interface ChatResponse {
 export type AudioInput = Uint8Array | ArrayBuffer | string | Blob;
 
 export interface TranscribeParams {
+  /** The recording. About 7 MB at most; 16 kHz mono WAV or compressed audio keeps it small. */
   audio: AudioInput;
+  /** Which N-ATLaS ASR model to use. Pick the language being spoken; there is no auto-detection. */
   language: TranscribeLanguage;
   /** Required. Same as `ChatParams.user`. */
   user: string;
 }
 
 export interface TranscribeResponse {
+  /** The transcript. Run through `normalizeText()` first if the client was created with `normalize: true`. */
   text: string;
   language: TranscribeLanguage;
-  /** The ASR model's Hugging Face ID, e.g. "NCAIR1/Hausa-ASR". */
-  model: string;
+  /** The ASR model's Hugging Face ID. */
+  model: TranscribeModel;
   /** "Powered by Awarri", the attribution N-ATLaS's terms require. */
   attribution: string;
 }
@@ -98,9 +114,11 @@ export interface SpeakParams {
   text: string;
   language: SpeakLanguage;
   /**
-   * "auto" (default): SoroTTS for a single sentence where it covers the language and is loaded; MMS-TTS for
-   * longer text, other languages, or if SoroTTS fails (SoroTTS is too slow on a T4 for whole replies).
-   * "sorotts": SoroTTS only (ha, yo, ig, pcm); natural but slow. "mms": Meta MMS-TTS only; fast, more robotic.
+   * - `"auto"` (default): SoroTTS for a single sentence where it covers the language and is loaded; MMS-TTS
+   *   for longer text, for English, or if SoroTTS fails. SoroTTS renders slower than real time, so whole
+   *   replies go to MMS-TTS.
+   * - `"sorotts"`: SoroTTS only (ha, yo, ig, pcm). More natural, slow.
+   * - `"mms"`: Meta MMS-TTS only. Fast, more robotic. Clear in English; much less accurate in ha/yo/ig.
    */
   engine?: "auto" | "sorotts" | "mms";
   /** Required. Same as `ChatParams.user`. */
@@ -111,14 +129,18 @@ export interface SpeakResponse {
   /** The speech as WAV bytes (16-bit mono PCM). In a browser: `new Blob([audio], { type: "audio/wav" })`. */
   audio: Uint8Array;
   format: "wav";
+  /** 24 000 for SoroTTS, 16 000 for MMS-TTS. */
   sample_rate: number;
+  /** Length of the audio in seconds. */
   seconds: number;
   language: SpeakLanguage;
   /** The engine that actually rendered it. */
   engine: "sorotts" | "mms";
   /** The TTS model's Hugging Face ID, e.g. "Shinzmann/sorotts" or "facebook/mms-tts-hau". Not an N-ATLaS model. */
   model: string;
+  /** SoroTTS voice used (e.g. "Hau1"), or `null` for MMS-TTS. */
   voice: string | null;
+  /** How many sentences the text was split into; each is rendered separately and joined with a short pause. */
   sentences: number;
   /** E.g. a sentence that hit SoroTTS's length limit (its audio may be cut off there). */
   warnings: string[];
