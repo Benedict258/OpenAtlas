@@ -1,5 +1,7 @@
 # Deploy your own OpenAtlas
 
+## How OpenAtlas was built
+
 - **GPU:** a Kaggle notebook (2× NVIDIA T4).
 - **Public HTTPS link:** a Cloudflare quick tunnel.
 - **Gateway:** the Cloudflare free plan.
