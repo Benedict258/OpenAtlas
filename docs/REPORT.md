@@ -718,7 +718,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   - the `speak()` card is now "Optional" with the real quality note (was "Stretch").
 - **Docs:**
   - the speech section now says the API serves it, is clear in English and experimental in Hausa, Yoruba and Igbo (was "off… returns `tts_disabled`");
-  - the self-hosting section is now Kaggle-first, says no GPU came with the challenge, and adds a Docker row.
+  - the self-hosting section is now Kaggle-first and adds a Docker row.
 - **Architecture page:** the host is "Kaggle notebook today (free T4 x2)", where it said "NiHub (Colab while testing)". No "Colab" remains on the page; the timeline rows now say "free notebook GPU, now Kaggle".
 - **Footer on all 5 pages:** "Built by Team Suiaah & NiHub".
 - **Checked live:** each string was fetched from the deployed pages.
@@ -733,7 +733,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 - **Not seen in a real browser while the backend was actually down,** because it was up throughout.
 
 **4. Deploy Your Own rewritten as the main guide** (`docs/deploy-your-own.md`):
-- It's on free tools; the hosted demo isn't up around the clock; this is how anyone, judges included, stands it up.
+- It's on free tools; this is how anyone stands it up.
 - It walks through what we actually ran: the Kaggle notebook part by part, the gateway, checks, the starter kits, reconnecting, a table of what we hit, and troubleshooting.
 - **New Docker path** (`deploy/server/Dockerfile`, `requirements.txt`, `docker-compose.yml` with a `cloudflared` tunnel), plus a CI job (`.github/workflows/backend-image.yml`) that builds, smoke-tests and publishes `ghcr.io/benedict258/openatlas-backend`.
   - The CI job has no GPU or model access, so it checks only that the image builds, starts, answers `/health`, refuses calls without the key (`401`) and before the models load (`503`).
@@ -747,9 +747,9 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 
 ## 2026-10-04
 
-### 28. Backend moved to an AMD Instinct MI300X (DigitalOcean AMD Developer Cloud) for judging
+### 28. Backend moved to an AMD Instinct MI300X (DigitalOcean AMD Developer Cloud)
 
-**Why:** Kaggle sessions end after 12 hours, and the weekly GPU quota can't keep a demo up through judging.
+**Why:** Kaggle sessions end after 12 hours and have a weekly GPU quota.
 
 **The host:**
 - One MI300X (192 GB; PyTorch reports 206 GB), a virtual-function GPU, on the 1-Click "PyTorch on AMD Instinct" image: Ubuntu 24.04, ROCm 7.14, PyTorch `2.12.0+rocm7.14.0`, HIP 7.14.60850, Python 3.12.3.

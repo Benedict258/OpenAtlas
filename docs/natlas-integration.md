@@ -39,7 +39,7 @@ The optional speech output, `speak()`, uses **separate, non-N-ATLaS** text-to-sp
 **Live host:** one AMD Instinct MI300X (192 GB) on DigitalOcean's AMD Developer Cloud.
 - **Software:** ROCm 7.14, PyTorch `2.12.0+rocm7.14.0`, `transformers` 5.18.
 - **Where it runs:** the server runs inside the image's `rocm` Docker container.
-- **Why AMD:** no GPU hosting came with the challenge. The whole stack was first built and proven on free Kaggle T4s, then moved to AMD for judging; the move is a gateway configuration change.
+- **Built on free tools first:** the whole stack was built and proven on free Kaggle T4s; moving it to AMD was a gateway configuration change.
 
 **Loading** (`load_models()` in `natlas_server.py`, simplified: the real code also falls back to fp32 on a machine without a GPU):
 ```python
@@ -186,4 +186,3 @@ The N-ATLaS license allows non-commercial use, by at most **1,000 active end use
 - **ASR accuracy on conversational speech is modest:** corpus WER Hausa 41%, Yoruba 56%, Nigerian English 26% (KI-8).
 - **30 s per transcription request is the reliable range** (KI-11).
 - **Instruction following is loose:** off-topic questions sometimes get general answers (KI-1), and Education answers can contain factual slips (KI-10).
-- **The live host isn't up around the clock:** the GPU is billed by the hour and destroyed between sessions. The website shows "Backend offline" when it is down.

@@ -1,23 +1,16 @@
 # Deploy your own OpenAtlas
 
-**No GPU or hosting came with the challenge.** We built and proved OpenAtlas entirely on free tools:
 - **GPU:** a Kaggle notebook (2× NVIDIA T4).
 - **Public HTTPS link:** a Cloudflare quick tunnel.
 - **Gateway:** the Cloudflare free plan.
 - **Models:** a free Hugging Face account.
 
-**For judging, the live demo runs on an AMD Instinct MI300X** on DigitalOcean's AMD Developer Cloud, paid from a time-limited credit. The architecture is the same: the same server code, tunnel and gateway. Only the GPU host changes.
+**The live demo runs on an AMD Instinct MI300X** on DigitalOcean's AMD Developer Cloud. The architecture is the same: the same server code, tunnel and gateway. Only the GPU host changes.
 
-**This guide is the deliverable.** Any developer, including a judge, can follow it and stand up the same working deployment:
+**This guide is the deliverable.** Any developer can follow it and stand up the same working deployment:
 - **AMD Developer Cloud,** if you have GPU credit: one command, about 3 minutes.
 - **Kaggle,** free: about 45 minutes, mostly model downloads.
 - **Docker,** on your own GPU.
-
-**Why the hosted demo may be offline when you visit:**
-- The AMD machine is billed by the hour, and stopping it doesn't stop the billing; only destroying it does. So we destroy it between sessions and create it again when needed.
-- Each new start gets a new tunnel URL, which `deploy/amd/up.mjs` reconnects to the gateway.
-
-If the website's demos say "Backend offline", this guide is how to run it yourself.
 
 ```
 your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──▶ tunnel ──▶ backend (GPU: N-ATLaS LLM + 4 ASR [+ speech])
@@ -61,7 +54,7 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 
 ## AMD Developer Cloud (the live host)
 
-This is how the judging demo runs. It needs DigitalOcean / AMD Developer Cloud GPU credit, and it's billed by the hour while the droplet exists.
+This is how the live demo runs. It needs DigitalOcean / AMD Developer Cloud GPU credit, and it's billed by the hour while the droplet exists: powering it off doesn't stop the billing, only destroying it does. Each new start gets a new tunnel URL, which `deploy/amd/up.mjs` reconnects to the gateway.
 
 **Set up your gateway first** (Step 2 below), because the last step here connects it. The rest takes about 3 minutes on a new droplet once you've done it before: the scripts handle setup, model download, warm-up and the gateway connection.
 

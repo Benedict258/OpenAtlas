@@ -63,7 +63,7 @@ This is [`sdk/examples/quickstart.mjs`](sdk/examples/quickstart.mjs). On 2026-10
   - **Education:** explanations at primary or secondary level.
   - **Customer Service:** two ways in. Record a voice note, which is transcribed, triaged and given a drafted reply ("Correct this transcript" sends the fix back). Or use the text chat for a back-and-forth conversation with a support assistant.
 
-**When the GPU backend is off,** each window says "Backend offline" (see Hosting below). The kits' code is in [`starter-kits/`](starter-kits/), and each runs on its own with `npm start`.
+The kits' code is in [`starter-kits/`](starter-kits/), and each runs on its own with `npm start`.
 
 ## How it's built
 
@@ -75,10 +75,9 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 ```
 
 **Hosting:**
-- **Live, for judging:** the backend runs on an **AMD Instinct MI300X** (DigitalOcean AMD Developer Cloud, ROCm). That's 25 GB of GPU memory in use, with chat answered in under 1 s of GPU time (see [REPORT.md](docs/REPORT.md) section 29).
-- **Why it may be offline:** the GPU is billed by the hour, so it's destroyed between sessions, and the demo isn't up around the clock.
+- **Live:** the backend runs on an **AMD Instinct MI300X** (DigitalOcean AMD Developer Cloud, ROCm). That's 25 GB of GPU memory in use, with chat answered in under 1 s of GPU time (see [REPORT.md](docs/REPORT.md) section 29).
 - **Starting it:** one command, `node --env-file=.env deploy/amd/up.mjs <droplet-ip>`, brings a fresh droplet to serving and reconnects the gateway.
-- **Why it moved:** no GPU hosting came with the challenge. Everything was first built and proven on **free tools:** a Kaggle notebook ([`deploy/colab/natlas_kaggle.ipynb`](deploy/colab/natlas_kaggle.ipynb)) and the Cloudflare free plan.
+- **Built on free tools first:** a Kaggle notebook on free T4 GPUs ([`deploy/colab/natlas_kaggle.ipynb`](deploy/colab/natlas_kaggle.ipynb)) and the Cloudflare free plan.
 - **Running your own:** [`docs/deploy-your-own.md`](docs/deploy-your-own.md) shows anyone how to stand up the same deployment, on AMD, on Kaggle for free, or with Docker on their own GPU.
 
 ## Repository layout
@@ -116,7 +115,7 @@ These were measured, not estimated; details are in [REPORT.md](docs/REPORT.md#kn
 - **Speech recognition on conversational speech is modest:** word error rates of 41% for Hausa, 56% for Yoruba and 26% for Nigerian English on small real-recording samples. 30 s per request is the reliable range.
 - **Instruction following is loose:** off-topic questions sometimes get general answers, and factual slips happen. Structured prompts (`buildPrompt()`) measurably help.
 - **Speech output** is accurate in English only (0–3% of words wrong when heard back). Hausa, Yoruba and Igbo are experimental.
-- **Availability:** the GPU backend isn't up around the clock (see Hosting). The license cap is shared across the whole hosted service.
+- **License cap:** shared across the whole hosted service.
 - **`normalizeText()` repairs but doesn't restore:** tone marks that were never typed stay missing.
 - **Not yet routed back:** `reportIssue()` data has no agreed channel to the N-ATLaS maintainers yet.
 

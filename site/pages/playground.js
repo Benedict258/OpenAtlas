@@ -33,7 +33,7 @@
 
   // Backend state, so the page says it's offline before anyone presses a button.
   const BACKEND_TEXT = {
-    offline: "The N-ATLaS backend isn't running right now. It's on a GPU billed by the hour, so it isn't up around the clock; requests will fail until it's back. Anyone can run their own: see Deploy your own in the docs.",
+    offline: "The N-ATLaS backend isn't reachable right now, so requests will fail until it's back. Anyone can run their own: see Deploy your own in the docs.",
     loading: "The N-ATLaS backend is starting and still loading its models. Requests may wait or fail for a few minutes.",
   };
   const showBackend = (state) => {
