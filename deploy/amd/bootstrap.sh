@@ -21,6 +21,17 @@ CODE=/shared-docker/openatlas   # a host folder; the rocm container mounts /shar
 [ "${#BACKEND_API_KEY}" -ge 16 ] || { echo "BACKEND_API_KEY must be at least 16 characters" >&2; exit 1; }
 step() { printf '\n== %s\n' "$*"; }
 
+step "0/5 Droplet first boot"
+# On a new droplet, the image's first-boot script (cloud-init) creates /shared-docker and the `rocm`
+# container about 90 s after boot; starting before that fails with "No such container". `--wait` returns
+# non-zero when first boot finished with warnings too, so the container check below is what decides.
+if command -v cloud-init >/dev/null 2>&1; then
+  cloud-init status --wait >/dev/null 2>&1 || true
+  echo "cloud-init: $(cloud-init status 2>/dev/null | head -1)"
+fi
+for _ in $(seq 1 60); do docker inspect rocm >/dev/null 2>&1 && break; sleep 5; done
+docker inspect rocm >/dev/null 2>&1 || { echo "No 'rocm' container 5 min after first boot. Is this the 'PyTorch on AMD Instinct' 1-Click image?" >&2; exit 1; }
+
 step "1/5 GPU container"
 docker start rocm >/dev/null
 docker exec rocm python3 -c 'import torch; assert torch.cuda.is_available(), "PyTorch sees no GPU in the rocm container"; print("GPU:", torch.cuda.get_device_name(0), "| torch", torch.__version__)'

@@ -71,7 +71,7 @@ This is how the live demo runs. It needs DigitalOcean / AMD Developer Cloud GPU 
 2. **GPU:** AMD Instinct **MI300X**, a single GPU (192 GB).
 3. **Image:** the 1-Click **"PyTorch on AMD Instinct"**: Ubuntu 24.04 with ROCm 7.14, and PyTorch 2.12 inside a Docker container named `rocm`, which starts automatically.
 4. **Authentication:** **SSH Key**, with your key **ticked**. Without it, you can't log in as root non-interactively, and the scripts can't connect.
-5. Create it, then copy its **public IPv4 address**. Give it a minute or two to boot.
+5. Create it, then copy its **public IPv4 address**. You can run `up.mjs` straight away: it waits for the droplet's first boot to finish (about 90 s, while the image creates its `rocm` container) before uploading anything.
 6. Check that you can log in: `ssh root@<ip> docker ps` should list a container named `rocm`.
 
    **If SSH says `REMOTE HOST IDENTIFICATION HAS CHANGED`:** a new droplet reused an address you've connected to before. Remove the old entry with `ssh-keygen -R <ip>` and try again. `up.mjs` trusts a new droplet's host key the first time it connects, and checks it after that.

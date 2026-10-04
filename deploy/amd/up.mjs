@@ -24,10 +24,24 @@ const root = fileURLToPath(new URL("../..", import.meta.url));
 const host = `root@${ip}`;
 // accept-new: a freshly created droplet's host key is trusted on first contact and checked after that.
 const SSH = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=20", "-o", "StrictHostKeyChecking=accept-new",
+  // Keep-alives: the first model download can run for minutes without output, and an idle connection can
+  // be dropped by a router on the way. Gives up after 3 min of no answer from the droplet.
+  "-o", "ServerAliveInterval=30", "-o", "ServerAliveCountMax=6",
   // SSH_KEY=<path> picks a specific private key (e.g. one made for this droplet); otherwise ssh's default keys.
   ...(process.env.SSH_KEY ? ["-i", process.env.SSH_KEY, "-o", "IdentitiesOnly=yes"] : [])];
 const CODE = "/shared-docker/openatlas";
 const FILES = ["deploy/amd", "deploy/server/natlas_server.py", "deploy/server/tts_renderer.py"];
+
+// A new droplet refuses (or logs out) root SSH until the image's first-boot script has finished and the
+// `rocm` container exists (~90 s after boot), so wait for both before uploading.
+console.log(`Waiting for ${ip} to finish its first boot…`);
+for (let attempt = 1; ; attempt++) {
+  const probe = spawnSync("ssh", [...SSH, host, "cloud-init status --wait >/dev/null 2>&1; docker inspect rocm >/dev/null 2>&1 && echo OPENATLAS_READY"], { encoding: "utf8", timeout: 600_000 });
+  if (probe.stdout?.includes("OPENATLAS_READY")) break;
+  if (attempt === 40) throw new Error(`${ip} isn't ready after ~10 min. Can you run: ssh ${host} ? (Check the SSH key, and ssh-keygen -R ${ip} if the address was used before.)`);
+  if (attempt === 1 || attempt % 4 === 0) console.log(`  not ready yet${probe.stderr?.trim() ? ` (${probe.stderr.trim().split("\n").at(-1)})` : ""}; retrying every 15 s`);
+  await new Promise((r) => setTimeout(r, 15_000));
+}
 
 console.log(`Uploading ${FILES.join(", ")} to ${ip}:${CODE}…`);
 const tar = spawnSync("tar", ["-czf", "-", ...FILES], { cwd: root, maxBuffer: 50e6 });

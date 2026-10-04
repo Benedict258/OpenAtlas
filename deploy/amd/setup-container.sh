@@ -22,9 +22,11 @@ fi
 
 python3 -m pip install -q -c /tmp/openatlas-torch-pin.txt -r requirements.txt
 
-if [ ! -x /shared-docker/bin/cloudflared ]; then
+# cloudflared: the release verified on 2026-10-04, not "latest".
+CLOUDFLARED_VERSION=2026.9.3
+if [ ! -x /shared-docker/bin/cloudflared ] || ! /shared-docker/bin/cloudflared --version | grep -q "version $CLOUDFLARED_VERSION "; then
   mkdir -p /shared-docker/bin
-  python3 -c 'import urllib.request; urllib.request.urlretrieve("https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64", "/shared-docker/bin/cloudflared")'
+  python3 -c "import urllib.request; urllib.request.urlretrieve('https://github.com/cloudflare/cloudflared/releases/download/$CLOUDFLARED_VERSION/cloudflared-linux-amd64', '/shared-docker/bin/cloudflared')"
   chmod +x /shared-docker/bin/cloudflared
 fi
 
