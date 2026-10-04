@@ -31,6 +31,7 @@ The optional speech output, `speak()`, uses **separate, non-N-ATLaS** text-to-sp
 | Gateway | [`gateway/src/index.ts`](../gateway/src/index.ts), [`gateway/schema.sql`](../gateway/schema.sql), [`gateway/wrangler.toml`](../gateway/wrangler.toml) | Public API: keys, license-cap counting, limits, attribution, forwarding to the backend. |
 | SDK | [`sdk/src/client.ts`](../sdk/src/client.ts), [`sdk/src/types.ts`](../sdk/src/types.ts) | `@openatlas/sdk` on npm: `chat()`, `transcribe()`, `speak()`, `reportIssue()`, `normalizeText()`. |
 | Apps | [`starter-kits/*/kit.mjs`](../starter-kits/), [`site/src/worker.mjs`](../site/src/worker.mjs) | Three reference apps, also running live on the website. |
+| Playground | [`site/src/playground.mjs`](../site/src/playground.mjs) | `chat()`, `transcribe()` and `speak()` from the browser on a shared demo key, with input caps; shows each SDK response as-is. |
 | Verification | [`scripts/smoke-gateway.mjs`](../scripts/smoke-gateway.mjs), [`scripts/tts-check.mjs`](../scripts/tts-check.mjs), [`scripts/concurrency-check.mjs`](../scripts/concurrency-check.mjs) | Real requests through the public gateway, logged in REPORT.md. |
 
 ## 3. Loading and serving on the GPU
@@ -162,7 +163,7 @@ The N-ATLaS license allows non-commercial use, by at most **1,000 active end use
 - **Quality, measured by sending the audio back through the N-ATLaS ASR models:**
   - English: 0–3% of words wrong;
   - Hausa, Yoruba, Igbo: 18–81% (KI-14).
-- **So the public website doesn't use speech output, and the demo shows it in English only.**
+- **So the starter kits don't use speech output, and the demo shows it in English only.** The playground offers it with the other languages labelled experimental.
 
 ## 9. Corrections back to the data (`reportIssue()`)
 
