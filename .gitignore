@@ -7,14 +7,14 @@ dist/
 .dev.vars
 __pycache__/
 *.pyc
-deploy/endpoints.json
 test-audio/
-deploy/smoke-results.jsonl
 
 # Direct-to-backend client draft; not used (the SDK goes through the gateway)
 natlas_colab.ts
-deploy/prompt-eval-results.jsonl
-deploy/tts-results.jsonl
 .env.selfhost
 .env.selfhost.bak
 .npmrc
+# Results the verification scripts write, and RunPod endpoint ids (local data)
+scripts/results/
+deploy/runpod/endpoints.json
+deploy/runpod/*/smoke-results.jsonl

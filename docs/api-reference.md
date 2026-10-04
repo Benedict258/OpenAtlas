@@ -41,7 +41,7 @@ A text-to-speech renderer for text the app already has, normally N-ATLaS's reply
 - **Request:** `{ text (≤1,000 chars), language: "en"|"ha"|"yo"|"ig"|"pcm", engine?: "auto"|"sorotts"|"mms", user }`.
 - **Response:** `{ audio (base64 WAV), format, sample_rate, seconds, language, engine, model, voice, sentences, warnings, fallback_reason?, attribution }`.
 - **Engines:** `auto` uses SoroTTS (`Shinzmann/sorotts`) for a single sentence where it covers the language and is loaded. It uses MMS-TTS for longer text, for English, or if SoroTTS fails.
-  - **Why:** SoroTTS needs about 10 s per second of audio on a T4, so whole replies time out (deploy/REPORT.md, KI-14).
+  - **Why:** SoroTTS needs about 10 s per second of audio on a T4, so whole replies time out (docs/REPORT.md, KI-14).
 - **Errors:**
   - `404 tts_disabled` when the gateway has it switched off;
   - `501 tts_unsupported_backend` on the RunPod backend.
@@ -86,10 +86,10 @@ With `kind: "runpod"` (fallback): `backend` is `{ kind, mock, llm_configured, as
 - Limits are enforced before any model call:
   - `429 key_quota_exceeded`: the key's requests in the last 24 h;
   - `429 key_user_share_reached`: a *new* end user beyond the key's share of the license cap. Existing users continue.
-- `deploy/keys.mjs` wraps all of the above, plus a Markdown usage `report`.
+- `scripts/keys.mjs` wraps all of the above, plus a Markdown usage `report`.
 - `GET /v1/usage` returns `{ window_days, cap, active_users, requests_in_window, by_key: [{label, user_share, active_users, requests}] }`.
 - `POST /v1/key-requests` (no auth): the website's request form. `{ name, email, project, use_case, expected_users?, accept_terms: true }` returns `201 { id, status: "pending" }`; `409 request_pending` if that email already has one pending.
-- `GET /v1/admin/key-requests?status=pending|approved|declined` lists requests. `POST /v1/admin/key-requests/decide` with `{ id, decision: "approve" | "decline" }`: approving issues a key (returned once, labelled with the requester's email and project). `deploy/key-requests.mjs` wraps both.
+- `GET /v1/admin/key-requests?status=pending|approved|declined` lists requests. `POST /v1/admin/key-requests/decide` with `{ id, decision: "approve" | "decline" }`: approving issues a key (returned once, labelled with the requester's email and project). `scripts/key-requests.mjs` wraps both.
 - `GET /v1/admin/issues?since=<ms>&limit=<1-500>&audio=1` exports issue reports, oldest first: `{ issues: [...], next_since }`. Without `audio=1`, each row has `has_audio` instead of the clip. Page by passing `next_since` back as `since`.
 
 ### Errors
@@ -136,7 +136,7 @@ await client.reportIssue({
 });
 ```
 
-Structured prompts: `buildPrompt(spec, input)` returns `messages` for `chat()`. The base layer comes from OpenAtlas; your app adds `role`, `task`, and optional `reference`, `format`, `example` and `reminder`. See the README and deploy/REPORT.md, section 18 for what it measurably changed.
+Structured prompts: `buildPrompt(spec, input)` returns `messages` for `chat()`. The base layer comes from OpenAtlas; your app adds `role`, `task`, and optional `reference`, `format`, `example` and `reminder`. See the README and docs/REPORT.md, section 18 for what it measurably changed.
 
 Retries: network errors and 503 are retried with backoff (1 s, 2 s, …), up to `maxRetries`. 4xx, 502 and 504 errors are never retried. A `429 license_cap_reached` won't go away by retrying.
 

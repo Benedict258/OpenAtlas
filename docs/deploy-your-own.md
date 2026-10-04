@@ -33,13 +33,13 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 
 | Path | Status |
 |---|---|
-| **AMD Developer Cloud, MI300X** (`deploy/amd-bootstrap.sh`, `deploy/amd/up.mjs`) | **Proven; this is the live host.** On 2026-10-04 everything was checked through it (REPORT.md section 28): the LLM, all four ASR models and the speech renderer, all in bf16/fp16 with no quantization; the three starter kits; API key auth and limits. Restarts on the same droplet were tested. **Not yet run on a freshly created droplet:** that path is scripted, but untried end to end. |
+| **AMD Developer Cloud, MI300X** (`deploy/amd/bootstrap.sh`, `deploy/amd/up.mjs`) | **Proven; this is the live host.** On 2026-10-04 everything was checked through it (REPORT.md section 28): the LLM, all four ASR models and the speech renderer, all in bf16/fp16 with no quantization; the three starter kits; API key auth and limits. Restarts on the same droplet were tested. **Not yet run on a freshly created droplet:** that path is scripted, but untried end to end. |
 | **Kaggle notebook backend** (`deploy/colab/natlas_kaggle.ipynb`) | **Proven; the free path.** It ran the public gateway on 2026-10-03, where the LLM, all four ASR models, the speech renderer and the three starter kits were checked live (REPORT.md sections 24–26). |
 | Gateway, set up step by step (Step 2b) | **Proven.** These are the steps the live gateway was built with. |
 | Gateway in one command (`deploy/setup-gateway.mjs`, Step 2a) | Checked with `--dry-run` only. **Not yet run against a fresh Cloudflare account.** |
 | **Docker on your own GPU** (`deploy/server/`) | **The image builds, starts, answers `/health` and refuses requests without the key, in CI** (no GPU there). **The image itself has not been run on a GPU.** The server inside it, `natlas_server.py`, is the same file that serves the live AMD host. |
-| Colab notebook (`natlas_colab.ipynb`) | Ran the gateway on 2026-10-02/03, until the free Colab GPU quota ran out. The same fixes went in as for Kaggle, but **it hasn't been re-run since**. |
-| RunPod Serverless (`deploy/llm`, `deploy/asr`) | Scripted, **never run.** See the end of this guide. |
+| Colab notebook (`deploy/colab/natlas_colab.ipynb`) | Ran the gateway on 2026-10-02/03, until the free Colab GPU quota ran out. The same fixes went in as for Kaggle, but **it hasn't been re-run since**. |
+| RunPod Serverless (`deploy/runpod/llm`, `deploy/runpod/asr`) | Scripted, **never run.** See the end of this guide. |
 
 ## Before you start
 
@@ -89,7 +89,7 @@ This is how the judging demo runs. It needs DigitalOcean / AMD Developer Cloud G
 node --env-file=.env deploy/amd/up.mjs <droplet-ip>
 ```
 
-It does two things. First it uploads this checkout's server code and runs `deploy/amd-bootstrap.sh` on the droplet, which:
+It does two things. First it uploads this checkout's server code and runs `deploy/amd/bootstrap.sh` on the droplet, which:
 1. checks that the GPU is visible inside the `rocm` container;
 2. installs ffmpeg, the Python packages and `cloudflared` in the container. This happens once per droplet. The image's ROCm build of PyTorch is pinned, so pip can't replace it, and bitsandbytes isn't installed.
 3. starts the server and a Cloudflare quick tunnel, both detached;
@@ -102,8 +102,8 @@ Then it connects your gateway to the new tunnel URL, with `deploy/set-backend.mj
 
 **Without your machine,** log in to the droplet and run the same script there. It clones the repo, which needs a read-only `GH_TOKEN` while the repo is private:
 ```bash
-git clone https://github.com/Benedict258/OpenAtlas.git /tmp/oa   # or: curl/scp just deploy/amd-bootstrap.sh
-HF_TOKEN=hf_... BACKEND_API_KEY=... [GH_TOKEN=...] bash /tmp/oa/deploy/amd-bootstrap.sh
+git clone https://github.com/Benedict258/OpenAtlas.git /tmp/oa   # or: curl/scp just deploy/amd/bootstrap.sh
+HF_TOKEN=hf_... BACKEND_API_KEY=... [GH_TOKEN=...] bash /tmp/oa/deploy/amd/bootstrap.sh
 ```
 It prints `TUNNEL_URL=...` and the exact `set-backend.mjs` command to run on your machine.
 
@@ -222,7 +222,7 @@ npx wrangler deploy
 npx wrangler secret put ADMIN_TOKEN             # any long random string
 cd ..
 OPENATLAS_BASE_URL=https://<your-gateway>.workers.dev NATLAS_API_KEY=… node deploy/set-backend.mjs https://<random-words>.trycloudflare.com
-OPENATLAS_BASE_URL=… OPENATLAS_ADMIN_TOKEN=… node deploy/keys.mjs issue owner
+OPENATLAS_BASE_URL=… OPENATLAS_ADMIN_TOKEN=… node scripts/keys.mjs issue owner
 ```
 
 `set-backend.mjs` does three things:
@@ -237,9 +237,9 @@ OPENATLAS_BASE_URL=… OPENATLAS_ADMIN_TOKEN=… node deploy/keys.mjs issue owne
 ## Step 3: Check it end to end
 
 ```bash
-node --env-file=.env.selfhost examples/quickstart.mjs     # a real Hausa answer from N-ATLaS, with "Powered by Awarri"
+node --env-file=.env.selfhost sdk/examples/quickstart.mjs     # a real Hausa answer from N-ATLaS, with "Powered by Awarri"
 curl https://<your-gateway>.workers.dev/v1/health         # backend.reachable: true, status: "ok"
-node dev/fetch-test-audio.mjs && node --env-file=.env.selfhost deploy/smoke-gateway.mjs   # chat in four languages, transcribe real clips, reportIssue
+node scripts/dev/fetch-test-audio.mjs && node --env-file=.env.selfhost scripts/smoke-gateway.mjs   # chat in four languages, transcribe real clips, reportIssue
 ```
 
 Or use the published SDK from any project:
@@ -298,13 +298,13 @@ HF_TOKEN=hf_... BACKEND_API_KEY=$(openssl rand -hex 24) docker compose up
 
 ## Other paths
 
-- **Colab** (`natlas_colab.ipynb`):
+- **Colab** (`deploy/colab/natlas_colab.ipynb`):
   - It was our first host, and has the same server code and fixes as the Kaggle notebook. It still has many cells, and runs best with **Run all**.
   - It uses Colab secrets (🔑 in the sidebar) instead of Kaggle Secrets.
   - A free Colab session ends when idle, and the free GPU quota runs out quickly. That's why we moved to Kaggle.
 - **RunPod Serverless (never run by us):**
   - It's a scale-to-zero design: two serverless endpoints, and the gateway talks to RunPod's job API (`BACKEND_KIND = "runpod"`).
-  - Scripts: `deploy/llm/deploy-llm.mjs` and `deploy/asr/deploy-asr.mjs`.
+  - Scripts: `deploy/runpod/llm/deploy-llm.mjs` and `deploy/runpod/asr/deploy-asr.mjs`.
   - Known gaps:
     - its ASR worker still uses Whisper's built-in 30 s chunking, which lost words on long clips (KI-11), so keep audio to 30 s or less;
     - it has no speech output (`501 tts_unsupported_backend`);
@@ -314,9 +314,9 @@ HF_TOKEN=hf_... BACKEND_API_KEY=$(openssl rand -hex 24) docker compose up
 ## Running it day to day
 
 - **Keys:**
-  - `node deploy/keys.mjs` lists keys with their limits and usage.
-  - `node deploy/keys.mjs issue|limits|revoke|report` issues, limits and revokes keys, and prints a Markdown usage report.
-  - `deploy/key-requests.mjs` reviews requests from a key-request form.
+  - `node scripts/keys.mjs` lists keys with their limits and usage.
+  - `node scripts/keys.mjs issue|limits|revoke|report` issues, limits and revokes keys, and prints a Markdown usage report.
+  - `scripts/key-requests.mjs` reviews requests from a key-request form.
 - **License cap:** `GET /v1/usage` (admin token) shows active users against the 1,000 cap, per key.
 - **Health:** `GET /v1/health` (public) shows whether the backend is reachable and its models are loaded.
 - **Corrections:** `GET /v1/admin/issues` exports `reportIssue()` submissions, with audio if you ask for it.
@@ -328,5 +328,5 @@ HF_TOKEN=hf_... BACKEND_API_KEY=$(openssl rand -hex 24) docker compose up
 | `503 backend_unavailable` from the gateway | The backend or tunnel is down, or the models are still loading. Check `curl <backend>/health`, then reconnect with `set-backend.mjs` if the URL changed. |
 | `504 upstream_timeout` | A request took longer than the gateway's 300 s wait. A long reply or audio on a busy GPU can do this. |
 | `502 backend_auth_failed` | The gateway's backend key doesn't match the backend's `NATLAS_API_KEY`. Run `set-backend.mjs` again with the right key. |
-| `429 key_quota_exceeded` / `key_user_share_reached` | That key hit its daily request limit or its share of the 1,000-user cap. Raise it with `deploy/keys.mjs limits <id> --daily N --users N`. |
+| `429 key_quota_exceeded` / `key_user_share_reached` | That key hit its daily request limit or its share of the 1,000-user cap. Raise it with `scripts/keys.mjs limits <id> --daily N --users N`. |
 | Speech (`speak()`) on long Hausa/Yoruba/Igbo text is poor | Known (KI-14): the fast engine, MMS-TTS, is much less accurate in those languages than in English. |

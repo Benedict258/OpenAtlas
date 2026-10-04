@@ -1,7 +1,7 @@
 """OpenAtlas backend server: N-ATLaS LLM + the four N-ATLaS ASR models behind one HTTP API.
 
 Implements the backend contract the OpenAtlas gateway calls when BACKEND_KIND=http
-(OpenAtlas_Architecture_DevPlan.md §3.3). The same file runs on the AMD MI300X host (deploy/amd), in
+(docs/planning/OpenAtlas_Architecture_DevPlan.md §3.3). The same file runs on the AMD MI300X host (deploy/amd), in
 Docker on any NVIDIA GPU, or by hand, so moving hosts is a gateway config change only.
 
     GET  /health                    -> {"status": "ok"|"loading"|"error", "llm": bool, "asr": [...], ...}
@@ -205,7 +205,7 @@ async def transcribe(request: Request, authorization: Optional[str] = Header(Non
 
 
 SAMPLE_RATE = 16000   # what the Whisper models use
-PIECE_SECONDS = 25    # long audio is cut into plain pieces of this length (deploy/REPORT.md, KI-11)
+PIECE_SECONDS = 25    # long audio is cut into plain pieces of this length (docs/REPORT.md, KI-11)
 
 
 def decode_audio(audio: bytes):

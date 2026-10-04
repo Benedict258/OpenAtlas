@@ -9,7 +9,7 @@ const MAX_QUESTION = 2_000;
 const badRequest = (message) => Object.assign(new Error(message), { status: 400 });
 
 // Structured prompt (the SDK's base layer + this task). Measured against the previous free-form prompt in
-// deploy/REPORT.md, section 18: out-of-scope questions were declined cleanly 5/6 instead of 1/6. The example
+// docs/REPORT.md, section 18: out-of-scope questions were declined cleanly 5/6 instead of 1/6. The example
 // decline is written in the reply language: with an English one, Hausa declines came back in English.
 // The Hausa, Yoruba and Igbo example sentences have not yet been checked by a native speaker.
 const NOTES = DEMO_DATASET.map((d) => `- ${d.topic}: ${d.fact}`).join("\n");

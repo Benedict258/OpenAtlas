@@ -18,7 +18,7 @@ Plus three starter kits (citizen services, education, customer service) that use
 
 > **Status (2026-10-03):**
 > - **Checked against the real N-ATLaS models through the public gateway:** `chat()` in English, Hausa, Yoruba and Igbo; `transcribe()` in all four ASR languages on 90 real recordings; `reportIssue()`; and all three starter kits in a browser on the live website.
-> - **Evidence:** every check, with verbatim outputs, timings and failures, is in [`deploy/REPORT.md`](deploy/REPORT.md).
+> - **Evidence:** every check, with verbatim outputs, timings and failures, is in [`docs/REPORT.md`](docs/REPORT.md).
 > - **Hosting is interim:** the models run on Google Colab, which is up only while the notebook runs. At other times calls return `503 backend_unavailable`. NiHub is the planned persistent host.
 
 ## Quickstart
@@ -44,7 +44,7 @@ console.log(response.content);
 console.log(`${response.model}, ${response.attribution}`); // NCAIR1/N-ATLaS, Powered by Awarri
 ```
 
-This is [`examples/quickstart.mjs`](examples/quickstart.mjs). Run on 2026-10-03 against the hosted gateway, it took 6 s and printed:
+This is [`sdk/examples/quickstart.mjs`](sdk/examples/quickstart.mjs). Run on 2026-10-03 against the hosted gateway, it took 6 s and printed:
 
 ```
 Ina zan je don yin rajistar katin zaɓe?
@@ -114,7 +114,7 @@ Optional text-to-speech for text your app already has, normally N-ATLaS's reply.
 - **Engines:** SoroTTS for single sentences in `ha`, `yo`, `ig` and `pcm`; MMS-TTS for longer text, for English, and as the fallback.
 - **Languages:** `en`, `ha`, `yo`, `ig` and `pcm` (Nigerian Pidgin).
 - **Output:** `audio` is WAV bytes.
-- **Status:** verified on the real models (deploy/REPORT.md, sections 24–25).
+- **Status:** verified on the real models (docs/REPORT.md, sections 24–25).
   - English is clear.
   - Hausa, Yoruba and Igbo are rendered, but heard back with high error rates (KI-14).
 
@@ -138,7 +138,7 @@ const messages = buildPrompt({
 const { content } = await client.chat({ messages, user }); // no `language`: the prompt already states it
 ```
 
-Measured on the starter kits (deploy/REPORT.md, section 18):
+Measured on the starter kits (docs/REPORT.md, section 18):
 - **Customer Service:** the three-line format was followed 10/10, against 3/10 for the previous free-form prompt.
 - **Citizen Services:** out-of-scope questions were declined cleanly 5/6, against 1/6.
 - **Education:** no measurable change, so it keeps its own prompt.
@@ -193,23 +193,23 @@ The backend is a config value, not code: `deploy/set-backend.mjs <url>` repoints
 - **AMD Developer Cloud (MI300X): the live host for judging.** `node --env-file=.env deploy/amd/up.mjs <droplet-ip>` takes a fresh droplet to serving, and reconnects the gateway. It's billed hourly from a time-limited credit, so the droplet is destroyed between sessions and the demo isn't up around the clock. See [`docs/deploy-your-own.md`](docs/deploy-your-own.md).
 - **Kaggle notebook** ([`deploy/colab/natlas_kaggle.ipynb`](deploy/colab/natlas_kaggle.ipynb)): the free path, proven on 2026-10-03. Sessions end after at most 12 hours.
 - **Docker** ([`deploy/server/`](deploy/server/)): `docker compose up` on any NVIDIA GPU. The image is built and smoke-tested in CI, but not run on a GPU by us.
-- **Colab** ([`natlas_colab.ipynb`](natlas_colab.ipynb)) was the first host. **RunPod Serverless** (`BACKEND_KIND=runpod`, `deploy/llm`, `deploy/asr`) is scripted but never run.
+- **Colab** ([`deploy/colab/natlas_colab.ipynb`](deploy/colab/natlas_colab.ipynb)) was the first host. **RunPod Serverless** (`BACKEND_KIND=runpod`, `deploy/runpod/llm`, `deploy/runpod/asr`) is scripted but never run.
 
 Repo map:
-- [`packages/sdk`](packages/sdk/): the `@openatlas/sdk` npm package
+- [`sdk`](sdk/): the `@openatlas/sdk` npm package
 - [`gateway`](gateway/): Worker and D1 schema
 - [`deploy/server`](deploy/server/): the backend server (`natlas_server.py`) and the notebook generator
-- [`deploy/set-backend.mjs`](deploy/set-backend.mjs), [`deploy/smoke-gateway.mjs`](deploy/smoke-gateway.mjs): point the gateway at a backend, then run real calls through it
+- [`deploy/set-backend.mjs`](deploy/set-backend.mjs), [`scripts/smoke-gateway.mjs`](scripts/smoke-gateway.mjs): point the gateway at a backend, then run real calls through it
 - [`site`](site/): the website (Cloudflare Worker + static pages converted from the original design file). Its Starter kits page runs the kits' own `kit.mjs` and window markup; see [`site/DESIGN_CHANGES.md`](site/DESIGN_CHANGES.md) for every copy change from the design
-- [`deploy/key-requests.mjs`](deploy/key-requests.mjs): list, approve (issues a key) or decline requests from the website form
-- [`dev/mock-backend`](dev/mock-backend/): **mock** backend for local development only. Every output is prefixed `[MOCK — not N-ATLaS output]`, and `/v1/health` reports `"mock": true`
-- [`dev/fetch-test-audio.mjs`](dev/fetch-test-audio.mjs), [`dev/fetch-asr-eval.mjs`](dev/fetch-asr-eval.mjs), [`deploy/asr-eval.mjs`](deploy/asr-eval.mjs): real speech clips with human reference transcripts, and the multi-clip WER evaluation that uses them
-- [`deploy/REPORT.md`](deploy/REPORT.md): the running record of every check against the live models
-- [`examples/quickstart.mjs`](examples/quickstart.mjs): the quickstart above, runnable
+- [`scripts/key-requests.mjs`](scripts/key-requests.mjs): list, approve (issues a key) or decline requests from the website form
+- [`scripts/dev/mock-backend`](scripts/dev/mock-backend/): **mock** backend for local development only. Every output is prefixed `[MOCK — not N-ATLaS output]`, and `/v1/health` reports `"mock": true`
+- [`scripts/dev/fetch-test-audio.mjs`](scripts/dev/fetch-test-audio.mjs), [`scripts/dev/fetch-asr-eval.mjs`](scripts/dev/fetch-asr-eval.mjs), [`scripts/asr-eval.mjs`](scripts/asr-eval.mjs): real speech clips with human reference transcripts, and the multi-clip WER evaluation that uses them
+- [`docs/REPORT.md`](docs/REPORT.md): the running record of every check against the live models
+- [`sdk/examples/quickstart.mjs`](sdk/examples/quickstart.mjs): the quickstart above, runnable
 
 ## Known limitations
 
-Measured, not estimated. Details and verbatim outputs are in [`deploy/REPORT.md`](deploy/REPORT.md).
+Measured, not estimated. Details and verbatim outputs are in [`docs/REPORT.md`](docs/REPORT.md).
 
 **Hosting and access**
 - **Hosting is interim until NiHub is live.** On Colab the service is up only while the notebook runs. At other times calls return `503 backend_unavailable`. There are no uptime or SLA claims.
@@ -226,7 +226,7 @@ Measured, not estimated. Details and verbatim outputs are in [`deploy/REPORT.md`
   - NIMC described as handling e-passports (that's the Immigration Service);
   - glucose called "a sweet drink";
   - a chemical equation missing a coefficient.
-- **Instructions are followed loosely with free-form prompts.** A structured prompt ([`buildPrompt()`](#buildpromptspec-input--messages)) measurably helps in two kits (deploy/REPORT.md, section 18):
+- **Instructions are followed loosely with free-form prompts.** A structured prompt ([`buildPrompt()`](#buildpromptspec-input--messages)) measurably helps in two kits (docs/REPORT.md, section 18):
   - **Citizen Services, answering only from given notes:**
     - with its previous prompt, N-ATLaS declined cleanly on 1 of 6 out-of-scope questions, and gave general advice or invented details on the others;
     - with the structured prompt it declined cleanly on 5 of 6;

@@ -110,7 +110,7 @@ if (!DRY) {
     if (res?.ok) { apiKey = (await res.json()).key; break; }
     await new Promise((r) => setTimeout(r, 3000));
   }
-  if (apiKey.startsWith("<")) throw new Error("Couldn't issue the first key; try `node deploy/keys.mjs issue owner` with the values in .env.selfhost.");
+  if (apiKey.startsWith("<")) throw new Error("Couldn't issue the first key; try `node scripts/keys.mjs issue owner` with the values in .env.selfhost.");
 }
 console.log(`  POST ${gatewayUrl}/v1/admin/keys {"label":"owner"}`);
 
@@ -126,5 +126,5 @@ if (DRY) console.log(`\nWould write ${envFile}:\n${lines}`);
 else {
   if (existsSync(envFile)) writeFileSync(envFile + ".bak", readFileSync(envFile));
   writeFileSync(envFile, lines);
-  console.log(`\nDone. Values saved to ${envFile}. Try: node --env-file=.env.selfhost examples/quickstart.mjs`);
+  console.log(`\nDone. Values saved to ${envFile}. Try: node --env-file=.env.selfhost sdk/examples/quickstart.mjs`);
 }
