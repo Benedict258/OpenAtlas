@@ -308,8 +308,6 @@ curl -s https://openatlas-gateway.isaacbenedict001.workers.dev/v1/chat/completio
   - Yoruba is the weakest language (repetition loops in about 1 of 11 runs, missing tone marks);
   - instruction following is loose;
   - factual slips occur.
-- **Speech recognition:** 30 s per request is the reliable range. Conversational speech has modest accuracy.
-- **Speech output:** accurate in English only.
 - **Customer Service text chat:** N-ATLaS sometimes states things the shop's policies don't say. Hausa sometimes claims to be looking up an order; Yoruba has said "7 weeks" for 7 days. Measured in REPORT.md section 31.
 - **License cap:** the 1,000-user cap is shared across the hosted service.
 - **Not yet tested:** the AMD bootstrap on a freshly created droplet; the Docker image on a GPU; RunPod.
