@@ -622,6 +622,96 @@ async function listIssues(req: Request, env: Env) {
   return { issues: rows.results, next_since: rows.results.at(-1)?.created_at ?? since };
 }
 
+// Real-world validation (the website's /tester form). No names or contact details are accepted: a tester is
+// known only by the reference the operator gave them (see schema.sql, tester_sessions).
+const TESTER_TYPES = new Set(["developer", "student", "organisation", "other"]);
+const TESTED_FEATURES = new Set([
+  "sdk_chat", "sdk_transcribe", "sdk_speak", "playground", "kit_citizen", "kit_education",
+  "kit_support_voice", "kit_support_chat", "key_request", "self_hosting",
+]);
+const TESTER_LANGUAGES = new Set(["ha", "yo", "ig", "en", "pcm"]);
+const QUOTE_CONSENT = new Set(["named", "anonymous", "no"]);
+const OUTCOMES = new Set(["worked", "partly", "failed"]);
+const SEVERITIES = new Set(["none", "minor", "major", "blocker"]);
+// A public form, so a ceiling on how fast rows can arrive (on top of the website's per-IP limit).
+const MAX_TESTER_SESSIONS_PER_HOUR = 200;
+
+const invalidSession = (message: string) => new HttpError(400, "invalid_tester_session", message);
+function oneOf(v: unknown, allowed: Set<string>, field: string): string {
+  if (typeof v !== "string" || !allowed.has(v)) throw invalidSession(`\`${field}\` must be one of ${[...allowed].join(", ")}.`);
+  return v;
+}
+function someOf(v: unknown, allowed: Set<string>, field: string): string {
+  if (!Array.isArray(v) || v.length === 0 || !v.every((x) => typeof x === "string" && allowed.has(x))) {
+    throw invalidSession(`\`${field}\` must be a non-empty list from: ${[...allowed].join(", ")}.`);
+  }
+  return JSON.stringify([...new Set(v)]);
+}
+function wholeNumber(v: unknown, field: string, min: number, max: number): number | null {
+  if (v === undefined || v === null || v === "") return null;
+  if (typeof v !== "number" || !Number.isInteger(v) || v < min || v > max) throw invalidSession(`\`${field}\` must be a whole number from ${min} to ${max}.`);
+  return v;
+}
+
+/** Public: one tester session from the website's /tester form. */
+async function createTesterSession(req: Request, env: Env) {
+  const body = await readJson(req);
+  if (body?.consent_store !== true) throw invalidSession("Consent to store this feedback is required.");
+  const ref = typeof body.tester_ref === "string" ? body.tester_ref.trim().toUpperCase() : "";
+  if (!/^[A-Z0-9][A-Z0-9_-]{0,19}$/.test(ref)) throw invalidSession("`tester_ref` must be the reference you were given, e.g. T01.");
+  const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM tester_sessions WHERE created_at >= ?").bind(Date.now() - 3_600_000).first<{ n: number }>();
+  if ((recent?.n ?? 0) >= MAX_TESTER_SESSIONS_PER_HOUR) throw new HttpError(429, "too_many_sessions", "Too many sessions submitted in the last hour. Try again later.");
+  const issueId = optionalText(typeof body.issue_report_id === "string" ? body.issue_report_id.trim() : body.issue_report_id, "issue_report_id", 64);
+  if (issueId && !/^[0-9a-f-]{4,64}$/i.test(issueId)) throw invalidSession("`issue_report_id` must be the id reportIssue() returned.");
+  const row = [
+    ref,
+    oneOf(body.tester_type, TESTER_TYPES, "tester_type"),
+    oneOf(body.consent_quote, QUOTE_CONSENT, "consent_quote"),
+    someOf(body.tested, TESTED_FEATURES, "tested"),
+    someOf(body.languages, TESTER_LANGUAGES, "languages"),
+    oneOf(body.outcome, OUTCOMES, "outcome"),
+    wholeNumber(body.minutes_to_first_call, "minutes_to_first_call", 0, 1440),
+    wholeNumber(body.rating_setup, "rating_setup", 1, 5),
+    wholeNumber(body.rating_quality, "rating_quality", 1, 5),
+    wholeNumber(body.rating_docs, "rating_docs", 1, 5),
+    optionalText(body.issues, "issues", 4_000),
+    body.issue_severity === undefined || body.issue_severity === null || body.issue_severity === "" ? null : oneOf(body.issue_severity, SEVERITIES, "issue_severity"),
+    issueId,
+    optionalText(body.feedback, "feedback", 4_000),
+    optionalText(body.api_key_label, "api_key_label", 100),
+  ];
+  const id = crypto.randomUUID();
+  const now = Date.now();
+  await env.DB.prepare(
+    `INSERT INTO tester_sessions (id, created_at, tester_ref, tester_type, consent_store, consent_quote, tested, languages, outcome,
+       minutes_to_first_call, rating_setup, rating_quality, rating_docs, issues, issue_severity, issue_report_id, feedback, api_key_label)
+     VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(id, now, ...row)
+    .run();
+  return { id, tester_ref: ref, received_at: new Date(now).toISOString() };
+}
+
+/** Operator export of tester sessions, oldest first. Page with ?since=<next_since>. */
+async function listTesterSessions(req: Request, env: Env) {
+  requireAdmin(req, env);
+  const url = new URL(req.url);
+  const since = Number(url.searchParams.get("since")) || 0;
+  const rows = await env.DB.prepare("SELECT * FROM tester_sessions WHERE created_at > ? ORDER BY created_at ASC LIMIT 500").bind(since).all<any>();
+  const sessions = rows.results.map((r) => ({ ...r, tested: JSON.parse(r.tested), languages: JSON.parse(r.languages) }));
+  return { sessions, next_since: sessions.at(-1)?.created_at ?? since };
+}
+
+/** Admin: a tester withdraws consent; every session under their reference is deleted. */
+async function deleteTesterSessions(req: Request, env: Env) {
+  requireAdmin(req, env);
+  const body = await readJson(req);
+  const ref = typeof body?.tester_ref === "string" ? body.tester_ref.trim().toUpperCase() : "";
+  if (!ref) throw invalidSession("`tester_ref` is required.");
+  const res = await env.DB.prepare("DELETE FROM tester_sessions WHERE tester_ref = ?").bind(ref).run();
+  return { tester_ref: ref, deleted: res.meta.changes ?? 0 };
+}
+
 async function health(env: Env) {
   const kind = backendKind(env);
   if (kind === "runpod") {
@@ -705,6 +795,15 @@ export default {
           break;
         case "POST /v1/admin/key-requests/decide":
           response = json(200, await decideKeyRequest(req, env));
+          break;
+        case "POST /v1/tester-sessions":
+          response = json(201, await createTesterSession(req, env));
+          break;
+        case "GET /v1/admin/tester-sessions":
+          response = json(200, await listTesterSessions(req, env));
+          break;
+        case "POST /v1/admin/tester-sessions/delete":
+          response = json(200, await deleteTesterSessions(req, env));
           break;
         case "POST /v1/admin/keys":
           response = json(201, await issueKey(req, env));

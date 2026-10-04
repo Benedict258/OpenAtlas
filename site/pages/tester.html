@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>OpenAtlas — Starter kits</title>
+<title>OpenAtlas — Tester session</title>
+<meta name="robots" content="noindex">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 30 30%27 fill=%27none%27 stroke=%27%230A6B3B%27 stroke-width=%272.4%27%3E%3Ccircle cx=%2715%27 cy=%2715%27 r=%2712%27/%3E%3Cellipse cx=%2715%27 cy=%2715%27 rx=%275%27 ry=%2712%27/%3E%3Cpath d=%27M3 15h24%27/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/fonts.css">
 <style>
@@ -67,23 +68,16 @@ p{text-wrap:pretty}
 @media(max-width:760px){.links{display:none}.wrap{padding:0 20px}.kit{gap:32px;padding:56px 0}.facts div{grid-template-columns:1fr;gap:2px} }
 
 [hidden]{display:none!important}
-/* Live kit windows (additions to the design): multi-line output, busy and disabled states, helper text. */
-.out{white-space:pre-wrap}
+.wbody input[type=text],.wbody input[type=email]{font:inherit;font-weight:400;font-size:16px;padding:12px 14px;border:1px solid #9AA297;border-radius:6px;background:#fff;color:var(--ink);min-height:48px;width:100%}
 .wbtn:disabled{opacity:.6;cursor:progress}
-.wbtn.dash:disabled{opacity:1;cursor:not-allowed}
 .hint{font-size:14px;font-weight:400;color:var(--muted)}
-/* Customer Service: voice note / text chat switch and the chat thread. */
-.modes{display:flex;border:1px solid #9AA297;border-radius:6px;overflow:hidden;align-self:flex-start}
-.modes button{font:inherit;font-size:15px;font-weight:600;min-height:44px;padding:0 18px;border:0;background:#fff;color:var(--muted);cursor:pointer}
-.modes button[aria-selected="true"]{background:var(--green);color:#fff}
-.pane{display:flex;flex-direction:column;gap:18px}
-.pane>.fld{flex:none}
-.thread{display:flex;flex-direction:column;gap:10px;max-height:420px;overflow-y:auto;padding:4px 2px}
-.msg{max-width:85%;padding:10px 14px;border-radius:10px;font-size:15.5px;white-space:pre-wrap;overflow-wrap:anywhere}
-.msg.bot{align-self:flex-start;background:#F1F2EC;color:var(--ink)}
-.msg.me{align-self:flex-end;background:var(--green);color:#fff}
-.msg.err{align-self:flex-start;background:#FCE6D8;color:#8A3300}
-.msg small{display:block;margin-top:4px;font-size:12px;color:var(--muted)}
+.wbody>.fld{flex:none}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:15px;font-weight:400;color:var(--muted)}
+.check input{margin-top:5px;width:18px;height:18px;accent-color:var(--green)}
+.wbody input[type=number]{font:inherit;font-weight:400;font-size:16px;padding:12px 14px;border:1px solid #9AA297;border-radius:6px;background:#fff;color:var(--ink);min-height:48px;width:100%}
+.group{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.group legend{font-size:14px;font-weight:600;padding:0;margin-bottom:8px}
+.check input[type=radio]{margin-top:5px;width:18px;height:18px;accent-color:var(--green)}
 
 </style>
 <link rel="stylesheet" href="/responsive.css">
@@ -99,7 +93,7 @@ OpenAtlas
 <nav class="links" aria-label="Primary">
 <a href="/">Product</a>
 <a href="/docs">Docs</a>
-<a class="on" href="/starter-kits">Starter kits</a>
+<a href="/starter-kits">Starter kits</a>
 <a href="/playground">Playground</a>
 <a href="/architecture">Architecture</a>
 </nav>
@@ -110,7 +104,7 @@ OpenAtlas
 <div class="wrap">
 <a class="ml" href="/">Product</a>
 <a class="ml" href="/docs">Docs</a>
-<a class="ml on" href="/starter-kits" aria-current="page">Starter kits</a>
+<a class="ml" href="/starter-kits">Starter kits</a>
 <a class="ml" href="/playground">Playground</a>
 <a class="ml" href="/architecture">Architecture</a>
 <a class="btn btn-primary" href="/request-key">Get an API key</a>
@@ -121,79 +115,84 @@ OpenAtlas
 <main>
 <section style="padding:80px 0 72px">
 <div class="wrap" style="display:flex;flex-direction:column;gap:20px">
-<p class="eyebrow">Starter kits</p>
-<h1 style="font-size:clamp(40px,5vw,64px);line-height:1.04;letter-spacing:-.03em;font-weight:500;max-width:900px">Three small apps that prove the SDK works.</h1>
-<p class="lead">Each kit is a single screen or script that sends a real request through the SDK to N-ATLaS. The three windows below are the kits themselves, running live. Clone one, swap in your own content, and run npm install &amp;&amp; npm start.</p>
+<p class="eyebrow">Testers</p>
+<h1 style="font-size:clamp(40px,5vw,64px);line-height:1.04;letter-spacing:-.03em;font-weight:500;max-width:900px">Log a test session.</h1>
+<p class="lead">Thanks for trying OpenAtlas. Fill this in once per session, right after you finish. It takes about three minutes, and it's how we learn what works for real developers and what doesn't.</p>
 </div>
 </section>
 
-<section style="padding-bottom:80px">
+<section style="padding-bottom:104px">
 <div class="wrap">
-<div class="grid3">
-<div class="cell"><span class="n mono">01</span><h3>Show the pipeline</h3><p>Every intermediate step is visible, such as the transcript before the reply. Nothing is faked or swapped behind the scenes.</p></div>
-<div class="cell"><span class="n mono">02</span><h3>Label demo scale</h3><p>Fixture datasets and shortcuts are marked "demo dataset" or "sample only" in the interface itself.</p></div>
-<div class="cell"><span class="n mono">03</span><h3>One shared look</h3><p>Same layout skeleton across all three, so they read as one toolkit, not three unrelated demos.</p></div>
-</div>
-</div>
-</section>
-
-<section>
-<div class="wrap">
-
-<div class="kit" id="citizen">
+<div class="kit">
 <div class="txt">
-<p class="eyebrow">Kit 01</p>
-<h2>Citizen Services</h2>
-<p>A single-page form for local-language Q&amp;A over a small civic-info dataset, such as how to renew an ID. The language selector drives both prompt framing and language context.</p>
+<p class="eyebrow">Your privacy</p>
+<h2>No names, no contact details.</h2>
+<p>You're identified only by the reference you were given (like T01). The person who gave it to you keeps the link between that reference and you, separately from this form.</p>
 <dl class="facts" style="margin:0">
-<div><dt>SDK calls</dt><span class="mono" style="font-size:15px">normalizeText() → chat()</span></div>
-<div><dt>Shows</dt><span>Language-aware prompting with injected context</span></div>
-<div><dt>Does not</dt><span>Persist data, authenticate users or act as a real civic-info system</span></div>
+<div><dt>Stored</dt><span>Only the answers on this form, with the date and time. Nothing about your device or network is kept with them.</span></div>
+<div><dt>Used for</dt><span>Improving OpenAtlas, and as evidence of real-world testing in our NAIC 2026 submission. Your feedback is quoted only if you allow it below.</span></div>
+<div><dt>Withdraw</dt><span>Ask the person who gave you your reference, and every session under it is deleted.</span></div>
 </dl>
 </div>
-<!-- kit:citizen -->
+<div class="win">
+<div class="wbar"><span>OpenAtlas — Tester session</span><span class="demo">About 3 minutes</span></div>
+<form class="wbody" id="ts" novalidate>
+<div class="rowf">
+<div class="fld"><label for="ts-ref">Your tester reference</label><input type="text" id="ts-ref" maxlength="20" placeholder="e.g. T01" autocomplete="off" required></div>
+<div class="fld"><label for="ts-type">You are a</label><select id="ts-type"><option value="developer">Developer</option><option value="student">Student</option><option value="organisation">Organisation</option><option value="other">Other</option></select></div>
 </div>
-
-<div class="kit" id="education">
-<div class="txt">
-<p class="eyebrow">Kit 02</p>
-<h2>Education</h2>
-<p>A single-page tutor. The level selector shows the same chat() call reframed by prompt context, so you can see the SDK's flexibility without any new feature.</p>
-<dl class="facts" style="margin:0">
-<div><dt>SDK calls</dt><span class="mono" style="font-size:15px">chat() · reportIssue()</span></div>
-<div><dt>Shows</dt><span>Instructional framing by language and level</span></div>
-<div><dt>Does not</dt><span>Track progress or store learner data</span></div>
-</dl>
+<fieldset class="group"><legend>What did you test?</legend>
+<label class="check"><input type="checkbox" name="tested" value="sdk_chat"><span>SDK <span class="mono">chat()</span></span></label>
+<label class="check"><input type="checkbox" name="tested" value="sdk_transcribe"><span>SDK <span class="mono">transcribe()</span></span></label>
+<label class="check"><input type="checkbox" name="tested" value="sdk_speak"><span>SDK <span class="mono">speak()</span></span></label>
+<label class="check"><input type="checkbox" name="tested" value="playground"><span>Website playground</span></label>
+<label class="check"><input type="checkbox" name="tested" value="kit_citizen"><span>Citizen Services kit</span></label>
+<label class="check"><input type="checkbox" name="tested" value="kit_education"><span>Education kit</span></label>
+<label class="check"><input type="checkbox" name="tested" value="kit_support_voice"><span>Customer Service kit: voice note</span></label>
+<label class="check"><input type="checkbox" name="tested" value="kit_support_chat"><span>Customer Service kit: text chat</span></label>
+<label class="check"><input type="checkbox" name="tested" value="key_request"><span>Requesting an API key</span></label>
+<label class="check"><input type="checkbox" name="tested" value="self_hosting"><span>Running the stack yourself (Deploy your own)</span></label>
+</fieldset>
+<fieldset class="group"><legend>Languages you used</legend>
+<div class="rowf" style="gap:8px 20px">
+<label class="check"><input type="checkbox" name="languages" value="ha"><span>Hausa</span></label>
+<label class="check"><input type="checkbox" name="languages" value="yo"><span>Yoruba</span></label>
+<label class="check"><input type="checkbox" name="languages" value="ig"><span>Igbo</span></label>
+<label class="check"><input type="checkbox" name="languages" value="en"><span>English</span></label>
+<label class="check"><input type="checkbox" name="languages" value="pcm"><span>Pidgin</span></label>
 </div>
-<!-- kit:education -->
+</fieldset>
+<fieldset class="group"><legend>Did it work?</legend>
+<div class="rowf" style="gap:8px 20px">
+<label class="check"><input type="radio" name="outcome" value="worked"><span>Worked</span></label>
+<label class="check"><input type="radio" name="outcome" value="partly"><span>Partly</span></label>
+<label class="check"><input type="radio" name="outcome" value="failed"><span>Failed</span></label>
 </div>
-
-<div class="kit" id="support">
-<div class="txt">
-<p class="eyebrow">Kit 03</p>
-<h2>Customer Service</h2>
-<p>Two ways in for a customer. A voice note is transcribed, triaged and given a drafted reply, so the whole pipeline is legible on one screen: voice in, transcript, draft response. Or switch to Text chat for an ordinary back-and-forth conversation with a support assistant, for customers who'd rather type.</p>
-<dl class="facts" style="margin:0">
-<div><dt>SDK calls</dt><span class="mono" style="font-size:15px">transcribe() → normalizeText() → chat() · reportIssue() · multi-turn chat() · speak() (stretch)</span></div>
-<div><dt>Shows</dt><span>Language-routed ASR feeding the LLM; a multi-turn conversation grounded in one business's policies</span></div>
-<div><dt>Does not</dt><span>Ship audio playback unless NAIC confirms the TTS pairing. Its absence is not a bug.</span></div>
-</dl>
+</fieldset>
+<div class="fld"><label for="ts-minutes">Minutes from starting to your first successful call <span class="hint">(optional)</span></label><input type="number" id="ts-minutes" min="0" max="1440" step="1" inputmode="numeric"></div>
+<div class="rowf">
+<div class="fld"><label for="ts-r-setup">Ease of setup</label><select id="ts-r-setup"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+<div class="fld"><label for="ts-r-quality">Output quality</label><select id="ts-r-quality"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+<div class="fld"><label for="ts-r-docs">Docs clarity</label><select id="ts-r-docs"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
 </div>
-<!-- kit:support -->
+<span class="hint" style="margin-top:-10px">1 = poor, 5 = excellent. Leave any you didn't try as —.</span>
+<div class="fld"><label for="ts-issues">Issues you found <span class="hint">(optional)</span></label><textarea id="ts-issues" maxlength="4000" placeholder="What went wrong, and what you were doing when it did"></textarea></div>
+<div class="rowf">
+<div class="fld"><label for="ts-sev">Worst issue was</label><select id="ts-sev"><option value="">—</option><option value="none">No issues</option><option value="minor">Minor</option><option value="major">Major</option><option value="blocker">Blocking</option></select></div>
+<div class="fld"><label for="ts-issue-id"><span class="mono" style="font-size:13px">reportIssue()</span> id <span class="hint">(optional)</span></label><input type="text" id="ts-issue-id" maxlength="64" autocomplete="off"></div>
 </div>
-
+<div class="fld"><label for="ts-feedback">Anything else? <span class="hint">(optional)</span></label><textarea id="ts-feedback" maxlength="4000" placeholder="What you liked, what you'd change, what you'd build with it"></textarea></div>
+<div class="fld"><label for="ts-key">Your API key's label <span class="hint">(optional; the label, never the key)</span></label><input type="text" id="ts-key" maxlength="100" autocomplete="off"></div>
+<fieldset class="group"><legend>May we quote your feedback in our submission?</legend>
+<label class="check"><input type="radio" name="quote" value="named"><span>Yes, with my name (the person who gave you your reference will confirm it with you)</span></label>
+<label class="check"><input type="radio" name="quote" value="anonymous"><span>Yes, anonymously</span></label>
+<label class="check"><input type="radio" name="quote" value="no"><span>No</span></label>
+</fieldset>
+<label class="check"><input type="checkbox" id="ts-consent"><span>I agree to OpenAtlas storing these answers as described on this page.</span></label>
+<button class="wbtn" type="submit" id="ts-send">Submit session</button>
+<div class="out" id="ts-out" hidden><b id="ts-out-title">Session recorded</b><span id="ts-out-text"></span></div>
+</form>
 </div>
-</section>
-
-<section style="background:var(--green-d);color:#fff;padding:88px 0">
-<div class="wrap" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:32px">
-<div style="display:flex;flex-direction:column;gap:12px;max-width:720px">
-<h2 class="h2" style="color:#fff">Run one against the live endpoint.</h2>
-<p style="font-size:19px;color:#CFE6D8">Point the kit at the OpenAtlas gateway with one environment variable. No separate deployment needed.</p>
-</div>
-<div style="display:flex;flex-wrap:wrap;gap:12px">
-<a class="btn btn-light" href="/request-key">Get an API key</a>
-<a class="btn btn-ghost-d" href="/architecture">See the architecture</a>
 </div>
 </div>
 </section>
@@ -206,7 +205,7 @@ OpenAtlas
 <span style="display:flex;align-items:center;gap:10px;color:#fff;font-weight:700;font-size:20px"><svg width="28" height="28" viewBox="0 0 30 30" fill="none" stroke="#5FD08A" stroke-width="2" aria-hidden="true"><circle cx="15" cy="15" r="12"></circle><ellipse cx="15" cy="15" rx="5" ry="12"></ellipse><path d="M3 15h24"></path></svg>OpenAtlas</span>
 <p>Open developer infrastructure for N-ATLaS.</p>
 </div>
-<div><h4>Product</h4><ul><li><a href="/#what">Hosted endpoint</a></li><li><a href="/#sdk">SDK</a></li><li><a href="#citizen">Starter kits</a></li><li><a href="/playground">Playground</a></li></ul></div>
+<div><h4>Product</h4><ul><li><a href="/#what">Hosted endpoint</a></li><li><a href="/#sdk">SDK</a></li><li><a href="/starter-kits">Starter kits</a></li><li><a href="/playground">Playground</a></li></ul></div>
 <div><h4>Learn</h4><ul><li><a href="/docs#quickstart">Quickstart</a></li><li><a href="/docs#api">API reference</a></li><li><a href="/architecture">Architecture</a></li></ul></div>
 <div><h4>Project</h4><ul><li>NAIC 2026 · Academia &amp; Research</li><li>Built by Team Suiaah &amp; NiHub</li></ul></div>
 </div>
@@ -215,8 +214,6 @@ OpenAtlas
 </footer>
 </div>
 <script src="/site.js"></script>
-<script src="/kits/citizen.js"></script>
-<script src="/kits/education.js"></script>
-<script src="/kits/support.js"></script>
+<script src="/tester.js"></script>
 </body>
 </html>

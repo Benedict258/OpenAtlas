@@ -57,10 +57,11 @@ This is [`sdk/examples/quickstart.mjs`](sdk/examples/quickstart.mjs). On 2026-10
 
 ## Try it without code
 
-The website's [Starter kits page](https://openatlas-site.isaacbenedict001.workers.dev/starter-kits) runs three reference apps live against N-ATLaS:
-- **Citizen Services:** ask a civic question in Hausa, Yoruba, Igbo or English.
-- **Education:** explanations at primary or secondary level.
-- **Customer Service:** record a voice note. It is transcribed, triaged and given a drafted reply, with "Correct this transcript" sending the fix back.
+- **[Playground](https://openatlas-site.isaacbenedict001.workers.dev/playground):** call `chat()`, `transcribe()` and `speak()` from the browser, with no SDK, key or sign-up. Each response is shown exactly as the SDK returns it, next to the code that makes the same call. It runs on a shared demo key, with per-network and input limits.
+- **[Starter kits](https://openatlas-site.isaacbenedict001.workers.dev/starter-kits):** three reference apps running live against N-ATLaS:
+  - **Citizen Services:** ask a civic question in Hausa, Yoruba, Igbo or English.
+  - **Education:** explanations at primary or secondary level.
+  - **Customer Service:** two ways in. Record a voice note, which is transcribed, triaged and given a drafted reply ("Correct this transcript" sends the fix back). Or use the text chat for a back-and-forth conversation with a support assistant.
 
 **When the GPU backend is off,** each window says "Backend offline" (see Hosting below). The kits' code is in [`starter-kits/`](starter-kits/), and each runs on its own with `npm start`.
 
@@ -96,7 +97,8 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 ## What's been verified
 
 **Through the public gateway and website on the AMD backend** (2026-10-04, [REPORT.md](docs/REPORT.md) sections 28–29):
-- **Starter kits:** all three.
+- **Starter kits:** all three, including the Customer Service text chat.
+- **Playground:** chat, transcribe and speak, in a real browser at desktop and phone width.
 - **Chat:** in four languages.
 - **Transcription:** in all four ASR languages, on real recordings.
 - **Speech output:** all languages render; heard back accurately in English.
@@ -104,6 +106,8 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 - **GPU:** concurrent requests queue correctly.
 
 Earlier, ASR accuracy was measured on 90 real recordings (section 8).
+
+**Real-world testing:** testers log each session at [`/tester`](https://openatlas-site.isaacbenedict001.workers.dev/tester) (no names or contact details collected); `scripts/testers.mjs summary` produces the results.
 
 ## Known limitations
 

@@ -929,6 +929,72 @@ All relative links in the main docs resolve.
 
 ---
 
+### 31. Playground, Customer Service text chat, tester log
+
+**Playground** (`/playground`; [`site/src/playground.mjs`](../site/src/playground.mjs), [`site/pages/playground.js`](../site/pages/playground.js)): `chat()`, `transcribe()` and `speak()` from the browser on the website's shared demo key. Each response is shown as the SDK returned it, next to the SDK code that makes the same call.
+- **Abuse safeguards:**
+  - per-IP limit of 10 requests a minute;
+  - the `website-demos` key's daily quota and user share (KI-4);
+  - server-derived user IDs;
+  - caps of 10 messages, 2,000 characters a message, 16–512 `max_tokens`, `temperature` 0–1, 30 s clips and 300 characters of speech.
+- **Handlers, called from Node against the live backend:**
+  - chat (Hausa) 3.5 s;
+  - transcribe (26.7 s of Hausa) 4.8 s, matching the reference apart from a few words;
+  - speak (English) 5.8 s;
+  - all 5 over-limit inputs rejected with 400.
+- **Through the deployed website:**
+  - chat (Yoruba) 3.8 s;
+  - transcribe (Hausa) 4.0 s;
+  - speak (English) 5.7 s. Heard back by the English ASR: "welcome to open iftar. this is the plate round" for "Welcome to OpenAtlas. This is the playground." The ordinary words survive and the two product names don't.
+- **In a real browser** (Chrome via Playwright, desktop 1280 px and phone 390 px):
+  - a two-turn Hausa chat, with the second turn using the first;
+  - the generated SDK snippet;
+  - an uploaded Igbo clip transcribed exactly ("nwoke ahụ bụ agbara", reference "Nwoke ahụ bụ agbara."), 1.3 s;
+  - English speech rendered and playable (6.25 s of audio);
+  - no horizontal overflow at either width;
+  - no console errors on any of the 7 pages, after adding a favicon (the only 404).
+- **Speech switch:** the playground's speech tab is on (`PLAYGROUND_SPEECH`). The Customer Service kit's "Play response audio" switch stays off.
+
+**Customer Service text chat** (`converse()` in [`starter-kits/customer-service/kit.mjs`](../starter-kits/customer-service/kit.mjs)): a "Text chat" switch next to the voice-note flow, which is unchanged.
+- **The conversation:** with the support assistant of a made-up shop. The browser keeps it and sends the last 12 messages each time.
+- **The prompt:** the shared `systemPrompt()` base layer, the shop's sample policies as reference notes, and a reminder after the latest message.
+- **Reproduce:** `scripts/support-chat-check.mjs`.
+
+**Prompt iterations** (live backend, all four languages):
+
+| Version | Result |
+|---|---|
+| 1. Policies plus rules | Context used across turns. English claimed "a staff member has checked your order", and Hausa said the order "has been checked and sent" (3/3). |
+| 2. Reminder after the message ("you cannot see orders") | Order claims fixed: English 3/3, Hausa 3/3. Two regressions: English returns answers lost the 7-day rule, and one invented a returns email; Igbo said the shop is closed on Saturdays. |
+| 3. Reminder also says "state policies exactly, never make up contact details" | Policies stated correctly in English and Hausa. In the browser run, one English reply still invented "info@adaandsons.com". |
+| 4. Shipped: shop notes give the contact channel ("this chat; no email or phone") | See below |
+
+**Shipped version, 3 runs × 5 conversations (24 replies):**
+- **Contact details:** no reply made one up.
+- **English (15 replies):** delivery, returns, refund and opening-hours facts correct, with three small inventions:
+  - "we've processed your payment";
+  - "returns must be made during office hours";
+  - "original condition with tags".
+- **Hausa:** 2 of 6 replies said the order is being looked up; one invented the order number "ODA12345".
+- **Yoruba:** "ọsẹ meje" (7 weeks) for 7 days in 2 of 3 runs; wrong opening hours (9–5) in 1 of 3.
+- **Igbo:** said the shop is closed on Saturday in 1 of 3 runs.
+- **Speed:** replies take 1.2–3.9 s.
+- **Style:** replies are wordier than intended, because the model recites the policies.
+
+Recorded as KI-16.
+
+**Through the website:** `POST /api/support/chat` answered in 1.6 s. In the browser, a two-turn English exchange (broken blender, then refund time) used the first turn in the second.
+
+**Real-world validation log** (`/tester`, gateway table `tester_sessions`, migration `0002`, operator script [`scripts/testers.mjs`](../scripts/testers.mjs)). Fields as approved: a tester reference (no name or contact field), type, features tested, languages, outcome, minutes to first call, three 1–5 ratings, issues with severity and an optional `reportIssue()` id, feedback, API key label, consent to store (required) and consent to quote (named, anonymous, no).
+- **Live checks:**
+  - a valid submission returned 201;
+  - no consent, a bad reference, an unknown feature and an out-of-range rating each returned 400;
+  - extra `name` and `email` fields were accepted but not stored (checked in the admin export);
+  - the admin export without a token returned 401.
+- **`testers.mjs`:** the list, `summary` (Markdown) and `csv` all worked, and `delete <ref>` removed the rows.
+- **Browser:** the empty-form message listed every missing answer; a full submission was recorded; the phone layout fits.
+- **Test rows:** all deleted. The table holds 0 sessions.
+
 ## Known issues
 
 | ID | Issue | Status |
@@ -946,5 +1012,6 @@ All relative links in the main docs resolve.
 | KI-11 | Audio over ~30 s lost words in the backend's chunked ASR mode: transcripts were 39–79% of reference length on clips over ~37 s. | **Fixed for 38–54 s clips:** the backend now sends plain 25 s pieces, and words kept went from 39–61% to 83–99% (section 17). On 89–123 s free speech some loss remains with clean pieces too (model). Documented reliable limit: 30 s per request. The Customer Service recorder caps at 30 s and splits uploads. |
 | KI-12 | Customer Service drafts: with a Yoruba note, N-ATLaS translated the required format labels and picked a category outside the allowed list. With a Hausa note it kept the format, but its "reply" restated the customer's words instead of answering them. | **Format fixed in the kit code** (section 18): followed 10/10 (was 3/10), both reported notes re-run and passing. Category choice is still model judgment (6–8/10 as expected). Live on the website since 2026-10-03 (section 27). |
 | KI-13 | The notebook's `latency_seconds` includes time spent waiting for the GPU lock, so it overstates model time under concurrent load. | Cosmetic. Measurement note only. |
-| KI-14 | Speech output, two separate problems (section 24). **(1) Too slow:** SoroTTS renders at about 10 s per second of audio on a T4, so multi-sentence Hausa, Yoruba and Igbo replies don't finish within the free tunnel's timeout (HTTP 524; failed in 3 of 3 languages). **(2) Low quality:** the MMS-TTS engine has much higher heard-back word error rates for Hausa (32%), Yoruba (79%; 38% ignoring tone marks) and Igbo (72%) than for English (2%). That is a real quality gap, not a timeout artifact. | **(1) Fixed for multi-sentence replies** (section 25): `auto` sends anything past one sentence to MMS-TTS. Re-verified: 10/10 renders, no 524s. A long *single* sentence still goes to SoroTTS (79–122 s measured on the T4; 34.8 s for 12 s of audio on the MI300X, section 28), so a 524 there is much less likely on AMD, but still possible on a T4. **(2) Open, confirmed on re-test:** MMS-TTS Hausa 36–40%, Yoruba 61% (26% ignoring tone marks), Igbo 79%, against English 2–5%. A limit of the available speech models. Speech is shown in English only; the website's speech switch stays off. |
+| KI-14 | Speech output, two separate problems (section 24). **(1) Too slow:** SoroTTS renders at about 10 s per second of audio on a T4, so multi-sentence Hausa, Yoruba and Igbo replies don't finish within the free tunnel's timeout (HTTP 524; failed in 3 of 3 languages). **(2) Low quality:** the MMS-TTS engine has much higher heard-back word error rates for Hausa (32%), Yoruba (79%; 38% ignoring tone marks) and Igbo (72%) than for English (2%). That is a real quality gap, not a timeout artifact. | **(1) Fixed for multi-sentence replies** (section 25): `auto` sends anything past one sentence to MMS-TTS. Re-verified: 10/10 renders, no 524s. A long *single* sentence still goes to SoroTTS (79–122 s measured on the T4; 34.8 s for 12 s of audio on the MI300X, section 28), so a 524 there is much less likely on AMD, but still possible on a T4. **(2) Open, confirmed on re-test:** MMS-TTS Hausa 36–40%, Yoruba 61% (26% ignoring tone marks), Igbo 79%, against English 2–5%. A limit of the available speech models. Speech is shown in English only in the demo; the Customer Service kit's speech switch stays off. The playground's speech tab is on, with Hausa, Yoruba, Igbo and Pidgin labelled experimental (section 31). |
 | KI-15 | ROCm on the AMD MI300X host (section 28): MMS-TTS is about 6× slower than on a T4 (about 2 s per short sentence, after an 11.6 s first call). One ROCm runtime thread (`AsyncEventsLoop`) busy-polls a CPU core the whole time. The first chat and the first speech render after a start are slower (8–12 s). | Documented. The bootstrap warms each model up before reporting ready. English speech still renders a 16-second reply in about 7 s. Not tuned further. |
+| KI-16 | Customer Service text chat (section 31): N-ATLaS sometimes states things the shop's policies don't say. English has small inventions ("we've processed your payment"). Hausa sometimes says the order is being looked up. Yoruba has said "7 weeks" for 7 days and given the wrong opening hours. Igbo has said the shop is closed on Saturday. | Four prompt versions measured; the shipped one removed invented contact details and English order claims. The rest is model behaviour, documented. The kit tells real deployments to have staff confirm anything binding. |
