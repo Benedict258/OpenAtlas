@@ -300,7 +300,7 @@ curl -s https://openatlas-gateway.isaacbenedict001.workers.dev/v1/chat/completio
 | ASR WER, smoke clips | Hausa 26%, Yoruba 74%, Igbo 0%, Nigerian English 0% |
 | Speech, heard back | English 0–3% WER |
 | Keys and limits | 401 (no key, wrong key, revoked key), 429 (daily limit, user share) as designed |
-| Startup | about 2.5 min from command to serving, on a set-up droplet; first model download ~94 s |
+| Startup | 4 min 49 s from command to serving on a freshly created droplet, models included (REPORT.md section 32); about 2.5 min on a set-up droplet |
 
 ## 8. Limitations
 
@@ -310,7 +310,7 @@ curl -s https://openatlas-gateway.isaacbenedict001.workers.dev/v1/chat/completio
   - factual slips occur.
 - **Customer Service text chat:** N-ATLaS sometimes states things the shop's policies don't say. Hausa sometimes claims to be looking up an order; Yoruba has said "7 weeks" for 7 days. Measured in REPORT.md section 31.
 - **License cap:** the 1,000-user cap is shared across the hosted service.
-- **Not yet tested:** the AMD bootstrap on a freshly created droplet; the Docker image on a GPU; RunPod.
+- **Not yet tested:** the Docker image on a GPU; RunPod.
 - **Not yet routed back:** corrections collected with `reportIssue()` have no agreed channel to the N-ATLaS maintainers yet.
 
 All of these are measured, with details in the Known issues table of [`REPORT.md`](REPORT.md).

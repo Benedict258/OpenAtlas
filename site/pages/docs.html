@@ -289,7 +289,7 @@ console.<span class="f">log</span>(result.text);</pre></div>
 </ul>
 <p>We built and proved the whole stack on free tools first: a Kaggle notebook for the GPU, a Cloudflare quick tunnel, and the Cloudflare free plan for the gateway. The live demo runs the same server on an AMD Instinct MI300X (DigitalOcean AMD Developer Cloud). Anyone can stand up the same working deployment with the steps below. Moving the backend is a config change on the gateway, not a code change. The full guide is <span class="mono">docs/deploy-your-own.md</span> in the repository.</p>
 <div class="scroll"><table class="tbl wrap1"><thead><tr><th>Path</th><th>Status</th></tr></thead><tbody>
-<tr><td>AMD Developer Cloud (MI300X)</td><td><b>Proven; the live host.</b> One command (deploy/amd/up.mjs) from a droplet to serving. A freshly created droplet hasn't been timed end to end yet.</td></tr>
+<tr><td>AMD Developer Cloud (MI300X)</td><td><b>Proven; the live host.</b> One command (deploy/amd/up.mjs) from a freshly created droplet to serving in under 5 minutes, models included.</td></tr>
 <tr><td>Kaggle notebook backend + gateway</td><td><b>Proven; the free path</b> (T4 x2).</td></tr>
 <tr><td>One-command gateway setup</td><td>Checked with a dry run only; not yet run against a fresh Cloudflare account.</td></tr>
 <tr><td>Docker on your own GPU</td><td>The image builds and starts in CI (no GPU there); not yet run on a GPU by us.</td></tr>
