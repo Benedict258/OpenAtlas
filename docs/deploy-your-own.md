@@ -93,7 +93,7 @@ It does two things. First it uploads this checkout's server code and runs `deplo
 
 Then it connects your gateway to the new tunnel URL, with `deploy/set-backend.mjs`.
 
-**Measured on 2026-10-04 on the same droplet** (models cached): 2.5 minutes from the command to the gateway serving. On the first start, the models loaded in 94 s. The cloud's download speed made the first full start quick, but **a freshly created droplet hasn't been timed end to end yet.**
+**Measured:** on a freshly created droplet (2026-10-06), **4 minutes 49 seconds** from the command to the gateway serving, including the package install, the ~30 GB model download (models loaded in 90 s) and the warm-up (REPORT.md section 32). On a droplet that's already set up, about 2.5 minutes.
 
 **Without your machine,** log in to the droplet and run the same script there. It clones the repo, which needs a read-only `GH_TOKEN` while the repo is private:
 ```bash

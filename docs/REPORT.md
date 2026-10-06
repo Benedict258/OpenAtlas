@@ -991,6 +991,72 @@ Recorded as KI-16.
 - **Browser:** the empty-form message listed every missing answer; a full submission was recorded; the phone layout fits.
 - **Test rows:** all deleted. The table holds 0 sessions.
 
+## 2026-10-06
+
+### 32. Droplet swap: a freshly created MI300X droplet, end to end
+
+The previous droplet was destroyed. A new one was created from the same "PyTorch on AMD Instinct" 1-Click image (MI300X), and `node --env-file=.env deploy/amd/up.mjs <ip>` ran against it once, with no manual steps on the droplet. This is the first run of the bootstrap on a fresh droplet, and of the pinned package and cloudflared versions, the first-boot wait and the SSH keep-alives (commit `d9882a5`). The run also completed the `NATLAS_API_KEY` rotation: the backend and the gateway both got the new key.
+
+**The bootstrap** (11:30:11 → 11:35:00 UTC, **4 min 49 s** from the command to the gateway serving):
+- **First boot:** the droplet had already finished (`cloud-init: status: done`), so the wait passed at once.
+- **GPU:** `AMD Instinct MI300X VF | torch 2.12.0+rocm7.14.0`.
+- **Packages:** installed at the pinned versions (`transformers 5.18.0`, ffmpeg 6.1.1, `cloudflared 2026.9.3`, bitsandbytes not installed).
+- **Models:** downloaded and loaded in **90 s**. Load times: N-ATLaS 27.4 s (bf16), the four ASR models 3.8–4.6 s each, SoroTTS 18.6 s, MMS-TTS 3.9–4.6 s each.
+- **Warm-up, every request passed:**
+  - chat 9.2 s;
+  - transcribe: en-ng 9.5 s, ha 3.3 s, ig 3.3 s, yo 0.5 s;
+  - MMS speech: en 10.9 s (first call), ha 2.0 s, ig 2.3 s, pcm 1.8 s, yo 1.9 s;
+  - SoroTTS ha 12.1 s.
+- **Gateway:** `set-backend.mjs` confirmed the new key (probe HTTP 200), stored both Worker secrets, and the gateway reported the new host as reachable.
+
+**`scripts/smoke-gateway.mjs`** (public gateway, `mock: false`): all calls succeeded.
+- **Chat:** en 1.9 s, ha 1.5 s, yo 3.1 s, ig 2.7 s.
+- **Transcription:** WER ha 26%, yo 74%, ig 0%, en-ng 0%, the same as on the previous droplet (section 29).
+- **`reportIssue()`:** stored, and present in the operator export.
+
+**`scripts/tts-check.mjs --engines auto`**: 5/5 languages returned valid audio, each heard back by the N-ATLaS ASR model for its language:
+
+| Language | Engine | Audio / render time | Heard-back WER |
+|---|---|---|---|
+| en | MMS | 14.6 s / 5.3 s | 3% |
+| yo | SoroTTS (Yor1) | 10.7 s / 28.5 s | 11% (5% ignoring tone marks) |
+| ha | MMS | 13.3 s / 5.6 s | 20% |
+| pcm | MMS | 7.3 s / 5.8 s | 22% |
+| ig | soro-tts-ibo | 28.3 s / 6.9 s | 391%: the Igbo ASR fell into a repetition loop ("nwanne nwanne …") on the 28 s clip, so this measures the recognizer, not the speech. Igbo speech stays experimental (KI-14). |
+
+**The live website** (the site's API, spaced under its per-IP limit): all 7 passed.
+
+| Check | Time |
+|---|---|
+| Citizen Services (Hausa, INEC answer) | 3.6 s |
+| Education (English, primary) | 3.5 s |
+| Customer Service voice note (Hausa, 26.7 s clip; transcript, then three-line triage) | 7.3 s |
+| Customer Service text chat (English) | 2.5 s |
+| Playground chat (Igbo: "Isi obodo Naịjirịa bụ Abuja.") | 1.5 s |
+| Playground transcribe (Nigerian English) | 2.5 s |
+| Playground speak (English, 3.1 s of audio) | 6.2 s |
+
+**In a real browser** (Chrome via Playwright, 1280 px): all 7 passed, with no page errors and no offline banner.
+
+| Check | Time |
+|---|---|
+| Citizen Services (Hausa) | 5.0 s |
+| Education (English) | 4.8 s |
+| Customer Service voice-note upload (Nigerian English) | 4.7 s |
+| Customer Service text chat (Hausa) | 3.0 s |
+| Playground chat (Yoruba: "Olú-ìlú Nàìjíríà ni Abuja.") | 2.0 s |
+| Playground transcribe (Igbo, exact: "nwoke ahụ bụ agbara") | 2.1 s |
+| Playground speak (English, 5.9 s of playable audio) | 6.8 s |
+
+The tester form wasn't part of this run.
+
+**What failed:** nothing in the pipeline. Content issues already on the Known issues list:
+- **Hausa text chat:** said the shop opens "Sunday to Friday" (it's Monday to Saturday; KI-16).
+- **Education:** answered a secondary-level question in a young-child register (KI-10).
+- **Igbo speech heard-back:** the recognizer loop above (KI-14).
+
+**Result:** destroy-and-recreate works end to end with one command, in under 5 minutes, on a fresh droplet.
+
 ## Known issues
 
 | ID | Issue | Status |
