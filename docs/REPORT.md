@@ -1057,6 +1057,29 @@ The tester form wasn't part of this run.
 
 **Result:** destroy-and-recreate works end to end with one command, in under 5 minutes, on a fresh droplet.
 
+## 2026-10-07
+
+### 33. Custom domain getopenatlas.xyz (site only so far)
+
+**Checked before any change:**
+
+| Hostname | Result |
+|---|---|
+| `getopenatlas.xyz` | **Works.** HTTPS 200; all 7 pages (/, docs, starter kits, playground, architecture, request key, tester) return 200. |
+| `www.getopenatlas.xyz` | **Fails: HTTP 525** (SSL handshake failed between Cloudflare and the origin). It isn't attached to the site Worker. |
+| `api.getopenatlas.xyz` | **Routes to the gateway** (health identical to the workers.dev gateway; chat without a key gives 401). **The smoke test can't run:** the GPU backend was down at the time (gateway `reachable: false`; the droplet didn't answer SSH and its tunnel was unreachable). |
+| `openatlas-site.isaacbenedict001.workers.dev` | Works (200). |
+| `openatlas-gateway.isaacbenedict001.workers.dev` | Works (health 200, 401 without a key). Same backend outage. |
+
+- **Host checks:** none in the site Worker, the gateway or the kits; no canonical links or sitemap; pages use relative links and same-origin `/api` calls. `robots.txt` on the new domain is Cloudflare's managed file (a zone setting).
+- **Changed:** the public site address in the README and technical documentation is now `https://getopenatlas.xyz`, with the workers.dev address named as the fallback. The demo app, demoapp.getopenatlas.xyz, is listed as coming soon. The deploy guide now says how to point the SDK, kits and scripts at your own gateway (`OPENATLAS_BASE_URL`, `baseURL`, or a custom domain).
+- **On hold until the backend is back** and `smoke-gateway.mjs` passes against `https://api.getopenatlas.xyz`:
+  - the gateway address in the docs;
+  - `site/wrangler.toml`;
+  - the SDK default `baseURL` and the 0.1.2 release.
+
+  Both workers.dev addresses are unchanged and keep working; SDK 0.1.1 uses the gateway one.
+
 ## Known issues
 
 | ID | Issue | Status |

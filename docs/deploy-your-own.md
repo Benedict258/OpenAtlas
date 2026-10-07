@@ -243,6 +243,8 @@ npm install @openatlas/sdk
 OPENATLAS_API_KEY=… OPENATLAS_BASE_URL=https://<your-gateway>.workers.dev node your-app.mjs
 ```
 
+**Pointing at your own gateway.** The SDK, the starter kits and the scripts all read the gateway address from `OPENATLAS_BASE_URL`, so a self-hosted setup only has to set that (or pass it in code: `new OpenAtlas({ apiKey, baseURL: "https://<your-gateway>" })`). Use your gateway's `workers.dev` address, or a custom domain you've attached to it in Cloudflare (Workers → your gateway → Settings → Domains & Routes). Without either, the SDK uses the hosted OpenAtlas gateway.
+
 The SDK is meant for **server-side** code. The gateway doesn't send CORS headers, so a browser page can't call it directly, and an API key in a browser would be visible to anyone. Put a small server in between, as the starter kits do.
 
 ## Step 4: Run the starter kits against your gateway

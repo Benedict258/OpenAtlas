@@ -6,7 +6,8 @@
 - **Three starter apps.**
 - **A one-command way to run the whole stack yourself.**
 
-- **Live site and demos:** https://openatlas-site.isaacbenedict001.workers.dev
+- **Live site and demos:** https://getopenatlas.xyz (fallback address: https://openatlas-site.isaacbenedict001.workers.dev)
+- **Demo app:** demoapp.getopenatlas.xyz (coming soon)
 - **SDK:** `npm install @openatlas/sdk` ([npm](https://www.npmjs.com/package/@openatlas/sdk))
 - **How N-ATLaS is integrated:** [`docs/natlas-integration.md`](docs/natlas-integration.md)
 - **Run it yourself:** [`docs/deploy-your-own.md`](docs/deploy-your-own.md)
@@ -51,14 +52,14 @@ console.log(`${model}, ${attribution}`); // NCAIR1/N-ATLaS, Powered by Awarri
 
 This is [`sdk/examples/quickstart.mjs`](sdk/examples/quickstart.mjs). On 2026-10-04 it returned a Hausa answer from N-ATLaS on the AMD MI300X backend.
 
-- **Getting a key:** use the [request form](https://openatlas-site.isaacbenedict001.workers.dev/request-key). Keys are reviewed and issued by hand.
+- **Getting a key:** use the [request form](https://getopenatlas.xyz/request-key). Keys are reviewed and issued by hand.
 - **Using it:** call the SDK from server-side code, since a key in a browser is public.
 - **Reference:** the full API is in [`docs/api-reference.md`](docs/api-reference.md).
 
 ## Try it without code
 
-- **[Playground](https://openatlas-site.isaacbenedict001.workers.dev/playground):** call `chat()`, `transcribe()` and `speak()` from the browser, with no SDK, key or sign-up. Each response is shown exactly as the SDK returns it, next to the code that makes the same call. It runs on a shared demo key, with per-network and input limits.
-- **[Starter kits](https://openatlas-site.isaacbenedict001.workers.dev/starter-kits):** three reference apps running live against N-ATLaS:
+- **[Playground](https://getopenatlas.xyz/playground):** call `chat()`, `transcribe()` and `speak()` from the browser, with no SDK, key or sign-up. Each response is shown exactly as the SDK returns it, next to the code that makes the same call. It runs on a shared demo key, with per-network and input limits.
+- **[Starter kits](https://getopenatlas.xyz/starter-kits):** three reference apps running live against N-ATLaS:
   - **Citizen Services:** ask a civic question in Hausa, Yoruba, Igbo or English.
   - **Education:** explanations at primary or secondary level.
   - **Customer Service:** two ways in. Record a voice note, which is transcribed, triaged and given a drafted reply ("Correct this transcript" sends the fix back). Or use the text chat for a back-and-forth conversation with a support assistant.
@@ -106,7 +107,7 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 
 Earlier, ASR accuracy was measured on 90 real recordings (section 8).
 
-**Real-world testing:** testers log each session at [`/tester`](https://openatlas-site.isaacbenedict001.workers.dev/tester) (no names or contact details collected); `scripts/testers.mjs summary` produces the results.
+**Real-world testing:** testers log each session at [`/tester`](https://getopenatlas.xyz/tester) (no names or contact details collected); `scripts/testers.mjs summary` produces the results.
 
 ## Known limitations
 

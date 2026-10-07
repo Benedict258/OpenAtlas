@@ -4,7 +4,7 @@
 **Track:** NAIC 2026, Academia & Research (Developer Infrastructure).
 **Team:** Team Suiaah & NiHub.
 **Repository:** `github.com/Benedict258/OpenAtlas`.
-**Live site:** https://openatlas-site.isaacbenedict001.workers.dev.
+**Live site:** https://getopenatlas.xyz (fallback address: https://openatlas-site.isaacbenedict001.workers.dev). **Demo app:** demoapp.getopenatlas.xyz (coming soon).
 **SDK:** `@openatlas/sdk` on npm.
 
 This document describes the architecture, components, setup and usage of OpenAtlas, and how it was verified. It's written to be converted directly into the submission PDF.
