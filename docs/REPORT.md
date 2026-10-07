@@ -1066,7 +1066,7 @@ The tester form wasn't part of this run.
 | Hostname | Result |
 |---|---|
 | `getopenatlas.xyz` | **Works.** HTTPS 200; all 7 pages (/, docs, starter kits, playground, architecture, request key, tester) return 200. |
-| `www.getopenatlas.xyz` | **Fails: HTTP 525** (SSL handshake failed between Cloudflare and the origin). It isn't attached to the site Worker. |
+| `www.getopenatlas.xyz` | **Failed at first (HTTP 525: not attached to the site Worker); fixed the same day:** HTTPS 200, pages served directly. |
 | `api.getopenatlas.xyz` | **Routes to the gateway** (health identical to the workers.dev gateway; chat without a key gives 401). **The smoke test can't run:** the GPU backend was down at the time (gateway `reachable: false`; the droplet didn't answer SSH and its tunnel was unreachable). |
 | `openatlas-site.isaacbenedict001.workers.dev` | Works (200). |
 | `openatlas-gateway.isaacbenedict001.workers.dev` | Works (health 200, 401 without a key). Same backend outage. |
