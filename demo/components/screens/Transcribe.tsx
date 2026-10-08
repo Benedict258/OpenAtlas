@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Screen from "@/components/Screen";
 import LangSelect from "@/components/LangSelect";
 import Waiting from "@/components/Waiting";
@@ -8,6 +8,7 @@ import ErrorPanel from "@/components/ErrorPanel";
 import { TRANSCRIBE_LANGS } from "@/lib/langs";
 import { DemoApiError, postForm } from "@/lib/client/api";
 import { useWaiting } from "@/lib/client/useWaiting";
+import { useRecorder } from "@/lib/client/useRecorder";
 
 const MAX_SECONDS = 30;
 const MAX_UPLOAD_BYTES = 7 * 1024 * 1024;
@@ -46,42 +47,12 @@ function extFor(mime: string): string {
 export default function Transcribe() {
   const [language, setLanguage] = useState("ha");
   const [clip, setClip] = useState<Clip | null>(null);
-  const [recording, setRecording] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [level, setLevel] = useState(0);
-  const [recError, setRecError] = useState<string | null>(null);
   const [clipError, setClipError] = useState<string | null>(null);
   const [result, setResult] = useState<TranscribeOk | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const { waiting, seconds, start, stop } = useWaiting();
-
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const recordingRef = useRef(false);
-  const startedRef = useRef(0);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const rafRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  function teardownRecorder() {
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = null;
-    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    void audioCtxRef.current?.close().catch(() => {});
-    audioCtxRef.current = null;
-    recorderRef.current = null;
-    recordingRef.current = false;
-    setRecording(false);
-    setLevel(0);
-  }
-
-  useEffect(() => teardownRecorder, []);
 
   function setNewClip(blob: Blob, source: "record" | "upload", label: string, fileName: string) {
     setResult(null);
@@ -91,92 +62,10 @@ export default function Transcribe() {
     });
   }
 
-  async function startRecording() {
-    setRecError(null);
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      setRecError("This browser does not support audio recording.");
-      return;
-    }
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (err) {
-      const name = err instanceof DOMException ? err.name : "";
-      setRecError(
-        name === "NotAllowedError" || name === "SecurityError"
-          ? "Microphone permission was denied. Allow the microphone in your browser and try again."
-          : name === "NotFoundError"
-            ? "No microphone was found on this device."
-            : "Could not open the microphone. Please check your input device.",
-      );
-      return;
-    }
-
-    streamRef.current = stream;
-    const mime = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((m) =>
-      MediaRecorder.isTypeSupported(m),
-    );
-    const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-    recorderRef.current = recorder;
-    chunksRef.current = [];
-
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
-    recorder.onstop = () => {
-      const type = recorder.mimeType || mime || "audio/webm";
-      const blob = new Blob(chunksRef.current, { type });
-      const ms = Math.min(Date.now() - startedRef.current, MAX_SECONDS * 1000);
-      const wasRecording = recordingRef.current;
-      teardownRecorder();
-      if (!wasRecording) return;
-      if (blob.size > 0) {
-        setNewClip(blob, "record", `Recording · ${clock(ms)}`, `recording.${extFor(type)}`);
-      } else {
-        setRecError("That recording was empty — please record again.");
-      }
-    };
-
-    // Level meter from the same stream.
-    try {
-      const ctx = new AudioContext();
-      audioCtxRef.current = ctx;
-      const source = ctx.createMediaStreamSource(stream);
-      const analyser = ctx.createAnalyser();
-      analyser.fftSize = 512;
-      source.connect(analyser);
-      const buf = new Uint8Array(analyser.frequencyBinCount);
-      const tick = () => {
-        analyser.getByteTimeDomainData(buf);
-        let peak = 0;
-        for (let i = 0; i < buf.length; i++) {
-          peak = Math.max(peak, Math.abs(buf[i] - 128));
-        }
-        setLevel(Math.min(100, Math.round((peak / 128) * 100 * 1.6)));
-        rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
-    } catch {
-      // the level meter is optional
-    }
-
-    startedRef.current = Date.now();
-    setElapsed(0);
-    setRecording(true);
-    recordingRef.current = true;
-    recorder.start();
-    timerRef.current = setInterval(() => {
-      const ms = Date.now() - startedRef.current;
-      setElapsed(ms);
-      if (ms >= MAX_SECONDS * 1000) stopRecording();
-    }, 100);
-  }
-
-  function stopRecording() {
-    const rec = recorderRef.current;
-    if (rec && rec.state !== "inactive") rec.stop();
-    else teardownRecorder();
-  }
+  const recorder = useRecorder(MAX_SECONDS, (blob, durationMs) => {
+    setNewClip(blob, "record", `Recording · ${clock(durationMs)}`, `recording.${extFor(blob.type)}`);
+  });
+  const { recording, elapsed, level, error: recError } = recorder;
 
   function takeFile(file: File) {
     setClipError(null);
@@ -233,7 +122,7 @@ export default function Transcribe() {
           <h3>Record in the browser</h3>
           {!recording ? (
             <div className="row" style={{ gap: 16 }}>
-              <button type="button" className="mic" onClick={() => void startRecording()} disabled={waiting}>
+              <button type="button" className="mic" onClick={() => void recorder.start()} disabled={waiting}>
                 <span aria-hidden>●</span>
               </button>
               <div className="col" style={{ gap: 4 }}>
@@ -243,7 +132,7 @@ export default function Transcribe() {
             </div>
           ) : (
             <div className="row" style={{ gap: 16 }}>
-              <button type="button" className="mic on" onClick={stopRecording} title="Stop recording">
+              <button type="button" className="mic on" onClick={recorder.stop} title="Stop recording">
                 <span aria-hidden>■</span>
               </button>
               <div className="col grow" style={{ gap: 8 }}>

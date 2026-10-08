@@ -1,12 +1,7 @@
-import Screen from "@/components/Screen";
+import Voice from "@/components/screens/Voice";
 
-export const metadata = { title: "Voice pipeline: speak, get an answer, hear it back" };
+export const metadata = { title: "Voice conversation" };
 
 export default function Page() {
-  return (
-    <Screen title="Voice pipeline: speak, get an answer, hear it back" desc="transcribe() → chat() → speak(), chained.">
-      <div className="panel"><p className="empty">Under construction — built next.</p></div>
-    </Screen>
-  );
+  return <Voice />;
 }
-
