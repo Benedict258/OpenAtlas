@@ -6,8 +6,8 @@
 // - Stores reportIssue() submissions in the same D1 database.
 // - Proxies to whichever backend the config names, holding its credential:
 //     BACKEND_KIND=http    any host serving the backend contract (deploy/server/natlas_server.py):
-//                          Colab (interim) or NiHub. Set BACKEND_URL + BACKEND_API_KEY.
-//     BACKEND_KIND=runpod  RunPod Serverless (fallback): RUNPOD_API_KEY + LLM/ASR endpoint IDs.
+//                          Colab, Kaggle or AMD. Set BACKEND_URL + BACKEND_API_KEY.
+//     BACKEND_KIND=runpod  RunPod Serverless (scripted, never run): RUNPOD_API_KEY + LLM/ASR endpoint IDs.
 //   Switching hosts is `wrangler secret put` (deploy/set-backend.mjs), not a code change.
 
 export interface Env {
@@ -332,7 +332,7 @@ async function chat(req: Request, env: Env, key: ApiKey) {
     messages: finalMessages,
     max_tokens: Math.min(Number(body.max_tokens) || 512, 1024),
     temperature: typeof body.temperature === "number" ? body.temperature : 0.1,
-    // Carried over from the Safroi Colab notebook, tested against real N-ATLaS weights.
+    // Carried over from an earlier Colab notebook, tested against real N-ATLaS weights.
     repetition_penalty: 1.12,
     // N-ATLaS's chat template otherwise hard-codes "Today Date: 26 Jul 2024".
     chat_template_kwargs: { date_string: today },

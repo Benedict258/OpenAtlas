@@ -1,5 +1,5 @@
 """Generate deploy/colab/openatlas_colab.ipynb from natlas_server.py, so Colab runs exactly
-the server that NiHub will run. Re-run after editing the server:
+the server that Kaggle and the AMD host run (Colab, Kaggle or AMD). Re-run after editing the server:
 
     python deploy/server/build_notebook.py
 """
@@ -32,7 +32,7 @@ cells = [
 # OpenAtlas backend on Colab (INTERIM dev/test host)
 
 Runs the N-ATLaS LLM (4-bit) and all four N-ATLaS ASR models on a free T4, behind a free Cloudflare
-quick tunnel, using `deploy/server/natlas_server.py` from the OpenAtlas repo, the same server intended for NiHub.
+quick tunnel, using `deploy/server/natlas_server.py` from the OpenAtlas repo, the same server that runs on Kaggle and the AMD host.
 
 **This is not the real deployment.** Colab disconnects when idle, ends sessions after ~12 h, and the
 tunnel URL changes every run. After every (re)start, point the gateway at the new URL (last cell).

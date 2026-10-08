@@ -1,6 +1,6 @@
 // Real end-to-end check through the PUBLIC gateway with the SDK: chat() in four languages,
 // transcribe() on real speech clips with human reference transcripts, and reportIssue() + export.
-// Records which backend host served the run, so results can't be confused across Colab / NiHub.
+// Records which backend host served the run, so results can't be confused across Colab, Kaggle and AMD.
 //
 // Prereqs: gateway pointed at a backend (deploy/set-backend.mjs); clips from scripts/dev/fetch-test-audio.mjs.
 // Usage (repo root): node --env-file=.env scripts/smoke-gateway.mjs

@@ -3,7 +3,7 @@
 // Uses RunPod's official vLLM worker image, so no custom container build is needed.
 // N-ATLaS is a Llama-3 8B fine-tune: fp16 weights are ~16 GB, which fits a 24 GB GPU
 // with an 8k context, so no quantization is applied by default. Set QUANTIZATION=bitsandbytes
-// to force 4-bit (same scheme the Safroi Colab notebook used on a T4).
+// to force 4-bit (same scheme an earlier Colab notebook used on a T4).
 //
 // Usage:
 //   node --env-file=.env deploy/runpod/llm/deploy-llm.mjs

@@ -1,4 +1,4 @@
-// Real-world validation: the tester sessions logged through the website's /tester form (operator only;
+// Tester feedback: the sessions logged through the website's /tester form (operator only;
 // needs OPENATLAS_ADMIN_TOKEN). Testers are known only by the reference you give them (T01, T02, …);
 // keep the reference → person mapping yourself, outside this system.
 //

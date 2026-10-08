@@ -1,13 +1,14 @@
 """OpenAtlas backend server: N-ATLaS LLM + the four N-ATLaS ASR models behind one HTTP API.
 
 Implements the backend contract the OpenAtlas gateway calls when BACKEND_KIND=http
-(docs/planning/OpenAtlas_Architecture_DevPlan.md §3.3). The same file runs on the AMD MI300X host (deploy/amd), in
+(docs/natlas-integration.md, section 4). The same file runs on the AMD MI300X host (deploy/amd), in
 Docker on any NVIDIA GPU, or by hand, so moving hosts is a gateway config change only.
 
     GET  /health                    -> {"status": "ok"|"loading"|"error", "llm": bool, "asr": [...], ...}
     POST /v1/chat/completions       OpenAI-style request/response
     POST /v1/audio/transcriptions   multipart (audio file + language), or JSON {"audio_base64", "language"}
-                                    -> {"text", "language", "model", "inference_ms"}
+                                    -> {"text", "language", "model", "audio_seconds", "pieces", "inference_ms"}
+    POST /v1/audio/speech           only with ENABLE_TTS=1; added by tts_renderer.py, not by this file
 
 Every route except /health requires `Authorization: Bearer $BACKEND_API_KEY`.
 
@@ -20,9 +21,10 @@ Environment:
     ENABLE_TTS        "1" adds the optional speech renderer (tts_renderer.py, POST /v1/audio/speech),
                       loaded after the N-ATLaS models. Off by default. TTS_SOROTTS=0 loads MMS-TTS only.
 
-Inference settings carried over from the Safroi Colab notebook, which ran against the real
-N-ATLaS weights: repetition penalty 1.12, current date passed into the chat template's
-`date_string` (it otherwise says "26 Jul 2024"), 4-bit NF4 quantization on small GPUs.
+Inference settings carried over from an earlier Colab notebook, which ran against the real
+N-ATLaS weights: repetition penalty 1.12, and the current date passed into the chat template's
+`date_string` (it otherwise says "26 Jul 2024"). This server has no quantization path: the LLM loads
+in bf16 (fp16 where bf16 isn't supported).
 
 N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital
 Economy, and powered by Awarri Technologies.

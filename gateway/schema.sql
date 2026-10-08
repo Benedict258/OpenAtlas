@@ -55,8 +55,9 @@ CREATE TABLE IF NOT EXISTS issue_reports (
 );
 CREATE INDEX IF NOT EXISTS idx_issue_reports_created ON issue_reports (created_at);
 
--- API key requests from the website form. Approved by hand: POST /v1/admin/key-requests/approve
--- issues a key (api_keys) and marks the request approved. The key itself is never stored here.
+-- API key requests from the website form. Reviewed by hand: POST /v1/admin/key-requests/decide with
+-- decision "approve" issues a key (api_keys) and marks the request approved; "decline" marks it declined.
+-- The key itself is never stored here.
 CREATE TABLE IF NOT EXISTS key_requests (
   id              TEXT PRIMARY KEY,
   created_at      INTEGER NOT NULL,

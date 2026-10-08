@@ -1,4 +1,4 @@
-// Points the live OpenAtlas gateway at an N-ATLaS backend (Colab tunnel, NiHub, or any host running
+// Points the live OpenAtlas gateway at an N-ATLaS backend (Colab, Kaggle or AMD, or any host running
 // deploy/server/natlas_server.py). Config only: sets two Worker secrets; no code change or redeploy.
 //
 // Usage (repo root): node --env-file=.env deploy/set-backend.mjs <backend-url>
