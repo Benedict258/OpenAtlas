@@ -16,7 +16,7 @@ OUT = ROOT / "dist" / "submission" / "OpenAtlas-NATLaS-Integration-Evidence.zip"
 
 FILES = {
     "docs/natlas-integration.md": "The integration write-up: models, loading, serving, request flow, attribution, limits.",
-    "docs/REPORT.md": "Running verification record: every live check with real outputs and numbers (sections 28-29: AMD MI300X; 31: playground, text chat, tester log).",
+    "docs/REPORT.md": "Running verification record: every live check with real outputs and numbers (sections 28-29: AMD MI300X; 31: playground, text chat).",
     "deploy/server/natlas_server.py": "Loads NCAIR1/N-ATLaS (bf16) and the four NCAIR1 ASR models (fp16) on the GPU; serves them over HTTP.",
     "deploy/server/tts_renderer.py": "Optional speech output after N-ATLaS (separate, non-N-ATLaS TTS models).",
     "deploy/amd/bootstrap.sh": "Brings up the backend on the AMD MI300X droplet: GPU check, setup, start, tunnel, load, warm-up.",
@@ -26,7 +26,7 @@ FILES = {
     "deploy/amd/up.mjs": "One command from a developer machine: upload, bootstrap, connect the gateway.",
     "deploy/colab/natlas_kaggle.ipynb": "The same backend on a free Kaggle T4 x2 (the free, reproducible path).",
     "gateway/src/index.ts": "Public API: key auth, license-cap counting, per-key limits, attribution, forwarding to N-ATLaS.",
-    "gateway/schema.sql": "D1 tables: hashed keys, hashed active users, request log, corrections, tester sessions.",
+    "gateway/schema.sql": "D1 tables: hashed keys, hashed active users, request log, corrections, key requests.",
     "gateway/wrangler.toml": "Gateway settings: 1,000-user cap, 30-day window, per-key defaults, timeouts.",
     "sdk/src/client.ts": "@openatlas/sdk: chat(), transcribe(), speak(), reportIssue().",
     "sdk/src/types.ts": "Typed request/response shapes, including the N-ATLaS model IDs.",

@@ -923,7 +923,7 @@ All relative links in the main docs resolve.
 
 ---
 
-### 31. Playground, Customer Service text chat, tester log
+### 31. Playground, Customer Service text chat
 
 **Playground** (`/playground`; [`site/src/playground.mjs`](../site/src/playground.mjs), [`site/pages/playground.js`](../site/pages/playground.js)): `chat()`, `transcribe()` and `speak()` from the browser on the website's shared demo key. Each response is shown as the SDK returned it, next to the SDK code that makes the same call.
 - **Abuse safeguards:**
@@ -978,16 +978,6 @@ All relative links in the main docs resolve.
 Recorded as KI-16.
 
 **Through the website:** `POST /api/support/chat` answered in 1.6 s. In the browser, a two-turn English exchange (broken blender, then refund time) used the first turn in the second.
-
-**Tester feedback form** (`/tester`, gateway table `tester_sessions`, migration `0002`, operator script [`scripts/testers.mjs`](../scripts/testers.mjs)). Fields: a tester reference (no name or contact field), type, features tested, languages, outcome, minutes to first call, three 1–5 ratings, issues with severity and an optional `reportIssue()` id, feedback, API key label, consent to store (required) and consent to quote (named, anonymous, no).
-- **Live checks:**
-  - a valid submission returned 201;
-  - no consent, a bad reference, an unknown feature and an out-of-range rating each returned 400;
-  - extra `name` and `email` fields were accepted but not stored (checked in the admin export);
-  - the admin export without a token returned 401.
-- **`testers.mjs`:** the list, `summary` (Markdown) and `csv` all worked, and `delete <ref>` removed the rows.
-- **Browser:** the empty-form message listed every missing answer; a full submission was recorded; the phone layout fits.
-- **Test rows:** all deleted. The table holds 0 sessions.
 
 ## 2026-10-06
 
@@ -1086,6 +1076,7 @@ The tester form wasn't part of this run.
   - gitleaks 8.21.2: 2 hits, both the CI smoke test's made-up key in `backend-image.yml`. trufflehog 3.88.0: 0.
   - Every value in the local secret files (`.env`, `.npmrc`, `.dev.vars`, kit `.env`s) was searched for in every blob in history: none of the real credentials appears. The only matches are public URLs and the mock-backend values.
   - Infrastructure details (a destroyed droplet's address, a local file path) were replaced with placeholders.
+- **Tester feedback form removed** before publication: the `/tester` page, the gateway's tester-session routes, the `tester_sessions` table definition and migration, and `scripts/testers.mjs`. The live D1 table was not touched.
 - **Private material:** `.gitignore` had a UTF-16 line, so a private planning file was not actually ignored. Rewritten; it now also covers the design source file, internal notes and tester exports.
 - **Clean install of the published SDK** (`@openatlas/sdk@0.1.1`, empty folder): installs and imports; `normalizeText()` works; `chat()` reaches the gateway at both `api.getopenatlas.xyz` and the workers.dev address and passes key auth (a made-up key gets `401 invalid_api_key`), then returns `503 backend_unavailable`, because the GPU backend is off (gateway health `reachable: false`). **No real answer this time.**
 - **Clean clone:** `npm install`, `npm run build` and the SDK tests pass (32/32). The Citizen Services kit starts exactly as its README says and reports `backend: offline`.

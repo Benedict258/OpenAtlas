@@ -84,14 +84,12 @@ A Cloudflare Worker (TypeScript) with a Cloudflare D1 (SQLite) database, on Clou
 
 **Other public routes:**
 - `GET /v1/health` (no key);
-- `POST /v1/key-requests` (the website's request form);
-- `POST /v1/tester-sessions` (the website's tester feedback form).
+- `POST /v1/key-requests` (the website's request form).
 
 **Admin routes (admin token):**
 - `GET/POST /v1/admin/keys`, `/v1/admin/keys/revoke`, `/v1/admin/keys/limits`;
 - `GET /v1/admin/issues`;
 - `GET /v1/admin/key-requests`, `POST /v1/admin/key-requests/decide` (`decision`: `approve` or `decline`);
-- `GET /v1/admin/tester-sessions`, `POST /v1/admin/tester-sessions/delete`;
 - `GET /v1/usage`.
 
 **Data model** ([`gateway/schema.sql`](../gateway/schema.sql)):
@@ -103,7 +101,6 @@ A Cloudflare Worker (TypeScript) with a Cloudflare D1 (SQLite) database, on Clou
 | `request_log` | time, key, route, status, latency. **No request or response content.** |
 | `issue_reports` | corrections sent via `reportIssue()`: output, correction, optional input, note and audio; the user hashed |
 | `key_requests` | requests from the website form, pending/approved/declined |
-| `tester_sessions` | submissions from the `/tester` feedback form: a tester reference, never a name or contact |
 
 **Per request** (chat shown):
 1. authenticate the key;
@@ -159,7 +156,7 @@ Backend failures map to stable codes: `502 backend_error` (not retried), `503 ba
 
 ### 3.5 Website and starter kits ([`site/`](../site/), [`starter-kits/`](../starter-kits/))
 
-**The website** is a Cloudflare Worker serving static pages (home, docs, starter kits, playground, architecture, key request, tester form) and an `/api/*` backend for the live demos. It calls the gateway with its own key, which never reaches the browser.
+**The website** is a Cloudflare Worker serving static pages (home, docs, starter kits, playground, architecture, key request) and an `/api/*` backend for the live demos. It calls the gateway with its own key, which never reaches the browser.
 
 **The playground** (`/playground`, logic in [`site/src/playground.mjs`](../site/src/playground.mjs)) lets a visitor call `chat()`, `transcribe()` and `speak()` from the browser with no SDK, key or sign-up:
 - **Chat:** multi-turn, with reply language, optional system prompt, `max_tokens` and `temperature`.
@@ -201,8 +198,7 @@ Backend failures map to stable codes: `502 backend_error` (not retried), `503 ba
 | Backend credential | The backend's key lives in the gateway (Worker secret). Developers never see it. |
 | GPU host exposure | The server binds `127.0.0.1` inside its container, and the tunnel is the only way in. Checked from outside: the droplet's port 8000 doesn't answer. |
 | Secrets in transit to the host | Passed over SSH as environment variables, never written to the droplet's disk or a command line. |
-| Abuse | Per-key daily limits and per-key user shares; website per-IP limits; server-derived website user IDs; playground input caps (3.5); at most 200 tester sessions an hour. |
-| Tester data | No names or contact details are collected; consent is required to store and asked separately for quoting; deletion by tester reference. |
+| Abuse | Per-key daily limits and per-key user shares; website per-IP limits; server-derived website user IDs; playground input caps (3.5). |
 | Browser use | The gateway sends no CORS headers: keys belong on servers, as the starter kits do it. |
 
 ## 5. Setup
@@ -263,7 +259,6 @@ curl -s https://api.getopenatlas.xyz/v1/chat/completions \
 | Usage report (Markdown) | `scripts/keys.mjs report` |
 | Point the gateway at a backend | `node --env-file=.env deploy/set-backend.mjs <tunnel-url>` |
 | Export corrections | `GET /v1/admin/issues?since=<ms>&audio=1` |
-| Tester sessions | `node --env-file=.env scripts/testers.mjs` (`summary`, `csv`, `delete <ref>`) |
 
 ## 7. Verification
 

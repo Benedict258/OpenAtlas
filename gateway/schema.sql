@@ -71,32 +71,3 @@ CREATE TABLE IF NOT EXISTS key_requests (
   decided_at      INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_key_requests_status ON key_requests (status, created_at);
-
--- Real-world validation: one row per tester session, from the website's /tester form. Deliberately no
--- names or contact details: testers are given a reference (T01, T02, …) and the operator keeps the
--- reference → person mapping elsewhere. consent_store must be 1 for a row to exist; consent_quote says
--- whether feedback may be quoted in the submission ('named' | 'anonymous' | 'no'). tested and languages
--- are JSON arrays. Withdrawal: POST /v1/admin/tester-sessions/delete removes every row for a reference.
--- (Existing databases: migrations/0002_tester_sessions.sql.)
-CREATE TABLE IF NOT EXISTS tester_sessions (
-  id                     TEXT PRIMARY KEY,
-  created_at             INTEGER NOT NULL,
-  tester_ref             TEXT NOT NULL,
-  tester_type            TEXT NOT NULL,          -- 'developer' | 'student' | 'organisation' | 'other'
-  consent_store          INTEGER NOT NULL,
-  consent_quote          TEXT NOT NULL,
-  tested                 TEXT NOT NULL,
-  languages              TEXT NOT NULL,
-  outcome                TEXT NOT NULL,          -- 'worked' | 'partly' | 'failed'
-  minutes_to_first_call  INTEGER,
-  rating_setup           INTEGER,                -- 1-5
-  rating_quality         INTEGER,                -- 1-5
-  rating_docs            INTEGER,                -- 1-5
-  issues                 TEXT,
-  issue_severity         TEXT,                   -- 'none' | 'minor' | 'major' | 'blocker'
-  issue_report_id        TEXT,                   -- optional reportIssue() id
-  feedback               TEXT,
-  api_key_label          TEXT                    -- label only, to match the tester's gateway usage
-);
-CREATE INDEX IF NOT EXISTS idx_tester_sessions_created ON tester_sessions (created_at);
-CREATE INDEX IF NOT EXISTS idx_tester_sessions_ref ON tester_sessions (tester_ref);

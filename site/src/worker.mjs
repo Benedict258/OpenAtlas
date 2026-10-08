@@ -85,7 +85,7 @@ export default {
       if (!body || typeof body !== "object") return json(400, { error: "Request body must be JSON." });
 
       // Forms whose data the gateway stores (it owns the database); forwarded as-is.
-      const FORMS = { "/api/key-request": "/v1/key-requests", "/api/tester-session": "/v1/tester-sessions" };
+      const FORMS = { "/api/key-request": "/v1/key-requests" };
       if (FORMS[pathname]) {
         const res = await gatewayFetch(`${gateway}${FORMS[pathname]}`, {
           method: "POST",
