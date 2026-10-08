@@ -1,5 +1,6 @@
 import { DEFAULT_BASE_URL } from "@openatlas/sdk";
 import { requireSession } from "@/lib/server/api";
+import { isMock } from "@/lib/server/client";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export async function GET() {
 
   const base = process.env.OPENATLAS_BASE_URL || DEFAULT_BASE_URL;
   let reachable: boolean | null = null;
-  let mock = false;
+  let mockFromHealth = false;
 
   if (base) {
     try {
@@ -33,7 +34,7 @@ export async function GET() {
           status?: string;
           backend?: { reachable?: boolean; mock?: boolean };
         };
-        mock = data.backend?.mock === true;
+        mockFromHealth = data.backend?.mock === true;
         reachable = typeof data.backend?.reachable === "boolean" ? data.backend.reachable : null;
       } else {
         reachable = false;
@@ -43,6 +44,9 @@ export async function GET() {
     }
   }
 
+  // The app is in mock mode when DEMO_MOCK is set locally or the gateway's own
+  // backend reports mock — either way the dot must not claim a live model server.
+  const mock = isMock() || mockFromHealth;
   const body = { ok: true as const, reachable, mock };
   cache = { at: now, body };
   return Response.json(body);

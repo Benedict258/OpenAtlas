@@ -151,6 +151,11 @@ a {
   background: var(--warn);
 }
 
+.status-dot.mock {
+  background: var(--warn);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--warn) 70%, transparent);
+}
+
 .mock-banner {
   background: var(--warn);
   color: #2a1d00;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type State = "loading" | "up" | "down" | "unknown";
+type State = "loading" | "up" | "down" | "unknown" | "mock";
 
 interface StatusResponse {
   ok: boolean;
@@ -22,7 +22,11 @@ export default function StatusDot() {
         if (!res.ok) throw new Error(String(res.status));
         const data: StatusResponse = await res.json();
         if (!alive) return;
-        setState(data.reachable === true ? "up" : data.reachable === false ? "down" : "unknown");
+        if (data.mock) {
+          setState("mock");
+        } else {
+          setState(data.reachable === true ? "up" : data.reachable === false ? "down" : "unknown");
+        }
       } catch {
         if (alive) setState("unknown");
       }
@@ -41,14 +45,26 @@ export default function StatusDot() {
       ? "Model server reachable"
       : state === "down"
         ? "Model server unreachable"
-        : state === "loading"
-          ? "Checking model server…"
-          : "Model server status unknown";
+        : state === "mock"
+          ? "Mock mode — not N-ATLaS"
+          : state === "loading"
+            ? "Checking model server…"
+            : "Model server status unknown";
 
   return (
     <span className="status" title={label}>
       <span
-        className={`status-dot${state === "up" ? " up" : state === "down" ? " down" : state === "unknown" ? " unknown" : ""}`}
+        className={`status-dot${
+          state === "up"
+            ? " up"
+            : state === "down"
+              ? " down"
+              : state === "mock"
+                ? " mock"
+                : state === "unknown"
+                  ? " unknown"
+                  : ""
+        }`}
         aria-hidden
       />
       {label}
