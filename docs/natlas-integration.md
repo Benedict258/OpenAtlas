@@ -2,7 +2,7 @@
 
 How OpenAtlas uses the N-ATLaS models: which models, how they are loaded and served on the GPU, how a request travels from an app to a model and back, and how attribution, the license cap and rate limits are handled.
 - **Source:** every statement points to the file that implements it.
-- **Evidence:** every number comes from a recorded check in [`REPORT.md`](REPORT.md). Sections 28–29 cover the current AMD host.
+- **Evidence:** every number comes from a recorded check in [`REPORT.md`](REPORT.md). Sections 28–29 and 32 cover the AMD host.
 
 ## 0. Verifying the integration yourself
 
@@ -22,7 +22,7 @@ A hosted API can only *report* which model answered, so these checks go from qui
 
 All five N-ATLaS models are used, unmodified, from their Hugging Face repositories. They are gated: the backend downloads them at start-up with a Hugging Face token, and no weights are stored in this repository.
 
-| Model | Hugging Face ID | Used for | Precision on the live host | SDK method |
+| Model | Hugging Face ID | Used for | Precision on the AMD host | SDK method |
 |---|---|---|---|---|
 | N-ATLaS LLM (Llama-3 8B fine-tune) | `NCAIR1/N-ATLaS` | Text in English, Hausa, Yoruba, Igbo | **bf16**, no quantization | `chat()` |
 | N-ATLaS ASR, Hausa (Whisper-small fine-tune) | `NCAIR1/Hausa-ASR` | Hausa speech to text | fp16 | `transcribe({ language: "ha" })` |
@@ -50,7 +50,7 @@ The optional speech output, `speak()`, uses **separate, non-N-ATLaS** text-to-sp
 
 ## 3. Loading and serving on the GPU
 
-**Live host:** one AMD Instinct MI300X (192 GB) on DigitalOcean's AMD Developer Cloud.
+**Primary host:** one AMD Instinct MI300X (192 GB) on DigitalOcean's AMD Developer Cloud, started on demand.
 - **Software:** ROCm 7.14, PyTorch `2.12.0+rocm7.14.0`, `transformers` 5.18.
 - **Where it runs:** the server runs inside the image's `rocm` Docker container.
 - **Built on free tools first:** the whole stack was built and proven on free Kaggle T4s; moving it to AMD was a gateway configuration change.

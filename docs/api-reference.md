@@ -18,7 +18,7 @@ Base URL: `https://api.getopenatlas.xyz` for the hosted service, or your own gat
 
 Response `200`: `{ "content": string, "model": "NCAIR1/N-ATLaS", "attribution": "Powered by Awarri", "usage": { prompt_tokens, completion_tokens, total_tokens } }`. `usage` is present only when the backend reports it.
 
-The gateway also sends N-ATLaS two settings that the caller doesn't control. Both come from the earlier Colab deployment, which was tested against the real weights:
+The gateway also sends N-ATLaS two settings that the caller doesn't control. Both were tested against the real weights:
 - `repetition_penalty: 1.12`
 - the current date (Africa/Lagos) as the chat template's `date_string`. Without it, the template tells the model "Today Date: 26 Jul 2024".
 
@@ -37,11 +37,11 @@ Models are named by their Hugging Face IDs, not renamed. `attribution` is the "P
 ### `POST /v1/audio/speech` (optional; off unless `TTS_ENABLED = "true"`)
 
 A text-to-speech renderer for text the app already has, normally N-ATLaS's reply.
-- **Not N-ATLaS:** the speech models are separate. It never changes, translates or answers the text.
+- **Not N-ATLaS:** an optional, separate text-to-speech renderer that adds no N-ATLaS capability. It never changes, translates or answers the text.
 - **Request:** `{ text (≤1,000 chars), language: "en"|"ha"|"yo"|"ig"|"pcm", engine?: "auto"|"sorotts"|"mms", user }`.
 - **Response:** `{ audio (base64 WAV), format, sample_rate, seconds, language, engine, model, voice, sentences, warnings, fallback_reason?, attribution }`.
 - **Engines:** `auto` uses SoroTTS (`Shinzmann/sorotts`) for a single sentence where it covers the language and is loaded. It uses MMS-TTS for longer text, for English, or if SoroTTS fails.
-  - **Why:** SoroTTS needs about 10 s per second of audio on a T4, so whole replies time out (docs/REPORT.md, KI-14).
+  - **Why:** SoroTTS is slower than real time (about 10 s per second of audio on a T4, about 2.8 s on the MI300X), so whole replies would time out (docs/REPORT.md, KI-14).
 - **Errors:**
   - `404 tts_disabled` when the gateway has it switched off;
   - `501 tts_unsupported_backend` on the RunPod backend.
@@ -91,6 +91,9 @@ With `kind: "runpod"` (fallback): `backend` is `{ kind, mock, llm_configured, as
 - `POST /v1/key-requests` (no auth): the website's request form. `{ name, email, project, use_case, expected_users?, accept_terms: true }` returns `201 { id, status: "pending" }`; `409 request_pending` if that email already has one pending.
 - `GET /v1/admin/key-requests?status=pending|approved|declined` lists requests. `POST /v1/admin/key-requests/decide` with `{ id, decision: "approve" | "decline" }`: approving issues a key (returned once, labelled with the requester's email and project). `scripts/key-requests.mjs` wraps both.
 - `GET /v1/admin/issues?since=<ms>&limit=<1-500>&audio=1` exports issue reports, oldest first: `{ issues: [...], next_since }`. Without `audio=1`, each row has `has_audio` instead of the clip. Page by passing `next_since` back as `since`.
+- `POST /v1/tester-sessions` (no auth): the website's tester feedback form. Requires `consent_store: true` and a `tester_ref` (the reference the operator gave, e.g. `T01`; no name or contact fields are accepted), plus `tester_type`, `consent_quote`, `tested`, `languages` and `outcome`; ratings, issues and feedback are optional. Returns `201 { id, tester_ref, received_at }`. At most 200 sessions an hour are accepted (`429 too_many_sessions`); invalid input gives `400 invalid_tester_session`.
+- `GET /v1/admin/tester-sessions?since=<ms>` exports tester sessions, oldest first, up to 500 a page: `{ sessions: [...], next_since }`.
+- `POST /v1/admin/tester-sessions/delete` with `{ tester_ref }` deletes every session for that reference (a tester withdrawing). Returns `{ tester_ref, deleted }`. `scripts/testers.mjs` wraps both admin routes.
 
 ### Errors
 
@@ -98,12 +101,13 @@ Every error looks like `{ "error": { "code": string, "message": string, "job_id"
 
 | Status | `code` | Meaning |
 |---|---|---|
-| 400 | `invalid_json`, `invalid_messages`, `invalid_language`, `invalid_audio`, `invalid_text`, `invalid_engine`, `missing_user`, `invalid_issue`, `invalid_request` | Bad request |
+| 400 | `invalid_json`, `invalid_messages`, `invalid_language`, `invalid_audio`, `invalid_text`, `invalid_engine`, `missing_user`, `invalid_issue`, `invalid_request`, `invalid_tester_session` | Bad request |
 | 401 | `missing_api_key`, `invalid_api_key`, `invalid_admin_token` | Auth |
 | 404 / 501 | `tts_disabled` / `tts_unsupported_backend` | Speech output switched off on this gateway, or not available on its backend |
 | 413 | `audio_too_large`, `issue_too_large`, `text_too_long` | Over a size limit |
 | 429 | `license_cap_reached` | 1,000 active end users reached; only new users are refused |
 | 429 | `key_user_share_reached`, `key_quota_exceeded` | This key's share of the cap, or its daily request limit |
+| 429 | `too_many_sessions` | The tester form's hourly ceiling |
 | 502 | `backend_error`, `upstream_error`, `upstream_failed`, `model_error`, `unexpected_upstream_shape`, `backend_auth_failed`, `backend_route_missing` | The backend or the model failed on this request. Not retried by the SDK |
 | 503 | `upstream_not_configured`, `backend_unavailable` | No backend connected, or it's down or still loading models |
 | 504 | `upstream_timeout` | Didn't finish within the gateway's wait (default 300 s) |

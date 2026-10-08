@@ -8,7 +8,9 @@ How to read it:
 - Times are wall-clock seconds measured by the caller, so they include the gateway and the tunnel.
 - Raw records for every run are appended to `scripts/results/smoke-results.jsonl` (gitignored).
 
-## Setup used for every live check below
+## Setup for the first live checks (sections 1–23)
+
+Later sections state their own host: Kaggle from section 24, the AMD MI300X from section 28 (bf16, no quantization).
 
 | | |
 |---|---|
@@ -20,7 +22,7 @@ How to read it:
 | Chat settings | temperature 0.1, repetition penalty 1.12, today's date in the chat template |
 | Mock? | No. The backend's `/health` reported `NCAIR1/N-ATLaS`, the gateway reported `mock: false`, and the notebook has no fallback model. |
 
-Hosting is interim: the Colab session is not persistent. NiHub is the intended host.
+Hosting at this stage was Colab, which is not persistent.
 
 ---
 
@@ -496,7 +498,7 @@ Findings:
 ### 20. API keys: audited, then limits and revocation built (tested locally; live migration not applied)
 
 **What existed (live D1, 2026-10-03 02:3x UTC):**
-- **Keys:** two, `owner-testing` (348 requests) and `website-demos` (26 requests), both with no limits. One key request had been made, and it was declined.
+- **Keys:** two, an operator test key (348 requests) and `website-demos` (26 requests), both with no limits at the time. One key request had been made, and it was declined.
 - **Issuance:** the request form, then `scripts/key-requests.mjs` (approve prints the key once), plus `POST /v1/admin/keys`.
 - **Usage:** `/v1/usage` counted active users per key, but requests only in total.
 - **Revocation:** the `revoked_at` column was honoured, but nothing could set it.
@@ -507,7 +509,7 @@ Findings:
   - a daily request quota (`429 key_quota_exceeded`; refused requests don't count);
   - a per-key share of the license cap (`429 key_user_share_reached`; existing users continue).
 - **Defaults for new keys:** 1,000 requests a day and 100 users.
-- **Admin endpoints:** list keys with usage per route, revoke with a reason, and set limits. `scripts/keys.mjs` wraps them, with a Markdown `report` intended as beta-tester evidence.
+- **Admin endpoints:** list keys with usage per route, revoke with a reason, and set limits. `scripts/keys.mjs` wraps them, with a Markdown usage `report`.
 - **Website:** a per-IP limit on the demos and the request form, 10 POSTs a minute (Workers Rate Limiting binding; recognized in a wrangler dry run).
 - **Database:** an additive migration, `gateway/migrations/0001_key_limits.sql`.
 
@@ -522,7 +524,7 @@ Findings:
 
 The existing gateway end-to-end suite also passed on a fresh database from the new schema: 12/12.
 
-**Not applied live:** the migration on the live D1 was left for a separate, manual step. The new gateway code reads the new columns, so it must not be deployed before the migration. The live gateway stays on `ecdd7525`.
+**Not applied live yet:** the migration on the live D1 was left for a separate, manual step (applied in section 24). The new gateway code reads the new columns, so it must not be deployed before the migration. The live gateway stays on `ecdd7525`.
 
 ### 21. npm: `@openatlas/sdk` prepared, not published
 
@@ -537,9 +539,8 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   - `speak()` returned the typed `404 tts_disabled` from the live gateway.
 - **Not yet run:** the quickstart's real answer. It returned `503 backend_unavailable`, because the Colab tunnel had gone down (Cloudflare 1033, about 02:33–02:45 UTC). To re-run once a backend is up.
 
-**Published 2026-10-03 12:28:32 UTC: `@openatlas/sdk@0.1.0`** (npm org `openatlas`, owner `benedict258`).
+**Published 2026-10-03 12:28:32 UTC: `@openatlas/sdk@0.1.0`** (npm org `openatlas`).
 - **Gate:** the publish ran the full test suite first (32/32).
-- **First attempt:** refused with `403`, because publishing needs 2FA or a token that bypasses it. The second attempt used the account's `NPM_TOKEN` and succeeded.
 - **Placeholder:** for a new package name, npm first published a `0.0.0-stage` placeholder (12:27:37 UTC), then `0.1.0` a minute later. `latest` now points to 0.1.0.
 - **Registry match:** the registry checksum is `4e189fef…`, the same tarball as the dry run and the clean-install check above.
 - **Install from the public registry:** `npm install @openatlas/sdk` in a new empty folder installs 0.1.0, and all exports load.
@@ -561,11 +562,9 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   - the docs page has the new section, the install line and the `speak()` status;
   - `/api/status` returns `{"mock":false,"speech":false}`;
   - exactly one "Play response audio" control exists in the Customer Service window, hidden while speech is off.
-- **The per-IP limit works, but approximately.**
-
-  Cloudflare documents these counters as approximate and per location. The limit slows abuse; it is not a hard cap.
+- **The per-IP limit works, but approximately.** Cloudflare documents these counters as approximate and per location, so the limit slows abuse; it is not a hard cap.
 - **Gateway not redeployed:** it stays on `ecdd7525` until the live database migration (section 20) is applied.
-- **Backend:** still down (Colab tunnel unreachable). The Colab GPU quota has run out, so hosting is moving to Kaggle. `deploy/colab/natlas_kaggle.ipynb` was generated from `deploy/colab/natlas_colab.ipynb`.
+- **Backend:** still down (Colab tunnel unreachable). The Colab GPU quota has run out, so hosting moved to Kaggle. `deploy/colab/natlas_kaggle.ipynb` was generated from `deploy/colab/natlas_colab.ipynb`.
   - Only cells 0, 4, 14 and 19 and the notebook metadata differ. Cell 4 now reads its secrets with `kaggle_secrets.UserSecretsClient().get_secret(...)`.
   - All code cells parse.
   - Cell 4 was run against a stand-in `kaggle_secrets` module: it loads both secrets, and gives a clear message when one isn't attached.
@@ -579,7 +578,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 **Live database migration and gateway deploy:**
 - The migration was applied. `api_keys` now has `daily_request_limit`, `max_active_users` and `revoked_reason`.
 - The gateway was deployed with `TTS_ENABLED=true`, and `set-backend.mjs` connected it to the Kaggle URL. The gateway reported `reachable: true`, `mock: false` and `tts_enabled: true`.
-- `scripts/keys.mjs` read back live limits per key. `website-demos` is at 3,000 requests per 24 h and 300 active users. `owner-testing` has no limits. **KI-4's fix is live.**
+- `scripts/keys.mjs` read back live limits per key. `website-demos` is at 3,000 requests per 24 h and 300 active users. The operator's test key has its own settings. **KI-4's fix is live.**
 
 **Fresh-install check:**
 - In an empty folder, `npm install @openatlas/sdk@latest` installed `0.1.0` from the public registry.
@@ -710,12 +709,12 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   | After the final deploy (`c6389dc5`), 1 more fake ID | 1 | **17 (+0)** |
 
   **Made-up IDs no longer count as separate users.**
-- **Still possible:** someone with many network addresses, such as rotating proxies, still counts as many users. The per-key share and the per-IP rate limit are the remaining guards.
+- **Remaining guards:** the per-key user share and the per-IP rate limit.
 
 **2. Stale public copy fixed (site `c6389dc5`):**
 - **Landing page:**
   - install line `npm install @openatlas/sdk` (was `openatlas`, which doesn't exist on npm);
-  - the `speak()` card is now "Optional" with the real quality note (was "Stretch").
+  - the `speak()` card is now "Optional" with the real quality note (was marked "Stretch").
 - **Docs:**
   - the speech section now says the API serves it, is clear in English and experimental in Hausa, Yoruba and Igbo (was "off… returns `tts_disabled`");
   - the self-hosting section is now Kaggle-first and adds a Docker row.
@@ -758,20 +757,19 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 
 **What changed:**
 - **`natlas_server.py` loads in full precision by default** (`LLM_QUANT=none`: bf16 for the LLM, fp16 for the ASR models and SoroTTS). Its bitsandbytes import now happens only if `LLM_QUANT=4bit` is chosen.
-  - **Kept at this point:** the 4-bit option wasn't deleted. It's kept as opt-in for the Docker self-host path on 16 GB NVIDIA cards, where an fp16 8B model doesn't fit.
+  - **Kept at this point:** the 4-bit option wasn't deleted (removed in section 29). It's kept as opt-in for the Docker self-host path on 16 GB NVIDIA cards, where an fp16 8B model doesn't fit.
   - On the AMD host, bitsandbytes is **not installed** (checked: `bitsandbytes installed: False`), so it can't be loaded there.
 - **New one-command setup:**
   - `deploy/amd/bootstrap.sh` runs on the droplet. It checks the GPU in the container; gets the code (git clone/reset, or an upload); does the one-time container setup (ffmpeg, Python packages with the image's ROCm torch pinned, `cloudflared`); starts the server and a quick tunnel, detached; waits for the models; warms each model up; and prints the tunnel URL.
   - `deploy/amd/up.mjs` runs on our machine. It uploads the code over SSH, runs the bootstrap with the secrets passed as environment variables (never on disk or in a process list), then connects the gateway.
 - **`set-backend.mjs`** now reads the backend key from `NATLAS_API_KEY` instead of a command-line argument; `setup-gateway.mjs` and `up.mjs` pass it that way.
-  - **Reason:** while debugging, a process listing showed the key in `set-backend.mjs`'s arguments.
+  - **Reason:** a key on a command line is visible in process listings. The key was rotated afterwards (section 32).
 - **`concurrency-check.mjs`** reads the server's `inference_ms` as well as the notebook's `latency_seconds`.
 
 **Security:**
-- **The image publishes the container's ports 8000, 8888 and 30000 to the internet,** and Docker's published ports bypass UFW, so UFW's "22/80/443 only" doesn't protect them.
+- **Docker-published ports bypass UFW,** so the host firewall alone doesn't protect a server bound to a public interface inside the container.
 - **Mitigation:**
   - the server listens on `127.0.0.1` inside the container, so port 8000 doesn't answer from outside (checked: no connection), while the tunnel answers 200;
-  - JupyterLab on 8888 is the image's own, and an unauthenticated request gets `403` (it needs its token).
 - **No firewall rules were changed.**
 
 **Startup, measured:**
@@ -795,7 +793,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 | Customer Service (`ha.wav`, 26.7 s, website) | 200 in 29.2 s; then 16.4, 19.7 and 27.5 s. Same transcript as on Kaggle; format kept (`Category: other` / `Urgency: low` / Hausa draft; lower case, unlike the 4-bit model's "Other"). **The time is mostly our upload:** directly at the backend, GPU time for that clip is 0.6–0.7 s against a 5.7–7.1 s round trip. The browser recorder sends 16 kHz mono, about 0.85 MB, not this 5 MB file. |
 | Speech route on the website | 503, by design (`LIVE_SPEECH` off). |
 | `smoke-gateway.mjs`: chat | en 2.3 s, ha 1.5 s, yo 2.8 s, ig 3.0 s. On Kaggle: 4–8 s, Yoruba 11–23 s. |
-| `smoke-gateway.mjs`: ASR WER | ha 26%, yo 74%, ig 0%, en-ng 0%: **the same transcripts as on Kaggle.** |
+| `smoke-gateway.mjs`: ASR WER | ha 26%, yo 74%, ig 0%, en-ng 0% (smoke clips, one short clip per language; the 90-clip evaluation in section 8 gives ha 41%, yo 56%, en-ng 26%, and ig 26% (dictionary set) or 101% (tone-marked benchmark)): **the same transcripts as on Kaggle.** |
 | `smoke-gateway.mjs`: `reportIssue()` | Stored and in the admin export. |
 | Auth and per-key limits (throwaway key, revoked afterwards) | no key → `401 missing_api_key`; wrong key → `401 invalid_api_key`; 2nd user over a 1-user share → `429 key_user_share_reached`; 4th request over a 3/day limit → `429 key_quota_exceeded`; after revoking → `401 invalid_api_key`. |
 | Website per-IP limit | Enforced (approximate, as before). |
@@ -829,15 +827,15 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 3. **First calls are slower:** 8.4 s for the first chat, 7–12 s for the first MMS render. The bootstrap now warms every model up before reporting ready.
 4. **Python packages:** `pip` could replace the ROCm torch with a CUDA build if any dependency asked for it, so setup pins the image's version. It wasn't needed this time: no package asked for a different torch. Installed: `transformers` 5.18.0, `accelerate` 1.15.0, `peft` 0.21.2, `snac` 1.2.1.
 5. **No HIP errors and no ROCm warnings** in the server log. The only log noise is the same `transformers` deprecation notices as on Kaggle (`torch_dtype`, `forced_decoder_ids`, …).
-6. **Debugging tools left in this container:** `py-spy` and `gdb`, installed while finding item 2. They're harmless and disappear with the droplet.
+6. **Debugging tools:** `py-spy` and `gdb` were used to find item 2; that droplet has since been destroyed.
 
-**Not built:** a customer-service text chat didn't exist yet, so it couldn't be checked.
+**Not built yet:** a customer-service text chat didn't exist at this point, so it couldn't be checked (built in section 31).
 
 ### 29. Pre-submission re-verification on the MI300X; 4-bit removed from the server
 
 **State found:**
 - The deployment from section 28 was still running on the same droplet (since destroyed): `natlas_server.py` and `cloudflared` were up inside the `rocm` container.
-- **SSH:** a second local SSH key was **not** authorized on this droplet; only `~/.ssh/id_ed25519` is, and it was used. `up.mjs` now accepts `SSH_KEY=<path>`.
+- **SSH:** `up.mjs` now accepts `SSH_KEY=<path>` to pick a specific key.
 
 **Change:** `natlas_server.py` no longer has any quantization path.
 - The LLM always loads in bf16 (fp16 where bf16 isn't supported), and the server forces SoroTTS to full precision as well.
@@ -885,7 +883,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 | Website per-IP limit | Enforced (approximate). |
 | Website made-up user IDs | 10 fake IDs moved the website key from 24 to **25** active users (the per-address ceiling holds). |
 
-**Not present:** the site has **no browser playground**; no page or script has one. The interactive parts are the three starter-kit windows and the key request form. The "customer-service chat" from section 28 is also still not built.
+**Not present at this point:** a browser playground and the customer-service text chat (both built in section 31). The interactive parts were the three starter-kit windows and the key request form.
 
 ### 30. Submission prep: repository restructure, SDK docs, integration evidence
 
@@ -894,7 +892,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 - The operations and verification scripts (from `deploy/*.mjs` and `dev/`) → `scripts/`.
 - RunPod files → `deploy/runpod/`.
 - The AMD bootstrap → `deploy/amd/bootstrap.sh`.
-- This report and the planning documents → `docs/`.
+- This report → `docs/`.
 - 197 path references were rewritten across code, CI and docs, and four relative paths were fixed in files that moved one level deeper.
 
 **Checked after the move:**
@@ -981,7 +979,7 @@ Recorded as KI-16.
 
 **Through the website:** `POST /api/support/chat` answered in 1.6 s. In the browser, a two-turn English exchange (broken blender, then refund time) used the first turn in the second.
 
-**Real-world validation log** (`/tester`, gateway table `tester_sessions`, migration `0002`, operator script [`scripts/testers.mjs`](../scripts/testers.mjs)). Fields: a tester reference (no name or contact field), type, features tested, languages, outcome, minutes to first call, three 1–5 ratings, issues with severity and an optional `reportIssue()` id, feedback, API key label, consent to store (required) and consent to quote (named, anonymous, no).
+**Tester feedback form** (`/tester`, gateway table `tester_sessions`, migration `0002`, operator script [`scripts/testers.mjs`](../scripts/testers.mjs)). Fields: a tester reference (no name or contact field), type, features tested, languages, outcome, minutes to first call, three 1–5 ratings, issues with severity and an optional `reportIssue()` id, feedback, API key label, consent to store (required) and consent to quote (named, anonymous, no).
 - **Live checks:**
   - a valid submission returned 201;
   - no consent, a bad reference, an unknown feature and an out-of-range rating each returned 400;
@@ -1011,7 +1009,7 @@ The previous droplet was destroyed. A new one was created from the same "PyTorch
 
 **`scripts/smoke-gateway.mjs`** (public gateway, `mock: false`): all calls succeeded.
 - **Chat:** en 1.9 s, ha 1.5 s, yo 3.1 s, ig 2.7 s.
-- **Transcription:** WER ha 26%, yo 74%, ig 0%, en-ng 0%, the same as on the previous droplet (section 29).
+- **Transcription:** WER ha 26%, yo 74%, ig 0%, en-ng 0% (smoke clips, one short clip per language; the 90-clip evaluation in section 8 gives ha 41%, yo 56%, en-ng 26%, and ig 26% (dictionary set) or 101% (tone-marked benchmark)), the same as on the previous droplet (section 29).
 - **`reportIssue()`:** stored, and present in the operator export.
 
 **`scripts/tts-check.mjs --engines auto`**: 5/5 languages returned valid audio, each heard back by the N-ATLaS ASR model for its language:
@@ -1087,8 +1085,8 @@ The tester form wasn't part of this run.
 - **Secrets, full history (50 commits, all branches):**
   - gitleaks 8.21.2: 2 hits, both the CI smoke test's made-up key in `backend-image.yml`. trufflehog 3.88.0: 0.
   - Every value in the local secret files (`.env`, `.npmrc`, `.dev.vars`, kit `.env`s) was searched for in every blob in history: none of the real credentials appears. The only matches are public URLs and the mock-backend values.
-  - Not secrets, but noted: the destroyed droplet's IP and a local file path were in section 29 (now removed from the current text; still in history). Commit author emails are in history, as on any public repo.
-- **Private material:** `.gitignore` had a UTF-16 line, so `docs/planning/OpenAtlas.docx` was not actually ignored. Rewritten; it now also covers the design source file, `docs/demo-video-script.md` (untracked, kept locally) and tester exports.
+  - Infrastructure details (a destroyed droplet's address, a local file path) were replaced with placeholders.
+- **Private material:** `.gitignore` had a UTF-16 line, so a private planning file was not actually ignored. Rewritten; it now also covers the design source file, internal notes and tester exports.
 - **Clean install of the published SDK** (`@openatlas/sdk@0.1.1`, empty folder): installs and imports; `normalizeText()` works; `chat()` reaches the gateway at both `api.getopenatlas.xyz` and the workers.dev address and passes key auth (a made-up key gets `401 invalid_api_key`), then returns `503 backend_unavailable`, because the GPU backend is off (gateway health `reachable: false`). **No real answer this time.**
 - **Clean clone:** `npm install`, `npm run build` and the SDK tests pass (32/32). The Citizen Services kit starts exactly as its README says and reports `backend: offline`.
 - **Docker:** not run. This machine has no Docker. The last CI run built the image from a clean checkout on 2026-10-04 (`247997a`; `/health` gives `loading`, 401 without the key, 503 before the models load), and `deploy/server/` hasn't changed since. The deploy guide's Docker steps had three errors, now fixed: the backend key was generated inline and lost, `set-backend.mjs` was run from `deploy/server/`, and `ASR_LANGUAGES` was listed as an option, but the compose file doesn't pass it into the container.

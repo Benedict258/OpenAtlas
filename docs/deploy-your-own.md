@@ -1,8 +1,8 @@
 # Deploy your own OpenAtlas
 
-## How OpenAtlas was built
+## Built on free tools first
 
-- **GPU:** a Kaggle notebook (2× NVIDIA T4).
+- **GPU:** a Kaggle notebook (2× NVIDIA T4), before moving to AMD.
 - **Public HTTPS link:** a Cloudflare quick tunnel.
 - **Gateway:** the Cloudflare free plan.
 - **Models:** a free Hugging Face account.
@@ -28,12 +28,12 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 
 | Path | Status |
 |---|---|
-| **AMD Developer Cloud, MI300X** (`deploy/amd/bootstrap.sh`, `deploy/amd/up.mjs`) | **Proven; this is the live host.** On 2026-10-04 everything was checked through it (REPORT.md section 28): the LLM, all four ASR models and the speech renderer, all in bf16/fp16 with no quantization; the three starter kits; API key auth and limits. Restarts on the same droplet were tested, and on 2026-10-06 one `up.mjs` command took a freshly created droplet to serving in 4 min 49 s (section 32). |
+| **AMD Developer Cloud, MI300X** (`deploy/amd/bootstrap.sh`, `deploy/amd/up.mjs`) | **Proven; this is the primary host, started on demand.** On 2026-10-04 everything was checked through it (REPORT.md section 28): the LLM, all four ASR models and the speech renderer, all in bf16/fp16 with no quantization; the three starter kits; API key auth and limits. Restarts on the same droplet were tested, and on 2026-10-06 one `up.mjs` command took a freshly created droplet to serving in 4 min 49 s (section 32). |
 | **Kaggle notebook backend** (`deploy/colab/natlas_kaggle.ipynb`) | **Proven; the free path.** It ran the public gateway on 2026-10-03, where the LLM, all four ASR models, the speech renderer and the three starter kits were checked live (REPORT.md sections 24–26). |
 | Gateway, set up step by step (Step 2b) | **Proven.** These are the steps the live gateway was built with. |
 | Gateway in one command (`deploy/setup-gateway.mjs`, Step 2a) | Checked with `--dry-run` only. **Not yet run against a fresh Cloudflare account.** |
 | **Docker on your own GPU** (`deploy/server/`) | **The image builds, starts, answers `/health` and refuses requests without the key, in CI** (no GPU there). **The image itself has not been run on a GPU.** The server inside it, `natlas_server.py`, is the same file that serves the live AMD host. |
-| Colab notebook (`deploy/colab/natlas_colab.ipynb`) | Ran the gateway on 2026-10-02/03, until the free Colab GPU quota ran out. The same fixes went in as for Kaggle, but **it hasn't been re-run since**. |
+| Colab notebook (`deploy/colab/natlas_colab.ipynb`) | The first host (2026-10-02/03). **Not re-run since;** use Kaggle for the free path. |
 | RunPod Serverless (`deploy/runpod/llm`, `deploy/runpod/asr`) | Scripted, **never run.** See the end of this guide. |
 
 ## Before you start
@@ -55,7 +55,7 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 
    The optional speech models have their own non-commercial licenses: CC BY-NC-SA 4.0 for SoroTTS, CC BY-NC 4.0 for MMS-TTS.
 
-## AMD Developer Cloud (the live host)
+## AMD Developer Cloud (the primary host)
 
 This is how the live demo runs. It needs DigitalOcean / AMD Developer Cloud GPU credit, and it's billed by the hour while the droplet exists: powering it off doesn't stop the billing, only destroying it does. Each new start gets a new tunnel URL, which `deploy/amd/up.mjs` reconnects to the gateway.
 
@@ -111,8 +111,8 @@ It prints `TUNNEL_URL=...` and the exact `set-backend.mjs` command to run on you
 `/shared-docker` is a host folder that the `rocm` container mounts.
 
 **Security:**
-- **The server listens on 127.0.0.1 only, inside the container.** The image publishes the container's ports 8000, 8888 and 30000 to the internet, and Docker-published ports bypass the UFW firewall. So the tunnel is the only way in. We checked from outside that port 8000 doesn't answer.
-- **Port 8888 is the image's JupyterLab,** which is reachable from the internet but needs its login token.
+- **The server listens on 127.0.0.1 only, inside the container,** and the tunnel is the only way in. Keep it that way: Docker-published ports bypass a host firewall such as UFW, so binding the server to a public interface would expose it directly.
+- **Check the image's other published ports.** The 1-Click image runs its own services (such as JupyterLab) on published ports. Close or firewall what you don't use, in the DigitalOcean Cloud Firewall rather than UFW.
 - **Secrets** go from your machine to the container as environment variables over SSH. They're never written to the droplet's disk.
 
 ### When you're done: destroy it
@@ -291,7 +291,8 @@ node --env-file=.env deploy/set-backend.mjs https://<that-url>
 - **Weights** aren't in the image. They download at start-up into a named volume, so the second start is fast.
 - **Options:**
   - `ENABLE_TTS=1` (exported before `docker compose up`) turns on the speech renderer.
-  - `ASR_LANGUAGES` (default `ha,yo,ig,en-ng`) and `TTS_SOROTTS=0` are read by `natlas_server.py`, but `docker-compose.yml` only passes `HF_TOKEN`, `BACKEND_API_KEY` and `ENABLE_TTS` into the container. To use them, add them under `environment:` in the compose file.
+  - `ASR_LANGUAGES` (default `ha,yo,ig,en-ng`) loads a subset of the ASR models;
+  - `TTS_SOROTTS=0` loads only MMS-TTS for speech.
 - **Stopping:** `docker compose -f deploy/server/docker-compose.yml down` (the downloaded weights stay in the `hf-cache` volume).
 - **Fixed URL:** for one that doesn't change, replace the quick tunnel with a named Cloudflare Tunnel or a reverse proxy with HTTPS. The gateway only calls `https://` backends.
 - **Without Docker:** `pip install -r deploy/server/requirements.txt` (plus CUDA PyTorch and ffmpeg), then `HF_TOKEN=… BACKEND_API_KEY=… python deploy/server/natlas_server.py`. It listens on `127.0.0.1:8000`.
@@ -302,10 +303,7 @@ node --env-file=.env deploy/set-backend.mjs https://<that-url>
 
 ## Other paths
 
-- **Colab** (`deploy/colab/natlas_colab.ipynb`):
-  - It was our first host, and has the same server code and fixes as the Kaggle notebook. It still has many cells, and runs best with **Run all**.
-  - It uses Colab secrets (🔑 in the sidebar) instead of Kaggle Secrets.
-  - A free Colab session ends when idle, and the free GPU quota runs out quickly. That's why we moved to Kaggle.
+- **Colab** (`deploy/colab/natlas_colab.ipynb`): the first host; not re-run since. A free Colab session ends when idle and its GPU quota runs out quickly, so use the Kaggle notebook instead.
 - **RunPod Serverless (never run by us):**
   - It's a scale-to-zero design: two serverless endpoints, and the gateway talks to RunPod's job API (`BACKEND_KIND = "runpod"`).
   - Scripts: `deploy/runpod/llm/deploy-llm.mjs` and `deploy/runpod/asr/deploy-asr.mjs`.

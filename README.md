@@ -1,6 +1,6 @@
 # OpenAtlas
 
-**Website:** https://getopenatlas.xyz · **API:** https://api.getopenatlas.xyz · **Docs:** https://getopenatlas.xyz/docs · **SDK:** [`@openatlas/sdk` on npm](https://www.npmjs.com/package/@openatlas/sdk)
+**Website:** https://getopenatlas.xyz · **API:** [`https://api.getopenatlas.xyz`](https://api.getopenatlas.xyz/v1/health) · **Docs:** https://getopenatlas.xyz/docs · **SDK:** [`@openatlas/sdk` on npm](https://www.npmjs.com/package/@openatlas/sdk)
 
 > **Non-commercial use only.** N-ATLaS is an initiative of the Federal Ministry of Communications, Innovation and Digital Economy, and powered by Awarri Technologies. Its [Terms of Use](https://huggingface.co/NCAIR1/N-ATLaS) allow non-commercial use only, by at most **1,000 active end users per 30 days**, and **require "Powered by Awarri" to be shown wherever N-ATLaS output is shown**. That applies to anything you build with OpenAtlas too. OpenAtlas's own code is MIT-licensed (see [License](#license)).
 
@@ -94,7 +94,7 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 ```
 
 **Hosting:**
-- **Live:** the backend runs on an **AMD Instinct MI300X** (DigitalOcean AMD Developer Cloud, ROCm). That's 25 GB of GPU memory in use, with chat answered in under 1 s of GPU time (see [REPORT.md](docs/REPORT.md) section 29).
+- **Primary host:** an **AMD Instinct MI300X** (DigitalOcean AMD Developer Cloud, ROCm), started on demand. That's 25 GB of GPU memory in use, with chat answered in under 1 s of GPU time (see [REPORT.md](docs/REPORT.md) section 29).
 - **Starting it:** one command, `node --env-file=.env deploy/amd/up.mjs <droplet-ip>`, brings a fresh droplet to serving and reconnects the gateway.
 - **Built on free tools first:** a Kaggle notebook on free T4 GPUs ([`deploy/colab/natlas_kaggle.ipynb`](deploy/colab/natlas_kaggle.ipynb)) and the Cloudflare free plan.
 - **Running your own:** [`docs/deploy-your-own.md`](docs/deploy-your-own.md) shows anyone how to stand up the same deployment, on AMD, on Kaggle for free, or with Docker on their own GPU.
@@ -109,7 +109,7 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 | [`starter-kits/`](starter-kits/) | Citizen Services, Education, Customer Service |
 | [`site/`](site/) | The website: static pages plus the Worker behind the live demos |
 | [`scripts/`](scripts/) | Operations and verification: [`keys.mjs`](scripts/keys.mjs), [`smoke-gateway.mjs`](scripts/smoke-gateway.mjs), [`tts-check.mjs`](scripts/tts-check.mjs), the evaluations, and [`dev/`](scripts/dev/) tools, including a clearly labelled **mock** backend for local development |
-| [`docs/`](docs/) | [Integration](docs/natlas-integration.md), [technical documentation](docs/technical-documentation.md), [API reference](docs/api-reference.md), [deploy guide](docs/deploy-your-own.md), [verification record](docs/REPORT.md), [planning documents](docs/planning/) |
+| [`docs/`](docs/) | [Integration](docs/natlas-integration.md), [technical documentation](docs/technical-documentation.md), [API reference](docs/api-reference.md), [deploy guide](docs/deploy-your-own.md), [verification record](docs/REPORT.md) |
 | [`.github/`](.github/) | CI: builds and smoke-tests the backend Docker image; builds the RunPod ASR image |
 
 ## What's been verified
@@ -124,8 +124,6 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 - **GPU:** concurrent requests queue correctly.
 
 Earlier, ASR accuracy was measured on 90 real recordings (section 8).
-
-**Real-world testing:** testers log each session at [`/tester`](https://getopenatlas.xyz/tester) (no names or contact details collected); `scripts/testers.mjs summary` produces the results.
 
 ## Known limitations
 
