@@ -6,6 +6,7 @@
 
 export type ApiErrorCode =
   | "unauthorized"
+  | "invalid_passcode"
   | "rate_limited"
   | "not_configured"
   | "bad_request"
@@ -43,6 +44,7 @@ export const WAKING_MESSAGE =
 
 const FRIENDLY: Record<ApiErrorCode, string> = {
   unauthorized: "This session has expired. Please unlock the demo again.",
+  invalid_passcode: "That passcode is not correct. Please try again.",
   rate_limited: "You are going fast — please slow down a little and try again.",
   not_configured: "The demo is not configured correctly.",
   bad_request: "Something went wrong. Please check the form and try again.",

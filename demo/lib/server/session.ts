@@ -25,11 +25,11 @@ export function newSessionUser(): string {
 }
 
 /** Cookie attributes shared by both session cookies. */
-export function sessionCookieOptions(maxAgeSeconds: number) {
+export function sessionCookieOptions(maxAgeSeconds: number, secure: boolean) {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
     maxAge: maxAgeSeconds,
   };

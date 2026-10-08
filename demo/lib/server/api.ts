@@ -28,16 +28,27 @@ export function jsonError(code: string, status: number, detail?: string): NextRe
 }
 
 /**
+ * Verify the signed unlock cookie and return the anonymous session id, or a
+ * ready-to-send 401. Every /api/* route calls this (or guardModelRoute) itself —
+ * the proxy check is only the optimistic outer gate.
+ */
+export async function requireSession(): Promise<string | NextResponse> {
+  const uid = await getSessionUser();
+  if (!uid) return fail("unauthorized", 401, "missing or invalid unlock cookie");
+  return uid;
+}
+
+/**
  * Session + rate limit + configuration check for a model-calling route.
  * Returns the anonymous session id, or a ready-to-send failure response.
  */
 export async function guardModelRoute(): Promise<string | NextResponse> {
-  const uid = await getSessionUser();
-  if (!uid) return fail("unauthorized", 401);
-  const rl = rateLimit(`model:${uid}`);
+  const auth = await requireSession();
+  if (typeof auth !== "string") return auth;
+  const rl = rateLimit(`model:${auth}`);
   if (!rl.ok) return fail("rate_limited", 429, `retry after ${rl.retryAfterSec}s`, { "Retry-After": String(rl.retryAfterSec) });
   if (!isMock() && !hasApiKey()) return fail("not_configured", 503, "OPENATLAS_API_KEY is not set");
-  return uid;
+  return auth;
 }
 
 /**

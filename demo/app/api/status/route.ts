@@ -1,4 +1,5 @@
 import { DEFAULT_BASE_URL } from "@openatlas/sdk";
+import { requireSession } from "@/lib/server/api";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,9 @@ let cache: CacheEntry | null = null;
 const TTL_MS = 20_000;
 
 export async function GET() {
+  const auth = await requireSession();
+  if (typeof auth !== "string") return auth;
+
   const now = Date.now();
   if (cache && now - cache.at < TTL_MS) return Response.json(cache.body);
 
