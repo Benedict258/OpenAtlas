@@ -581,6 +581,24 @@ a {
   margin-top: 10px;
 }
 
+/* ------------------------------------------------------------ prompt-pre -- */
+
+.prompt-pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 0;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 /* ---------------------------------------------------------------- misc --- */
 
 .row {
