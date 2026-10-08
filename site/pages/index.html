@@ -203,7 +203,7 @@ console.<span class="f">log</span>(response.content);
 <li class="mono" style="font-size:15px">transcribe({ audio, language, user })</li>
 <li class="mono" style="font-size:15px">normalizeText(text, { language? })</li>
 <li class="mono" style="font-size:15px">reportIssue({ kind, output, correction })</li>
-<li class="mono" style="font-size:15px">speak({ text, language }) — stretch</li>
+<li class="mono" style="font-size:15px">speak({ text, language }) — optional</li>
 </ul>
 </div>
 <div data-panel="0">
@@ -278,7 +278,7 @@ console.<span class="f">log</span>(response.content);
 <span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
 <div class="step core"><small class="mono">chat()</small><b>N-ATLaS LLM drafts reply</b></div>
 <span class="arr"><svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 10h12M11 5l5 5-5 5"></path></svg></span>
-<div class="step opt"><small class="mono">speak() · stretch</small><b>Audio reply</b></div>
+<div class="step opt"><small class="mono">speak() · optional</small><b>Audio reply</b></div>
 </div>
 </div>
 <div class="flowrow">
@@ -363,7 +363,7 @@ console.<span class="f">log</span>(response.content);
 <div class="row"><h3>First-call latency</h3><p>The first call after the backend starts takes longer while the models load. Expect it, and retry if a request times out.</p></div>
 <div class="row"><h3>Non-commercial licence</h3><p>N-ATLaS caps usage at 1,000 active users per 30 days and is non-commercial. The hosted endpoint is a developer and research resource, not a production SaaS.</p></div>
 <div class="row"><h3>No SLA</h3><p>This is new infrastructure and it has not been load-tested. No uptime or reliability claim is made.</p></div>
-<div class="row"><h3>Speech output is optional</h3><p>speak() is an optional, separate text-to-speech renderer, not N-ATLaS, and adds no N-ATLaS capability.</p></div>
+<div class="row"><h3>Speech output is optional</h3><p>speak() is an optional, separate text-to-speech renderer. It is not N-ATLaS and adds no N-ATLaS capability. Clear in English; Hausa, Yoruba and Igbo are experimental.</p></div>
 <div class="row"><h3>No dashboard yet</h3><p>API keys are requested through a short form and issued by hand. There is no usage analytics or billing UI.</p></div>
 <div class="row"><h3>Text repair, not restoration</h3><p>normalizeText() fixes characters that were corrupted. It does not add tone marks that were never typed; N-ATLaS-based tone restoration is a roadmap item.</p></div>
 </div>

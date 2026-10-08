@@ -1,4 +1,4 @@
-# Changes from the original design file (OpenAtlas.html)
+# Changes from the original design (OpenAtlas.html)
 
 Layout, styling and structure are as designed. Only factually wrong copy was changed (the rule: "fix facts only"),
 new SDK methods were added using the design's own components, and the kit windows were wired to the real SDK.
@@ -84,9 +84,8 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
 
 ## Product
 
-- **Was:** Final-stage rendering of text N-ATLaS already produced.
-- **Now:** Final-stage rendering of text N-ATLaS already produced.
-- **Why:** speak() positioning at the time.
+- **Was / Now:** speak() was described as final-stage rendering of text N-ATLaS already produced, marked conditional.
+- **Why:** superseded; see the 2026-10-08 entry at the end of this file.
 
 ## Product
 
@@ -204,9 +203,8 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
 
 ## Docs
 
-- **Was:** Final-stage audio rendering of text N-ATLaS already produced.
-- **Now:** Final-stage audio rendering of text N-ATLaS already produced.
-- **Why:** speak() positioning at the time.
+- **Was / Now:** speak() was described as final-stage rendering of text N-ATLaS already produced, marked conditional.
+- **Why:** superseded; see the 2026-10-08 entry at the end of this file.
 
 ## Docs
 
@@ -399,3 +397,18 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
   - the review step says when a longer upload will be sent in parts, and why;
   - uploads over 2 minutes are refused, with a message;
   - the status line ends with "Powered by Awarri".
+
+## 2026-10-08: facts-only fixes before the repository goes public
+
+- **Architecture page, build timeline**
+  - **Was:** a forward-looking plan under "Ten days, in parallel.", with a hosting move that didn't happen, a speech-output go/no-go step, and steps that had already been done.
+  - **Now:** "Build timeline: what was built, and when", with dates from docs/REPORT.md: Oct 2 first real calls on Colab; Oct 3 backend moved to Kaggle, speak() built, API key limits, SDK 0.1.0 published; Oct 4 backend moved to the AMD MI300X, SDK 0.1.1 published, playground and text chat; Oct 6 fresh droplet in one command; Oct 7 getopenatlas.xyz; Oct 12 submission deadline.
+  - **Why:** the old rows described plans that didn't happen (NiHub) or had already happened (speak(), the SDK publish).
+- **speak() wording (home page Limitations row, starter kits page, architecture page)**
+  - **Was:** wording that made speak() conditional on a confirmation from the organisers, and "stretch" labels.
+  - **Now:** speak() is an optional, separate text-to-speech renderer. It is not N-ATLaS and adds no N-ATLaS capability; English is clear, Hausa, Yoruba and Igbo are experimental; it's switched off in the starter-kit demo. Labels read "optional".
+  - **Why:** speak() is built; no eligibility confirmation was received, so no claim depends on one.
+- **Design-file wording**
+  - **Was:** a tool-specific name for the design file (this file's title, and the header comment of `site/pages/responsive.css`).
+  - **Now:** "the original design".
+  - **Why:** facts only; no tool credit.

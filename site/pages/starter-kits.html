@@ -174,9 +174,9 @@ OpenAtlas
 <h2>Customer Service</h2>
 <p>Two ways in for a customer. A voice note is transcribed, triaged and given a drafted reply, so the whole pipeline is legible on one screen: voice in, transcript, draft response. Or switch to Text chat for an ordinary back-and-forth conversation with a support assistant, for customers who'd rather type.</p>
 <dl class="facts" style="margin:0">
-<div><dt>SDK calls</dt><span class="mono" style="font-size:15px">transcribe() → normalizeText() → chat() · reportIssue() · multi-turn chat() · speak() (stretch)</span></div>
+<div><dt>SDK calls</dt><span class="mono" style="font-size:15px">transcribe() → normalizeText() → chat() · reportIssue() · multi-turn chat() · speak() (optional)</span></div>
 <div><dt>Shows</dt><span>Language-routed ASR feeding the LLM; a multi-turn conversation grounded in one business's policies</span></div>
-<div><dt>Does not</dt><span>Ship audio playback. Its absence is not a bug.</span></div>
+<div><dt>Does not</dt><span>Play spoken replies on this site. speak() is an optional, separate text-to-speech renderer, not N-ATLaS, and is switched off in this demo.</span></div>
 </dl>
 </div>
 <!-- kit:support -->

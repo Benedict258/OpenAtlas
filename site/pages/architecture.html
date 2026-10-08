@@ -121,7 +121,7 @@ OpenAtlas
 <div class="link"><svg width="20" height="28" viewBox="0 0 20 28" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 2v22M4 18l6 6 6-6"></path></svg><span>In-process call</span></div>
 <div class="layer core">
 <h3>OpenAtlas SDK <span class="mono" style="font-size:14px;font-weight:400;color:var(--muted)">npm</span></h3>
-<p>One client class, one config object. Routes chat() to the LLM, transcribe() to the right one of four ASR models, and speak() to TTS (stretch). Repairs text locally with normalizeText() and sends corrections with reportIssue(). Handles retries, timeouts and typed errors.</p>
+<p>One client class, one config object. Routes chat() to the LLM, transcribe() to the right one of four ASR models, and speak() to an optional text-to-speech renderer (not N-ATLaS). Repairs text locally with normalizeText() and sends corrections with reportIssue(). Handles retries, timeouts and typed errors.</p>
 </div>
 <div class="link"><svg width="20" height="28" viewBox="0 0 20 28" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 2v22M4 18l6 6 6-6"></path></svg><span>HTTPS · OpenAI-style REST · your OpenAtlas key</span></div>
 <div class="layer core">
@@ -192,19 +192,17 @@ OpenAtlas
 <section class="sec">
 <div class="wrap">
 <div class="sechead">
-<p class="eyebrow">Build sequencing</p>
-<h2 class="h2">Ten days, in parallel.</h2>
-<p class="lead">The plan to the October 12 submission. A live N-ATLaS backend is the single hard dependency, so it comes first. Speech output is gated behind an explicit go or no-go by October 7.</p>
+<p class="eyebrow">Build timeline</p>
+<h2 class="h2">What was built, and when.</h2>
+<p class="lead">Dates from the verification record (docs/REPORT.md). A live N-ATLaS backend was the one hard dependency, so it came first.</p>
 </div>
 <div class="scroll"><table class="tbl"><thead><tr><th>Days</th><th>Work</th></tr></thead><tbody>
-<tr><td class="day">Oct 2</td><td>Docs repositioned around the SDK. Backend server and hosting notebook. Gateway made host-agnostic. normalizeText() and reportIssue().</td></tr>
-<tr><td class="day">Oct 2–3</td><td>N-ATLaS on a free notebook GPU (Kaggle). First real chat() and transcribe() calls through the gateway.</td></tr>
-<tr><td class="day">Oct 4</td><td>Backend moved to an AMD Instinct MI300X (ROCm): full precision, one-command bootstrap, every check re-run.</td></tr>
-<tr><td class="day">Oct 3–4</td><td>Move the backend to NiHub with a configuration change, then re-verify everything.</td></tr>
-<tr><td class="day">Oct 4–7</td><td>Starter kits and website against the real SDK. Check for the NAIC reply; go or no-go on TTS.</td></tr>
-<tr><td class="day">Oct 8–9</td><td>If confirmed, build speak(). If not, harden the core. End-to-end test of every kit on the persistent host, with no mocks.</td></tr>
-<tr><td class="day">Oct 10–11</td><td>Publish the SDK, write the submission and demo script. A buffer, not a scope-adding one.</td></tr>
-<tr><td class="day">Oct 12</td><td>Submit.</td></tr>
+<tr><td class="day">Oct 2</td><td>Docs repositioned around the SDK. Backend server and hosting notebook. Gateway made host-agnostic. normalizeText() and reportIssue(). First real chat() and transcribe() calls through the gateway, on a Colab GPU.</td></tr>
+<tr><td class="day">Oct 3</td><td>Backend moved from Colab to Kaggle (free T4 x2). speak() built: an optional, separate text-to-speech renderer, checked on real models. API keys with per-key limits. SDK 0.1.0 published on npm.</td></tr>
+<tr><td class="day">Oct 4</td><td>Backend moved to an AMD Instinct MI300X (ROCm): full precision, one-command bootstrap, every check re-run. SDK 0.1.1 published. Playground and Customer Service text chat.</td></tr>
+<tr><td class="day">Oct 6</td><td>A freshly created MI300X droplet brought to serving with one command, in 4 min 49 s.</td></tr>
+<tr><td class="day">Oct 7</td><td>Site moved to getopenatlas.xyz.</td></tr>
+<tr><td class="day">Oct 12</td><td>Submission deadline.</td></tr>
 </tbody></table></div>
 </div>
 </section>
