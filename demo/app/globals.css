@@ -592,6 +592,36 @@ details.pop[open] summary {
   white-space: nowrap;
 }
 
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.diff {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.7;
+}
+
+.diff-add {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
 /* ------------------------------------------------------------- unlock ---- */
 
 .unlock-wrap {
