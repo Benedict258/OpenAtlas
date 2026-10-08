@@ -2,7 +2,15 @@
   "name": "@openatlas/sdk",
   "version": "0.1.1",
   "description": "TypeScript client for the hosted N-ATLaS models (Nigeria's sovereign LLM + Hausa/Yoruba/Igbo/Nigerian-English ASR). Non-commercial use only, per the N-ATLaS license.",
-  "homepage": "https://openatlas-site.isaacbenedict001.workers.dev/docs",
+  "homepage": "https://getopenatlas.xyz/docs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Benedict258/OpenAtlas.git",
+    "directory": "sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/Benedict258/OpenAtlas/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

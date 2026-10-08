@@ -4,6 +4,20 @@ How OpenAtlas uses the N-ATLaS models: which models, how they are loaded and ser
 - **Source:** every statement points to the file that implements it.
 - **Evidence:** every number comes from a recorded check in [`REPORT.md`](REPORT.md). Sections 28–29 cover the current AMD host.
 
+## 0. Verifying the integration yourself
+
+A hosted API can only *report* which model answered, so these checks go from quickest to strongest. None needs a key except step 3.
+
+1. **Is a real backend connected?** `curl https://api.getopenatlas.xyz/v1/health`. The `backend` object comes from the GPU server's own `/health`: `reachable`, `status` (`ok` once loaded), `llm` (`true` when the N-ATLaS LLM is loaded), `asr` (the loaded ASR languages), and `mock: false` (the development mock server reports `mock: true`, and [`deploy/set-backend.mjs`](../deploy/set-backend.mjs) refuses to connect it). `reachable: false` means the GPU host is off right now; see step 4.
+2. **Which models does the code load?** Open [`deploy/server/natlas_server.py`](../deploy/server/natlas_server.py), `load_models()`: `NCAIR1/N-ATLaS` with `AutoModelForCausalLM`, and the four `NCAIR1/*-ASR` repos with the ASR `pipeline`. It's the only file that loads a text-generating model. To confirm there's no other provider:
+   ```bash
+   git grep -n -i -E "api\.openai\.com|api\.anthropic\.com|api\.groq\.com|api\.together|api\.mistral\.ai|api\.cohere|generativelanguage\.googleapis|import (openai|anthropic)|from (openai|anthropic)|@anthropic-ai|\"openai\"|ollama" -- ':!docs/'   # no output
+   ```
+   (The API *shape* is OpenAI-style, `POST /v1/chat/completions`, so the word "OpenAI" appears in comments; no other provider's endpoint or client library does.)
+3. **What does a response say?** With a key, every `chat()` and `transcribe()` response carries `model` (the Hugging Face ID, such as `NCAIR1/N-ATLaS` or `NCAIR1/Hausa-ASR`) and `attribution: "Powered by Awarri"`. The website's starter kits and playground show the same fields.
+4. **Run it yourself.** The strongest check: start your own backend from [`deploy-your-own.md`](deploy-your-own.md) with your own Hugging Face token (the NCAIR1 repos are gated, so the download only works after you accept their terms), connect a gateway to it, and run `sdk/examples/quickstart.mjs` against it.
+5. **The recorded evidence.** [`REPORT.md`](REPORT.md) logs every live check with real inputs and outputs: chat in four languages, transcription word-error rates on real recordings, GPU memory and activity while N-ATLaS generates (section 29), and the known issues. To build the integration-evidence ZIP (this document, `REPORT.md` and the source files that implement the integration, with a manifest), run `python scripts/package-evidence.py` from the repo root; it writes `dist/submission/OpenAtlas-NATLaS-Integration-Evidence.zip`.
+
 ## 1. The models
 
 All five N-ATLaS models are used, unmodified, from their Hugging Face repositories. They are gated: the backend downloads them at start-up with a Hugging Face token, and no weights are stored in this repository.
