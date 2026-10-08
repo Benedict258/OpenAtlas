@@ -412,3 +412,11 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
   - **Was:** a tool-specific name for the design file (this file's title, and the header comment of `site/pages/responsive.css`).
   - **Now:** "the original design".
   - **Why:** facts only; no tool credit.
+- **Footer team credit (all pages)**
+  - **Was:** the previous team name.
+  - **Now:** "Built by Team OpenAtlas".
+  - **Why:** one team name across the site and the technical documentation.
+- **Tester page removed**
+  - **Was:** a `/tester` feedback form, forwarded by the site Worker to the gateway.
+  - **Now:** no tester page; the site Worker forwards only the key request form.
+  - **Why:** the form isn't part of the public release.

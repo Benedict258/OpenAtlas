@@ -719,7 +719,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
   - the speech section now says the API serves it, is clear in English and experimental in Hausa, Yoruba and Igbo (was "off… returns `tts_disabled`");
   - the self-hosting section is now Kaggle-first and adds a Docker row.
 - **Architecture page:** the host is "Kaggle notebook today (free T4 x2)", where it said "NiHub (Colab while testing)". No "Colab" remains on the page; the timeline rows now say "free notebook GPU, now Kaggle".
-- **Footer on all 5 pages:** "Built by Team Suiaah & NiHub".
+- **Footer on all 5 pages:** the team credit (renamed "Team OpenAtlas" on 2026-10-08; see `site/DESIGN_CHANGES.md`).
 - **Checked live:** each string was fetched from the deployed pages.
 
 **3. Backend state shown up front.**
