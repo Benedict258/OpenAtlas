@@ -2,9 +2,9 @@
 
 **Project:** OpenAtlas, developer infrastructure for N-ATLaS.
 **Track:** NAIC 2026, Academia & Research (Developer Infrastructure).
-**Team:** Team Suiaah & NiHub.
+**Team:** Team OpenAtlas.
 **Repository:** `github.com/Benedict258/OpenAtlas`.
-**Live site:** https://getopenatlas.xyz (fallback address: https://openatlas-site.isaacbenedict001.workers.dev). **API:** https://api.getopenatlas.xyz. **Demo app:** demoapp.getopenatlas.xyz (coming soon).
+**Live site:** https://getopenatlas.xyz. **API:** `https://api.getopenatlas.xyz` (status: https://api.getopenatlas.xyz/v1/health). **Demo app:** demoapp.getopenatlas.xyz (coming soon).
 **SDK:** `@openatlas/sdk` on npm.
 
 This document describes the architecture, components, setup and usage of OpenAtlas, and how it was verified. It's written to be converted directly into the submission PDF.
@@ -52,7 +52,7 @@ N-ATLaS is Nigeria's open language model suite: an 8B LLM for English, Hausa, Yo
 ### 3.1 SDK: `@openatlas/sdk` ([`sdk/`](../sdk/))
 
 - **Build:** TypeScript, compiled to ES modules with type declarations. No runtime dependencies. Node 18+; tested on Node 22.
-- **Distribution:** published to npm as `0.1.0`.
+- **Distribution:** published to npm; the current version is `0.1.1`.
 
 | Method | Purpose |
 |---|---|
@@ -61,7 +61,7 @@ N-ATLaS is Nigeria's open language model suite: an 8B LLM for English, Hausa, Yo
 | `speak({ text, language, engine?, user })` | Optional text to speech (separate, non-N-ATLaS models) |
 | `reportIssue({ kind, output, correction, … })` | Sends a correction for a wrong output, to an exportable dataset |
 | `normalizeText(text, { language })` | Local repair of corrupted characters: encoding damage, look-alike letters, invisible characters |
-| `buildPrompt(spec, input)` | Local structured prompt builder; measured to improve format-following from 3/10 to 10/10 |
+| `buildPrompt(spec, input)` | Local structured prompt builder. Measured on the Customer Service kit: format followed 10/10, against 3/10 before; no measurable change on Education (REPORT.md section 18) |
 
 **Behaviour:**
 - **Validation:** arguments are checked before any request, with clear `OpenAtlasError`s.
@@ -85,12 +85,12 @@ A Cloudflare Worker (TypeScript) with a Cloudflare D1 (SQLite) database, on Clou
 **Other public routes:**
 - `GET /v1/health` (no key);
 - `POST /v1/key-requests` (the website's request form);
-- `POST /v1/tester-sessions` (the website's tester form, see 3.7).
+- `POST /v1/tester-sessions` (the website's tester feedback form).
 
 **Admin routes (admin token):**
 - `GET/POST /v1/admin/keys`, `/v1/admin/keys/revoke`, `/v1/admin/keys/limits`;
 - `GET /v1/admin/issues`;
-- `GET/POST /v1/admin/key-requests[/decide]`;
+- `GET /v1/admin/key-requests`, `POST /v1/admin/key-requests/decide` (`decision`: `approve` or `decline`);
 - `GET /v1/admin/tester-sessions`, `POST /v1/admin/tester-sessions/delete`;
 - `GET /v1/usage`.
 
@@ -103,7 +103,7 @@ A Cloudflare Worker (TypeScript) with a Cloudflare D1 (SQLite) database, on Clou
 | `request_log` | time, key, route, status, latency. **No request or response content.** |
 | `issue_reports` | corrections sent via `reportIssue()`: output, correction, optional input, note and audio; the user hashed |
 | `key_requests` | requests from the website form, pending/approved/declined |
-| `tester_sessions` | real-world validation sessions from the `/tester` form: a tester reference, never a name or contact (see 3.7) |
+| `tester_sessions` | submissions from the `/tester` feedback form: a tester reference, never a name or contact |
 
 **Per request** (chat shown):
 1. authenticate the key;
@@ -148,7 +148,7 @@ Backend failures map to stable codes: `502 backend_error` (not retried), `503 ba
 
 | Host | Status | How |
 |---|---|---|
-| **AMD Instinct MI300X** (DigitalOcean AMD Developer Cloud, ROCm 7.14) | **Live host** | `node --env-file=.env deploy/amd/up.mjs <ip>`: uploads the code, runs [`deploy/amd/bootstrap.sh`](../deploy/amd/bootstrap.sh) (container setup with the ROCm PyTorch pinned, server on `127.0.0.1` plus a `cloudflared` tunnel, model load, warm-up), then reconnects the gateway. About 2.5 min on a set-up droplet. |
+| **AMD Instinct MI300X** (DigitalOcean AMD Developer Cloud, ROCm 7.14) | **Primary host, started on demand** | `node --env-file=.env deploy/amd/up.mjs <ip>`: uploads the code, runs [`deploy/amd/bootstrap.sh`](../deploy/amd/bootstrap.sh) (container setup with the ROCm PyTorch pinned, server on `127.0.0.1` plus a `cloudflared` tunnel, model load, warm-up), then reconnects the gateway. About 2.5 min on a set-up droplet. |
 | **Kaggle notebook**, free T4 x2 | Proven, the free path | [`deploy/colab/natlas_kaggle.ipynb`](../deploy/colab/natlas_kaggle.ipynb): Run all. The LLM is 4-bit there, to fit the 16 GB GPUs. |
 | **Docker**, any 24 GB+ NVIDIA GPU | Image built and smoke-tested in CI; not run on a GPU by us | [`deploy/server/docker-compose.yml`](../deploy/server/docker-compose.yml): backend plus tunnel |
 | RunPod Serverless | Scripted, never run | [`deploy/runpod/`](../deploy/runpod/) |
@@ -189,22 +189,8 @@ Backend failures map to stable codes: `502 backend_error` (not retried), `503 ba
 
 `speak()` renders N-ATLaS's text as audio, with SoroTTS (`Shinzmann/sorotts`) for single sentences in Hausa, Yoruba, Igbo and Pidgin, and Meta MMS-TTS for longer text and English.
 - **What it doesn't do:** it never changes, translates or answers the text.
-- **Accuracy,** heard back through the N-ATLaS ASR models: English 0–3% of words wrong; Hausa, Yoruba and Igbo 18–81%. So the public site doesn't use it, and the demo shows English only.
-
-### 3.7 Real-world validation log
-
-Testers log each session at `/tester` (link: `/tester?ref=T01`). The fields:
-- **Who:** a tester reference given by the operator (no name or contact field exists) and tester type.
-- **What:** the features tested (SDK methods, playground, each kit, key request, self-hosting) and the languages used.
-- **How it went:** outcome (worked, partly, failed) and minutes to the first successful call.
-- **Ratings, 1–5:** setup, output quality, docs.
-- **Problems:** issues with their severity, plus an optional `reportIssue()` id.
-- **Comments:** free feedback, and the label of the API key used (never the key).
-- **Consent:**
-  - to store the answers (required; without it nothing is saved);
-  - to quote them (named, anonymous, or no).
-
-The operator keeps the reference-to-person mapping outside the system. `scripts/testers.mjs` lists, summarizes (Markdown, with quotable feedback only where consent was given), exports CSV, and deletes every session for a reference when a tester withdraws.
+- **Accuracy,** heard back through the N-ATLaS ASR models: English 0–3% of words wrong; Hausa, Yoruba and Igbo 18–81%. So the starter kits don't use it, and the playground labels Hausa, Yoruba, Igbo and Pidgin speech experimental.
+- **What it is:** an optional, separate text-to-speech renderer. It is not N-ATLaS and adds no N-ATLaS capability.
 
 ## 4. Security and privacy
 
@@ -288,7 +274,7 @@ curl -s https://api.getopenatlas.xyz/v1/chat/completions \
 | Backend images | CI builds the Docker image and smoke-tests it: it starts, `/health` answers, and requests are refused without the key (401) and before loading (503). |
 | End to end | Scripted live runs through the public gateway, logged in `REPORT.md`: chat in four languages, transcription with WER on real recordings, speech heard back by ASR, concurrency, the three starter kits through the website |
 
-**Results on the live AMD MI300X backend** (REPORT.md sections 28–29):
+**Results on the AMD MI300X backend** (REPORT.md sections 28–29):
 
 | Measure | Result |
 |---|---|
@@ -297,7 +283,8 @@ curl -s https://api.getopenatlas.xyz/v1/chat/completions \
 | Transcription, 26.7 s of Hausa | 0.64 s GPU time |
 | Starter kits via the website | Citizen Services 3.5 s, Education 3.0 s, Customer Service 11.2 s (including the audio upload); Customer Service text chat 1.3–3.9 s a reply |
 | Playground via the website | chat 3.8 s, transcribe 4.0 s, speak 5.7 s; checked in a real browser at desktop and phone width |
-| ASR WER, smoke clips | Hausa 26%, Yoruba 74%, Igbo 0%, Nigerian English 0% |
+| ASR WER, smoke clips (one short clip per language) | Hausa 26%, Yoruba 74%, Igbo 0%, Nigerian English 0% |
+| ASR WER, 90-clip evaluation (REPORT.md section 8) | Hausa 41%, Yoruba 56% (45% ignoring tone marks), Igbo 26% on a dictionary set and 101% (60% ignoring tone marks) on a tone-marked multi-dialect benchmark, Nigerian English 26% |
 | Speech, heard back | English 0–3% WER |
 | Keys and limits | 401 (no key, wrong key, revoked key), 429 (daily limit, user share) as designed |
 | Startup | 4 min 49 s from command to serving on a freshly created droplet, models included (REPORT.md section 32); about 2.5 min on a set-up droplet |
@@ -325,5 +312,5 @@ All of these are measured, with details in the Known issues table of [`REPORT.md
 | `starter-kits/` | The three reference apps |
 | `site/` | The website and its demo API |
 | `scripts/` | Key management, live verification scripts, evaluations, the evidence packager, dev tools (mock backend) |
-| `docs/` | This document, the integration write-up, the API reference, the deploy guide, the verification record, planning documents |
+| `docs/` | This document, the integration write-up, the API reference, the deploy guide, the verification record |
 | `.github/` | CI for the backend and RunPod images |
