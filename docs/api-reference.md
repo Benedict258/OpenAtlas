@@ -4,7 +4,7 @@ There are two ways to use it: the TypeScript SDK (recommended) and the HTTP API 
 
 ## HTTP API
 
-Base URL: the gateway URL. Auth: `Authorization: Bearer <OpenAtlas key>`. Bodies are JSON (UTF-8).
+Base URL: `https://api.getopenatlas.xyz` for the hosted service, or your own gateway URL. Auth: `Authorization: Bearer <OpenAtlas key>`. Bodies are JSON (UTF-8).
 
 ### `POST /v1/chat/completions`
 

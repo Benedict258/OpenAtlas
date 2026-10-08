@@ -836,7 +836,7 @@ The existing gateway end-to-end suite also passed on a fresh database from the n
 ### 29. Pre-submission re-verification on the MI300X; 4-bit removed from the server
 
 **State found:**
-- The deployment from section 28 was still running on the same droplet (`<droplet-ip>`): `natlas_server.py` and `cloudflared` were up inside the `rocm` container.
+- The deployment from section 28 was still running on the same droplet (since destroyed): `natlas_server.py` and `cloudflared` were up inside the `rocm` container.
 - **SSH:** a second local SSH key was **not** authorized on this droplet; only `~/.ssh/id_ed25519` is, and it was used. `up.mjs` now accepts `SSH_KEY=<path>`.
 
 **Change:** `natlas_server.py` no longer has any quantization path.
@@ -1056,6 +1056,42 @@ The tester form wasn't part of this run.
 - **Igbo speech heard-back:** the recognizer loop above (KI-14).
 
 **Result:** destroy-and-recreate works end to end with one command, in under 5 minutes, on a fresh droplet.
+
+## 2026-10-07
+
+### 33. Custom domain getopenatlas.xyz (site only so far)
+
+**Checked before any change:**
+
+| Hostname | Result |
+|---|---|
+| `getopenatlas.xyz` | **Works.** HTTPS 200; all 7 pages (/, docs, starter kits, playground, architecture, request key, tester) return 200. |
+| `www.getopenatlas.xyz` | **Failed at first (HTTP 525: not attached to the site Worker); fixed the same day:** HTTPS 200, pages served directly. |
+| `api.getopenatlas.xyz` | **Routes to the gateway** (health identical to the workers.dev gateway; chat without a key gives 401). **The smoke test can't run:** the GPU backend was down at the time (gateway `reachable: false`; the droplet didn't answer SSH and its tunnel was unreachable). |
+| `openatlas-site.isaacbenedict001.workers.dev` | Works (200). |
+| `openatlas-gateway.isaacbenedict001.workers.dev` | Works (health 200, 401 without a key). Same backend outage. |
+
+- **Host checks:** none in the site Worker, the gateway or the kits; no canonical links or sitemap; pages use relative links and same-origin `/api` calls. `robots.txt` on the new domain is Cloudflare's managed file (a zone setting).
+- **Changed:** the public site address in the README and technical documentation is now `https://getopenatlas.xyz`, with the workers.dev address named as the fallback. The demo app, demoapp.getopenatlas.xyz, is listed as coming soon. The deploy guide now says how to point the SDK, kits and scripts at your own gateway (`OPENATLAS_BASE_URL`, `baseURL`, or a custom domain).
+- **On hold until the backend is back** and `smoke-gateway.mjs` passes against `https://api.getopenatlas.xyz`:
+  - the gateway address in the docs;
+  - `site/wrangler.toml`;
+  - the SDK default `baseURL` and the 0.1.2 release.
+
+  Both workers.dev addresses are unchanged and keep working; SDK 0.1.1 uses the gateway one.
+
+## 2026-10-08
+
+### 34. Pre-publication check (repository still private)
+
+- **Secrets, full history (50 commits, all branches):**
+  - gitleaks 8.21.2: 2 hits, both the CI smoke test's made-up key in `backend-image.yml`. trufflehog 3.88.0: 0.
+  - Every value in the local secret files (`.env`, `.npmrc`, `.dev.vars`, kit `.env`s) was searched for in every blob in history: none of the real credentials appears. The only matches are public URLs and the mock-backend values.
+  - Not secrets, but noted: the destroyed droplet's IP and a local file path were in section 29 (now removed from the current text; still in history). Commit author emails are in history, as on any public repo.
+- **Private material:** `.gitignore` had a UTF-16 line, so `docs/planning/OpenAtlas.docx` was not actually ignored. Rewritten; it now also covers the design source file, `docs/demo-video-script.md` (untracked, kept locally) and tester exports.
+- **Clean install of the published SDK** (`@openatlas/sdk@0.1.1`, empty folder): installs and imports; `normalizeText()` works; `chat()` reaches the gateway at both `api.getopenatlas.xyz` and the workers.dev address and passes key auth (a made-up key gets `401 invalid_api_key`), then returns `503 backend_unavailable`, because the GPU backend is off (gateway health `reachable: false`). **No real answer this time.**
+- **Clean clone:** `npm install`, `npm run build` and the SDK tests pass (32/32). The Citizen Services kit starts exactly as its README says and reports `backend: offline`.
+- **Docker:** not run. This machine has no Docker. The last CI run built the image from a clean checkout on 2026-10-04 (`247997a`; `/health` gives `loading`, 401 without the key, 503 before the models load), and `deploy/server/` hasn't changed since. The deploy guide's Docker steps had three errors, now fixed: the backend key was generated inline and lost, `set-backend.mjs` was run from `deploy/server/`, and `ASR_LANGUAGES` was listed as an option, but the compose file doesn't pass it into the container.
 
 ## Known issues
 

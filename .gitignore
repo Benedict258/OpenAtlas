@@ -1,20 +1,30 @@
+# Secrets and local config (only the *.example files are tracked)
 .env
 .env.*
 !.env.example
+.dev.vars
+.npmrc
+
 node_modules/
 dist/
 .wrangler/
-.dev.vars
 __pycache__/
 *.pyc
 test-audio/
 
 # Direct-to-backend client draft; not used (the SDK goes through the gateway)
 natlas_colab.ts
-.env.selfhost
-.env.selfhost.bak
-.npmrc
 # Results the verification scripts write, and RunPod endpoint ids (local data)
 scripts/results/
 deploy/runpod/endpoints.json
 deploy/runpod/*/smoke-results.jsonl
+
+# Private material: planning drafts, the design source file, internal notes, tester exports
+*.docx
+docs/planning/*.docx
+/OpenAtlas.html
+docs/demo-video-script.md
+*tester*.csv
+*testers*.json
+notes/
+*.private.md

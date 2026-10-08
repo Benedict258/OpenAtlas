@@ -28,7 +28,7 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
 
 | Path | Status |
 |---|---|
-| **AMD Developer Cloud, MI300X** (`deploy/amd/bootstrap.sh`, `deploy/amd/up.mjs`) | **Proven; this is the live host.** On 2026-10-04 everything was checked through it (REPORT.md section 28): the LLM, all four ASR models and the speech renderer, all in bf16/fp16 with no quantization; the three starter kits; API key auth and limits. Restarts on the same droplet were tested. **Not yet run on a freshly created droplet:** that path is scripted, but untried end to end. |
+| **AMD Developer Cloud, MI300X** (`deploy/amd/bootstrap.sh`, `deploy/amd/up.mjs`) | **Proven; this is the live host.** On 2026-10-04 everything was checked through it (REPORT.md section 28): the LLM, all four ASR models and the speech renderer, all in bf16/fp16 with no quantization; the three starter kits; API key auth and limits. Restarts on the same droplet were tested, and on 2026-10-06 one `up.mjs` command took a freshly created droplet to serving in 4 min 49 s (section 32). |
 | **Kaggle notebook backend** (`deploy/colab/natlas_kaggle.ipynb`) | **Proven; the free path.** It ran the public gateway on 2026-10-03, where the LLM, all four ASR models, the speech renderer and the three starter kits were checked live (REPORT.md sections 24–26). |
 | Gateway, set up step by step (Step 2b) | **Proven.** These are the steps the live gateway was built with. |
 | Gateway in one command (`deploy/setup-gateway.mjs`, Step 2a) | Checked with `--dry-run` only. **Not yet run against a fresh Cloudflare account.** |
@@ -45,8 +45,9 @@ your app ── @openatlas/sdk ──▶ gateway (Cloudflare Worker + D1) ──
    - An account that is **phone-verified**. That is required to turn on internet access, which the notebook needs to download the models.
 3. **Cloudflare (free plan):**
    - An API token with *Workers Scripts: Edit*, *D1: Edit* and *Account Settings: Read*.
-4. **This repository and Node 18 or later:**
-   - `git clone`, then `npm install` and `npm run build` in the repo root.
+4. **This repository and Node 22.9 or later:**
+   - `git clone https://github.com/Benedict258/OpenAtlas.git`, then `npm install` and `npm run build` in the repo root.
+   - Copy `.env.example` to `.env` and fill it in as you go. The scripts read it with `node --env-file=.env`, and the starter kits use `--env-file-if-exists`, which needs Node 22.9+. (The SDK on its own needs only Node 18.)
 5. **The N-ATLaS license applies to your deployment too:**
    - non-commercial use only;
    - at most **1,000 active end users per 30 days** (your gateway counts and enforces this);
@@ -95,7 +96,7 @@ Then it connects your gateway to the new tunnel URL, with `deploy/set-backend.mj
 
 **Measured:** on a freshly created droplet (2026-10-06), **4 minutes 49 seconds** from the command to the gateway serving, including the package install, the ~30 GB model download (models loaded in 90 s) and the warm-up (REPORT.md section 32). On a droplet that's already set up, about 2.5 minutes.
 
-**Without your machine,** log in to the droplet and run the same script there. It clones the repo, which needs a read-only `GH_TOKEN` while the repo is private:
+**Without your machine,** log in to the droplet and run the same script there. It clones the repo (a `GH_TOKEN` is only needed if the repo is private):
 ```bash
 git clone https://github.com/Benedict258/OpenAtlas.git /tmp/oa   # or: curl/scp just deploy/amd/bootstrap.sh
 HF_TOKEN=hf_... BACKEND_API_KEY=... [GH_TOKEN=...] bash /tmp/oa/deploy/amd/bootstrap.sh
@@ -243,6 +244,8 @@ npm install @openatlas/sdk
 OPENATLAS_API_KEY=… OPENATLAS_BASE_URL=https://<your-gateway>.workers.dev node your-app.mjs
 ```
 
+**Pointing at your own gateway.** The SDK, the starter kits and the scripts all read the gateway address from `OPENATLAS_BASE_URL`, so a self-hosted setup only has to set that (or pass it in code: `new OpenAtlas({ apiKey, baseURL: "https://<your-gateway>" })`). Use your gateway's `workers.dev` address, or a custom domain you've attached to it in Cloudflare (Workers → your gateway → Settings → Domains & Routes). Without either, the SDK uses the hosted OpenAtlas gateway.
+
 The SDK is meant for **server-side** code. The gateway doesn't send CORS headers, so a browser page can't call it directly, and an API key in a browser would be visible to anyone. Put a small server in between, as the starter kits do.
 
 ## Step 4: Run the starter kits against your gateway
@@ -272,24 +275,30 @@ node --env-file=.env deploy/set-backend.mjs https://<new-words>.trycloudflare.co
 
 This is for any machine with an NVIDIA GPU of 24 GB or more and the NVIDIA Container Toolkit. The server loads every model unquantized, so a 16 GB card such as a T4 is too small; use the Kaggle notebook there. That can be your own, or a rented GPU. Instead of a notebook, run the server in a container. It's one command, with a tunnel included:
 
+From the repo root:
 ```bash
-cd deploy/server
-HF_TOKEN=hf_... BACKEND_API_KEY=$(openssl rand -hex 24) docker compose up
-# wait for "trycloudflare.com" in the log, then (with NATLAS_API_KEY=<BACKEND_API_KEY> in .env):
-# node --env-file=.env deploy/set-backend.mjs <that URL>
+export HF_TOKEN=hf_...                          # your Hugging Face read token
+export BACKEND_API_KEY=$(openssl rand -hex 24)  # keep this value: the gateway needs it too
+echo "NATLAS_API_KEY=$BACKEND_API_KEY" >> .env  # set-backend.mjs reads it from here
+docker compose -f deploy/server/docker-compose.yml up -d
+docker compose -f deploy/server/docker-compose.yml logs -f tunnel   # wait for a https://….trycloudflare.com URL, then Ctrl+C
+curl https://<that-url>/health                  # "status": "loading" → "ok" once the models are in GPU memory
+node --env-file=.env deploy/set-backend.mjs https://<that-url>
 ```
+`set-backend.mjs` also needs `OPENATLAS_BASE_URL` and `CLOUDFLARE_API_TOKEN` in `.env` (from Step 2).
 
-- **Image:** `ghcr.io/benedict258/openatlas-backend`, built from `deploy/server/Dockerfile` by `.github/workflows/backend-image.yml` on every change. `docker compose build` builds it locally instead.
+- **Image:** `ghcr.io/benedict258/openatlas-backend:latest`, built from `deploy/server/Dockerfile` by `.github/workflows/backend-image.yml` on every change to `deploy/server/` on `main`. To build it from your checkout instead, add `--build` to the `up` command.
 - **Weights** aren't in the image. They download at start-up into a named volume, so the second start is fast.
-- **Options**, set as environment variables:
-  - `ENABLE_TTS=1`: the speech renderer;
-  - `ASR_LANGUAGES` is listed at the top of `natlas_server.py`.
+- **Options:**
+  - `ENABLE_TTS=1` (exported before `docker compose up`) turns on the speech renderer.
+  - `ASR_LANGUAGES` (default `ha,yo,ig,en-ng`) and `TTS_SOROTTS=0` are read by `natlas_server.py`, but `docker-compose.yml` only passes `HF_TOKEN`, `BACKEND_API_KEY` and `ENABLE_TTS` into the container. To use them, add them under `environment:` in the compose file.
+- **Stopping:** `docker compose -f deploy/server/docker-compose.yml down` (the downloaded weights stay in the `hf-cache` volume).
 - **Fixed URL:** for one that doesn't change, replace the quick tunnel with a named Cloudflare Tunnel or a reverse proxy with HTTPS. The gateway only calls `https://` backends.
 - **Without Docker:** `pip install -r deploy/server/requirements.txt` (plus CUDA PyTorch and ffmpeg), then `HF_TOKEN=… BACKEND_API_KEY=… python deploy/server/natlas_server.py`. It listens on `127.0.0.1:8000`.
 
 **Status: not yet run on a GPU by us.**
 - CI checks that the image builds, starts, answers `/health`, and refuses model calls without the key (`401`), or before the models load (`503`).
-- Treat the first GPU run as a test. Watch `docker compose logs backend` and `GET /health`, which reports loading progress.
+- Treat the first GPU run as a test. Watch `docker compose -f deploy/server/docker-compose.yml logs -f backend` and `GET /health`, which reports loading progress. This guide was checked against the compose file, the Dockerfile and `natlas_server.py`, and its commands haven't been run end to end on a GPU.
 
 ## Other paths
 

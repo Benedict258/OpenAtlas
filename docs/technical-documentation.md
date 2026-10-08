@@ -4,7 +4,7 @@
 **Track:** NAIC 2026, Academia & Research (Developer Infrastructure).
 **Team:** Team Suiaah & NiHub.
 **Repository:** `github.com/Benedict258/OpenAtlas`.
-**Live site:** https://openatlas-site.isaacbenedict001.workers.dev.
+**Live site:** https://getopenatlas.xyz (fallback address: https://openatlas-site.isaacbenedict001.workers.dev). **API:** https://api.getopenatlas.xyz. **Demo app:** demoapp.getopenatlas.xyz (coming soon).
 **SDK:** `@openatlas/sdk` on npm.
 
 This document describes the architecture, components, setup and usage of OpenAtlas, and how it was verified. It's written to be converted directly into the submission PDF.
@@ -261,7 +261,7 @@ const { audio } = await client.speak({ text: "Your order will arrive tomorrow.",
 
 **HTTP:**
 ```bash
-curl -s https://openatlas-gateway.isaacbenedict001.workers.dev/v1/chat/completions \
+curl -s https://api.getopenatlas.xyz/v1/chat/completions \
   -H "Authorization: Bearer $OPENATLAS_API_KEY" -H "Content-Type: application/json" \
   -d '{"messages":[{"role":"user","content":"Kedu?"}],"language":"ig","user":"user-123"}'
 # {"content":"…","model":"NCAIR1/N-ATLaS","attribution":"Powered by Awarri","usage":{…}}
