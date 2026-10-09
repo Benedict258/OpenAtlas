@@ -16,7 +16,7 @@ Later sections state their own host: Kaggle from section 24, the AMD MI300X from
 |---|---|
 | Path | SDK (`sdk`) → live gateway `openatlas-gateway.isaacbenedict001.workers.dev` → backend |
 | Backend | `deploy/colab/natlas_colab.ipynb` on Google Colab (T4 GPU), behind a Cloudflare quick tunnel |
-| Tunnel host | `dinner-gui-resume-recall.trycloudflare.com` (changes on every Colab run) |
+| Tunnel host | [tunnel URL removed] (changes on every Colab run) |
 | LLM | `NCAIR1/N-ATLaS`, 4-bit NF4 |
 | ASR | `NCAIR1/Hausa-ASR`, `NCAIR1/Yoruba-ASR`, `NCAIR1/Igbo-ASR`, `NCAIR1/NigerianAccentedEnglish` |
 | Chat settings | temperature 0.1, repetition penalty 1.12, today's date in the chat template |
@@ -122,7 +122,7 @@ The same replay over the 3 logged English, Hausa and Igbo replies showed no chan
 
 ### 7. Yoruba loop fix, live re-test: FAIL, stopgap applied
 
-Backend: a fresh Colab run (`breakfast-rom-released-replied.trycloudflare.com`) with the n-gram guard added to the loaded model by a patch cell.
+Backend: a fresh Colab run ([tunnel URL removed]) with the n-gram guard added to the loaded model by a patch cell.
 
 **Guard active?** Yes, confirmed directly on the backend. "Write the word hello 25 times" returned 11 × "hello", then a forced "hi", then 9 more. A 10-token repeat was blocked exactly where expected.
 
@@ -151,7 +151,7 @@ The other 9 replies have no loop. They are fluent Yoruba, with mixed tone-mark u
 ### 8. `transcribe()` multi-clip evaluation: 80/90 transcribed; 10 failed on audio over 30 s
 
 **Setup:**
-- 90 real recordings with human reference transcripts, sent through SDK `transcribe()` → live gateway → Colab backend (`breakfast-rom-released-replied.trycloudflare.com`).
+- 90 real recordings with human reference transcripts, sent through SDK `transcribe()` → live gateway → Colab backend ([tunnel URL removed]).
 - Fetched by `scripts/dev/fetch-asr-eval.mjs`, taking evenly spaced rows across each split so the clips cover different speakers.
 - Converted to 16 kHz mono WAV by `scripts/dev/resample-eval.py`, which is what Whisper uses internally anyway.
 - Scored by `scripts/asr-eval.mjs`.
@@ -196,7 +196,7 @@ Verified locally: the SDK test suite (23/23) and the gateway mock suite (12/12).
 
 ## 2026-10-03
 
-Backend: the **same Colab kernel as 2026-10-02** (the traceback shows `ipykernel_5444`), with a new tunnel (`offerings-country-alternatively-walls.trycloudflare.com`). It is not a fresh run of the repo notebook. Its server cell still calls the ASR pipeline without chunking; chunking was added only through the patch cell. Gateway versions: error handling `847daa0a`, then attribution `4f9461f8`.
+Backend: the **same Colab kernel as 2026-10-02** (the traceback shows `ipykernel_5444`), with a new tunnel ([tunnel URL removed]). It is not a fresh run of the repo notebook. Its server cell still calls the ASR pipeline without chunking; chunking was added only through the patch cell. Gateway versions: error handling `847daa0a`, then attribution `4f9461f8`.
 
 ### 9. Long-clip re-test: FAIL, 0/10; transcription broken on this backend
 
@@ -238,7 +238,7 @@ A live chat also confirmed the new response fields: `model: "NCAIR1/N-ATLaS"`, `
 
 ### 11. Long-clip re-test with 30 s chunking: 10/10 transcribed (KI-7 fixed); long audio loses words
 
-Backend: a fresh Colab run (`figure-changelog-inc-granted.trycloudflare.com`), with ASR chunking applied once (`chunk_length_s=30, batch_size=8`).
+Backend: a fresh Colab run ([tunnel URL removed]), with ASR chunking applied once (`chunk_length_s=30, batch_size=8`).
 
 **Short clips first, to confirm transcription works again:** 4/4 OK, one per language (2.1–26.7 s, 1.8–5.8 s each). The transcripts match those from 2026-10-02.
 
@@ -343,7 +343,7 @@ The changes are in `starter-kits/customer-service`, commit `cf4c326`:
 
 ### 17. Customer Service go-live checks on the new backend: 4/4 steps PASS
 
-Backend: a fresh Colab run of `deploy/colab/natlas_colab.ipynb` at commit `998a946` (`synthetic-occupations-dragon-specialist.trycloudflare.com`). Confirmed to be the new version: a direct transcription response carries `"audio_seconds"` and `"pieces"`. The steps were run in the agreed order, each gated on the one before.
+Backend: a fresh Colab run of `deploy/colab/natlas_colab.ipynb` at commit `998a946` ([tunnel URL removed]). Confirmed to be the new version: a direct transcription response carries `"audio_seconds"` and `"pieces"`. The steps were run in the agreed order, each gated on the one before.
 
 **Step 1: the six worst long clips, with server-side 25 s pieces: PASS.** The results are word for word what the manual split gave in section 13:
 
@@ -960,7 +960,7 @@ All relative links in the main docs resolve.
 |---|---|
 | 1. Policies plus rules | Context used across turns. English claimed "a staff member has checked your order", and Hausa said the order "has been checked and sent" (3/3). |
 | 2. Reminder after the message ("you cannot see orders") | Order claims fixed: English 3/3, Hausa 3/3. Two regressions: English returns answers lost the 7-day rule, and one invented a returns email; Igbo said the shop is closed on Saturdays. |
-| 3. Reminder also says "state policies exactly, never make up contact details" | Policies stated correctly in English and Hausa. In the browser run, one English reply still invented "info@adaandsons.com". |
+| 3. Reminder also says "state policies exactly, never make up contact details" | Policies stated correctly in English and Hausa. In the browser run, one English reply still invented "[example email]". |
 | 4. Shipped: shop notes give the contact channel ("this chat; no email or phone") | See below |
 
 **Shipped version, 3 runs × 5 conversations (24 replies):**
@@ -1060,7 +1060,7 @@ The tester form wasn't part of this run.
 | `openatlas-gateway.isaacbenedict001.workers.dev` | Works (health 200, 401 without a key). Same backend outage. |
 
 - **Host checks:** none in the site Worker, the gateway or the kits; no canonical links or sitemap; pages use relative links and same-origin `/api` calls. `robots.txt` on the new domain is Cloudflare's managed file (a zone setting).
-- **Changed:** the public site address in the README and technical documentation is now `https://getopenatlas.xyz`, with the workers.dev address named as the fallback. The demo app, demoapp.getopenatlas.xyz, is listed as coming soon. The deploy guide now says how to point the SDK, kits and scripts at your own gateway (`OPENATLAS_BASE_URL`, `baseURL`, or a custom domain).
+- **Changed:** the public site address in the README and technical documentation is now `https://getopenatlas.xyz`, with the workers.dev address named as the fallback. The deploy guide now says how to point the SDK, kits and scripts at your own gateway (`OPENATLAS_BASE_URL`, `baseURL`, or a custom domain).
 - **On hold until the backend is back** and `smoke-gateway.mjs` passes against `https://api.getopenatlas.xyz`:
   - the gateway address in the docs;
   - `site/wrangler.toml`;
