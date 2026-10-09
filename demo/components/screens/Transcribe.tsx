@@ -1,17 +1,18 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Screen from "@/components/Screen";
 import LangSelect from "@/components/LangSelect";
 import Waiting from "@/components/Waiting";
 import ErrorPanel from "@/components/ErrorPanel";
 import { TRANSCRIBE_LANGS } from "@/lib/langs";
-import { DemoApiError, postForm } from "@/lib/client/api";
+import { DemoApiError, postForm, postJson } from "@/lib/client/api";
 import { useWaiting } from "@/lib/client/useWaiting";
 import { useRecorder } from "@/lib/client/useRecorder";
 
 const MAX_SECONDS = 30;
 const MAX_UPLOAD_BYTES = 7 * 1024 * 1024;
+const MAX_SPEAK = 1000;
 
 interface TranscribeOk {
   ok: true;
@@ -19,6 +20,13 @@ interface TranscribeOk {
   text: string;
   language: string;
   model: string;
+  attribution: string;
+}
+
+interface SpeakOk {
+  ok: true;
+  mock: boolean;
+  audioBase64: string;
   attribution: string;
 }
 
@@ -44,6 +52,25 @@ function extFor(mime: string): string {
   return "webm";
 }
 
+/** speak() accepts en|ha|yo|ig|pcm; transcribe's en-ng maps to en. */
+function speakLangFor(language: string): string {
+  return language === "en-ng" ? "en" : language;
+}
+
+/** speak() caps text at 1,000 characters; trim at a sentence or word boundary. */
+function speakable(text: string): { text: string; truncated: boolean } {
+  const clean = text.trim();
+  if (clean.length <= MAX_SPEAK) return { text: clean, truncated: false };
+  const cut = clean.slice(0, MAX_SPEAK);
+  const at = Math.max(
+    cut.lastIndexOf(". "),
+    cut.lastIndexOf("! "),
+    cut.lastIndexOf("? "),
+    cut.lastIndexOf(" "),
+  );
+  return { text: (at > 0 ? cut.slice(0, at) : cut).trim(), truncated: true };
+}
+
 export default function Transcribe() {
   const [language, setLanguage] = useState("ha");
   const [clip, setClip] = useState<Clip | null>(null);
@@ -51,11 +78,34 @@ export default function Transcribe() {
   const [result, setResult] = useState<TranscribeOk | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [speech, setSpeech] = useState<{ url: string; attribution: string } | null>(null);
+  const [speaking, setSpeaking] = useState(false);
+  const [speakError, setSpeakError] = useState<string | null>(null);
+  const [speechTruncated, setSpeechTruncated] = useState(false);
   const { waiting, seconds, start, stop } = useWaiting();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const speechUrlRef = useRef<string | null>(null);
+
+  function clearSpeech() {
+    setSpeech(null);
+    setSpeechTruncated(false);
+    setSpeakError(null);
+    if (speechUrlRef.current) {
+      URL.revokeObjectURL(speechUrlRef.current);
+      speechUrlRef.current = null;
+    }
+  }
+
+  useEffect(
+    () => () => {
+      if (speechUrlRef.current) URL.revokeObjectURL(speechUrlRef.current);
+    },
+    [],
+  );
 
   function setNewClip(blob: Blob, source: "record" | "upload", label: string, fileName: string) {
     setResult(null);
+    clearSpeech();
     setClip((prev) => {
       if (prev) URL.revokeObjectURL(prev.url);
       return { blob, url: URL.createObjectURL(blob), source, label, fileName };
@@ -79,6 +129,7 @@ export default function Transcribe() {
   async function transcribe() {
     if (!clip || waiting) return;
     setError(null);
+    clearSpeech();
     start();
     try {
       const fd = new FormData();
@@ -101,6 +152,29 @@ export default function Transcribe() {
       setTimeout(() => setCopied(false), 1500);
     } catch {
       setCopied(false);
+    }
+  }
+
+  async function hearTranscript() {
+    if (!result || speaking) return;
+    clearSpeech();
+    setSpeaking(true);
+    try {
+      const { text, truncated } = speakable(result.text);
+      const res = await postJson<SpeakOk>("/api/speak", {
+        text,
+        language: speakLangFor(language),
+        engine: "auto",
+      });
+      const bytes = Uint8Array.from(atob(res.audioBase64), (c) => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+      speechUrlRef.current = url;
+      setSpeechTruncated(truncated);
+      setSpeech({ url, attribution: res.attribution });
+    } catch (e) {
+      setSpeakError(e instanceof DemoApiError ? e.code : "unknown");
+    } finally {
+      setSpeaking(false);
     }
   }
 
@@ -217,10 +291,40 @@ export default function Transcribe() {
                 <span>Model: {result.model}</span>
                 <span className="attribution">{result.attribution}</span>
               </span>
-              <button type="button" className="btn ghost small" onClick={() => void copy()}>
-                {copied ? "Copied ✓" : "Copy transcript"}
-              </button>
+              <span className="row" style={{ gap: 10 }}>
+                <button
+                  type="button"
+                  className="btn ghost small"
+                  onClick={() => void hearTranscript()}
+                  disabled={speaking || waiting}
+                >
+                  {speaking ? "Rendering…" : "Hear transcript"}
+                </button>
+                <button type="button" className="btn ghost small" onClick={() => void copy()}>
+                  {copied ? "Copied ✓" : "Copy transcript"}
+                </button>
+              </span>
             </div>
+            {speechTruncated && (
+              <span className="note">Long transcript — only the first {MAX_SPEAK} characters are spoken.</span>
+            )}
+            {speech && (
+              <span className="meta">
+                <span>Spoken back with speech engine:</span>
+                <span className="attribution">{speech.attribution}</span>
+              </span>
+            )}
+            {speech && (
+              <div className="player fade-in">
+                <audio src={speech.url} controls autoPlay />
+                <a className="btn ghost small" href={speech.url} download="openatlas-transcript.wav">
+                  Download WAV
+                </a>
+              </div>
+            )}
+            {speakError && (
+              <ErrorPanel code={speakError} onRetry={hearTranscript} onDismiss={() => setSpeakError(null)} />
+            )}
           </div>
         ) : (
           <p className="empty">The transcript appears here.</p>
