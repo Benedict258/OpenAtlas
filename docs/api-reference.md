@@ -37,6 +37,7 @@ Models are named by their Hugging Face IDs, not renamed. `attribution` is the "P
 ### `POST /v1/audio/speech` (optional; off unless `TTS_ENABLED = "true"`)
 
 A text-to-speech renderer for text the app already has, normally N-ATLaS's reply.
+- **How it works:** N-ATLaS generates the response (`chat()`). The app passes that text to `speak()`, and the OpenAtlas text-to-speech layer outputs it as audio. `speak()` reads aloud exactly the text it's given; it doesn't generate or change it.
 - **Not N-ATLaS:** an optional, separate text-to-speech renderer that adds no N-ATLaS capability. It never changes, translates or answers the text.
 - **Request:** `{ text (≤1,000 chars), language: "en"|"ha"|"yo"|"ig"|"pcm", engine?: "auto"|"sorotts"|"mms", user }`.
 - **Response:** `{ audio (base64 WAV), format, sample_rate, seconds, language, engine, model, voice, sentences, warnings, fallback_reason?, attribution }`.

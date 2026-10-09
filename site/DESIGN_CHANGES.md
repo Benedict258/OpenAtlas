@@ -427,3 +427,7 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
   - **Was:** "Optional · reliable in English" and similar wording.
   - **Now:** "Optional".
   - **Why:** owner's request to remove the reliability statement.
+- **Docs page, `speak()` section**
+  - **Was:** no statement of where the spoken text comes from.
+  - **Now:** "How it works": N-ATLaS generates the response with `chat()`; that text is passed to `speak()`, and the text-to-speech layer outputs it as audio, reading exactly the text it's given.
+  - **Why:** owner's request for clarity in the docs.
