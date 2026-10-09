@@ -17,7 +17,7 @@ binding = "GATEWAY"
 service = "openatlas-gateway"
 
 [vars]
-OPENATLAS_BASE_URL = "https://openatlas-gateway.isaacbenedict001.workers.dev"
+OPENATLAS_BASE_URL = "https://api.getopenatlas.xyz"
 
 # Secret (wrangler secret put OPENATLAS_API_KEY, or .dev.vars locally):
 #   OPENATLAS_API_KEY  the key the website's live kit demos use (label it "website-demos")

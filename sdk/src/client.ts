@@ -17,8 +17,8 @@ const TRANSCRIBE_LANGUAGES = new Set(["en-ng", "ha", "yo", "ig"]);
 const SPEAK_LANGUAGES = new Set(["en", "ha", "yo", "ig", "pcm"]);
 const MAX_SPEAK_CHARS = 1_000;
 
-/** Public OpenAtlas gateway (Cloudflare Worker). Override with `baseURL` or `OPENATLAS_BASE_URL`. */
-export const DEFAULT_BASE_URL: string | undefined = "https://openatlas-gateway.isaacbenedict001.workers.dev";
+/** Public OpenAtlas gateway (Cloudflare Worker, api.getopenatlas.xyz). Override with `baseURL` or `OPENATLAS_BASE_URL`. */
+export const DEFAULT_BASE_URL: string | undefined = "https://api.getopenatlas.xyz";
 
 export interface OpenAtlasOptions {
   /** Defaults to `process.env.OPENATLAS_API_KEY`. */

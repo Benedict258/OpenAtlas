@@ -143,7 +143,7 @@ await client.reportIssue({
 | Option | Default | |
 |---|---|---|
 | `apiKey` | `process.env.OPENATLAS_API_KEY` | Your OpenAtlas key |
-| `baseURL` | `process.env.OPENATLAS_BASE_URL`, then the hosted gateway | Gateway URL |
+| `baseURL` | `process.env.OPENATLAS_BASE_URL`, then the hosted gateway `https://api.getopenatlas.xyz` (0.1.1 and earlier: the workers.dev address) | Gateway URL |
 | `timeoutMs` | `300000` | Per request; matches the gateway's own wait |
 | `maxRetries` | `2` | Retries network errors and 503 only |
 | `normalize` | `false` | Apply `normalizeText()` to chat messages, replies and transcripts automatically |

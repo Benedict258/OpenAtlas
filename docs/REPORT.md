@@ -1082,6 +1082,18 @@ The tester form wasn't part of this run.
 - **Clean clone:** `npm install`, `npm run build` and the SDK tests pass (32/32). The Citizen Services kit starts exactly as its README says and reports `backend: offline`.
 - **Docker:** not run. This machine has no Docker. The last CI run built the image from a clean checkout on 2026-10-04 (`247997a`; `/health` gives `loading`, 401 without the key, 503 before the models load), and `deploy/server/` hasn't changed since. The deploy guide's Docker steps had three errors, now fixed: the backend key was generated inline and lost, `set-backend.mjs` was run from `deploy/server/`, and `ASR_LANGUAGES` was listed as an option, but the compose file doesn't pass it into the container.
 
+## 2026-10-09
+
+### 35. Smoke test through api.getopenatlas.xyz
+
+`OPENATLAS_BASE_URL=https://api.getopenatlas.xyz node --env-file=.env scripts/smoke-gateway.mjs`, with the existing test clips. Before the run, gateway health was `status: ok`, `reachable: true`, `stage: ready`, `mock: false`. It listed ASR for en-ng, ha, ig and yo, and speech output (`sorotts`, `mms`) as `ok`. Exit code 0: every call succeeded.
+
+| Check | Result |
+|---|---|
+| `chat()` | en 2.2 s, ha 1.5 s, yo 4.4 s, ig 4.0 s. The Yoruba answer stopped at the 200-token limit, mid-word, and its explanation of why the sky is blue is wrong (it credits the Earth's rotation). |
+| `transcribe()`: WER | ha 26% (4.9 s), yo 76% (5.2 s), ig 0% (1.3 s), en-ng 0% (1.2 s), on the one-clip-per-language smoke set. Section 8 has the 90-clip results. |
+| `reportIssue()` | Stored (`52938659-…`) and present in the admin export. |
+
 ## Known issues
 
 | ID | Issue | Status |

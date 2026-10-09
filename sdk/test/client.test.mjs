@@ -79,7 +79,7 @@ test("constructor requires a key; base URL defaults to the hosted gateway", () =
   delete process.env.OPENATLAS_API_KEY;
   delete process.env.OPENATLAS_BASE_URL;
   assert.throws(() => new OpenAtlas({ baseURL: "https://x" }), /API key/);
-  assert.equal(new OpenAtlas({ apiKey: "k" }).baseURL, "https://openatlas-gateway.isaacbenedict001.workers.dev");
+  assert.equal(new OpenAtlas({ apiKey: "k" }).baseURL, "https://api.getopenatlas.xyz");
 });
 
 test("reportIssue posts to /v1/issues and base64-encodes audio", async () => {
@@ -137,7 +137,7 @@ test("an empty OPENATLAS_BASE_URL falls back to the hosted gateway", () => {
   const saved = process.env.OPENATLAS_BASE_URL;
   process.env.OPENATLAS_BASE_URL = "";
   try {
-    assert.equal(new OpenAtlas({ apiKey: "oa_test" }).baseURL, "https://openatlas-gateway.isaacbenedict001.workers.dev");
+    assert.equal(new OpenAtlas({ apiKey: "oa_test" }).baseURL, "https://api.getopenatlas.xyz");
   } finally {
     if (saved === undefined) delete process.env.OPENATLAS_BASE_URL;
     else process.env.OPENATLAS_BASE_URL = saved;

@@ -52,7 +52,7 @@ N-ATLaS is Nigeria's open language model suite: an 8B LLM for English, Hausa, Yo
 ### 3.1 SDK: `@openatlas/sdk` ([`sdk/`](../sdk/))
 
 - **Build:** TypeScript, compiled to ES modules with type declarations. No runtime dependencies. Node 18+; tested on Node 22.
-- **Distribution:** published to npm; the current version is `0.1.1`.
+- **Distribution:** published to npm; the current version is `0.1.2`.
 
 | Method | Purpose |
 |---|---|
