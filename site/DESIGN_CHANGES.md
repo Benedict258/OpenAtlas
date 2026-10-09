@@ -420,3 +420,10 @@ Not converted: the "Logo directions" board (a design exploration, not a site pag
   - **Was:** a `/tester` feedback form, forwarded by the site Worker to the gateway.
   - **Now:** no tester page; the site Worker forwards only the key request form.
   - **Why:** the form isn't part of the public release.
+
+## 2026-10-09: speech-output label
+
+- **Docs page (`POST /v1/audio/speech` badge) and architecture page (TTS layer, TTS host row)**
+  - **Was:** "Optional · reliable in English" and similar wording.
+  - **Now:** "Optional".
+  - **Why:** owner's request to remove the reliability statement.

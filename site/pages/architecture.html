@@ -134,7 +134,7 @@ OpenAtlas
 <div class="hosts">
 <div class="layer core"><h3>N-ATLaS LLM</h3><p>Llama-3 8B fine-tune, served in bf16 on the MI300X (4-bit on 16 GB GPUs such as Kaggle's T4).</p></div>
 <div class="layer core"><h3>N-ATLaS ASR ×4</h3><p>Hausa, Yoruba, Igbo and Nigerian-accented English.</p></div>
-<div class="layer opt"><h3>TTS <span class="badge" style="margin-left:6px">Optional</span></h3><p>SoroTTS for single sentences, MMS-TTS for longer text and English. Final audio rendering only; reliable in English.</p></div>
+<div class="layer opt"><h3>TTS <span class="badge" style="margin-left:6px">Optional</span></h3><p>SoroTTS for single sentences, MMS-TTS for longer text and English. Final audio rendering only.</p></div>
 </div>
 </div>
 </div>
@@ -163,7 +163,7 @@ OpenAtlas
 <div class="scroll"><table class="tbl"><thead><tr><th>Component</th><th>Technology</th><th>Responsibility</th></tr></thead><tbody>
 <tr><td>Inference host</td><td>AMD Instinct MI300X on DigitalOcean (ROCm, live demo); a free Kaggle T4 x2 notebook; or Docker on any NVIDIA GPU</td><td>Runs the N-ATLaS LLM and four ASR models and exposes HTTP endpoints.</td></tr>
 <tr><td>Model serving</td><td>One Python server (FastAPI and transformers) for the LLM and all four ASR models</td><td>Turns handler calls into model forward passes.</td></tr>
-<tr><td>TTS host</td><td>Same deployment, separate endpoint</td><td>Runs SoroTTS or MMS-TTS for audio rendering. Optional; reliable in English only.</td></tr>
+<tr><td>TTS host</td><td>Same deployment, separate endpoint</td><td>Runs SoroTTS or MMS-TTS for audio rendering. Optional.</td></tr>
 <tr><td>OpenAtlas SDK</td><td>TypeScript, published to npm</td><td>One client over all of the above, written fresh with the inference settings tested against the real N-ATLaS weights.</td></tr>
 <tr><td>Gateway</td><td>Cloudflare Worker and D1</td><td>One public URL and per-developer keys. Counts active end users against the licence cap, stores reportIssue() corrections and holds the GPU host's credentials.</td></tr>
 <tr><td>Starter kits ×3</td><td>Node and TypeScript</td><td>Minimal reference apps proving the SDK end to end.</td></tr>

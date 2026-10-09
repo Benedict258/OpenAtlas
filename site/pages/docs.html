@@ -224,7 +224,7 @@ console.<span class="f">log</span>(result.text);</pre></div>
 
 <div class="method">
 <span class="sig mono">client.speak({ text, language, engine?, user })</span>
-<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><span class="ep mono"><b>POST</b> /v1/audio/speech</span><span class="badge">Optional · reliable in English</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><span class="ep mono"><b>POST</b> /v1/audio/speech</span><span class="badge">Optional</span></div>
 <p>Final-stage audio rendering of text N-ATLaS already produced, by a separate text-to-speech model: SoroTTS for single sentences, Meta MMS-TTS for longer text and English. It is on for the hosted API and has been verified on the real models. English comes back clearly: 2–5% of words wrong when the audio is played back through the N-ATLaS speech recognizer. Hausa, Yoruba and Igbo are rendered, but with 36–79% wrong, so treat them as experimental. A gateway with it switched off returns <span class="mono">tts_disabled</span>. The website's own demos don't use it.</p>
 <div class="scroll"><table class="tbl"><thead><tr><th>Field</th><th>Type</th><th>Notes</th></tr></thead><tbody>
 <tr><td>text</td><td>string</td><td>Required, up to 1,000 characters. Spoken unchanged.</td></tr>
