@@ -136,6 +136,10 @@ These were measured, not estimated; details are in [REPORT.md](docs/REPORT.md#kn
 - **`normalizeText()` repairs but doesn't restore:** tone marks that were never typed stay missing.
 - **Not yet routed back:** `reportIssue()` data has no agreed channel to the N-ATLaS maintainers yet.
 
+## Contributing
+
+Contributions are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md) for local setup and how to open a pull request. Contributions are accepted under the MIT licence.
+
 ## License
 
 OpenAtlas's code is [MIT-licensed](LICENSE). The N-ATLaS models aren't part of this repository: they remain under the [N-ATLaS Terms of Use](https://huggingface.co/NCAIR1/N-ATLaS) (non-commercial, 1,000 active users per 30 days, attribution).
