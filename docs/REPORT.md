@@ -1,5 +1,7 @@
 # OpenAtlas verification report
 
+> **How to read this file.** This is the dated running log of verification for OpenAtlas, 2–9 October 2026. The GPU backend runs on an hourly-billed AMD MI300X droplet that was switched on for test sessions and destroyed between them, so entries that mention "backend down", "reachable: false" or "503 backend_unavailable" record checks made while the droplet was off. They are expected, not faults. Live results from the running system are in live-proof/ (health, chat in English, Hausa, Yoruba and Igbo, Hausa transcription, AMD GPU check). Older entries name SDK 0.1.0/0.1.1 and the workers.dev gateway address; the current release is @openatlas/sdk 0.1.2 and the public gateway is https://api.getopenatlas.xyz.
+
 The running record of what has been checked against the **live N-ATLaS model**, in order. Every future check is appended here.
 
 How to read it:
