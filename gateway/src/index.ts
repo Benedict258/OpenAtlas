@@ -26,6 +26,16 @@ export interface Env {
   TTS_ENABLED: string;
   DEFAULT_DAILY_REQUEST_LIMIT: string;
   DEFAULT_KEY_MAX_ACTIVE_USERS: string;
+  // Self-serve keys from the website's request form (createKeyRequest).
+  SELF_SERVE_DAILY_REQUEST_LIMIT: string;
+  SELF_SERVE_MAX_ACTIVE_USERS: string;
+  PUBLIC_API_URL: string;
+  // Email through Resend. Without RESEND_API_KEY and FROM_EMAIL no email is sent; the key is still issued
+  // and shown on screen. ADMIN_EMAIL receives a copy of every request (never the key itself).
+  RESEND_API_KEY?: string;
+  FROM_EMAIL?: string;
+  ADMIN_EMAIL?: string;
+  SUPPORT_EMAIL?: string;
 }
 
 /** An authenticated OpenAtlas key and its limits (null = no limit). */
@@ -409,14 +419,22 @@ function newKeyLimits(env: Env, body: any): Limits {
   };
 }
 
-async function createKey(env: Env, label: string, limits: Limits) {
-  const bytes = crypto.getRandomValues(new Uint8Array(24));
-  const key = "oa_" + [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+const hex = (bytes: Uint8Array) => [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+/**
+ * Issues a key: only its SHA-256 hash (what authenticate() looks up) and a short display prefix are stored.
+ * Admin-issued keys are "oa_" + 24 random bytes; self-serve keys from the website form are "oa_live_" + 32.
+ */
+async function createKey(env: Env, label: string, limits: Limits, selfServe = false) {
+  const key = selfServe ? `oa_live_${hex(crypto.getRandomValues(new Uint8Array(32)))}` : `oa_${hex(crypto.getRandomValues(new Uint8Array(24)))}`;
+  const prefix = key.slice(0, selfServe ? 14 : 9);
   const id = crypto.randomUUID();
-  await env.DB.prepare("INSERT INTO api_keys (id, key_hash, label, created_at, daily_request_limit, max_active_users) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(id, await sha256(key), label, Date.now(), limits.daily_request_limit, limits.max_active_users)
+  await env.DB.prepare(
+    "INSERT INTO api_keys (id, key_hash, key_prefix, label, created_at, daily_request_limit, max_active_users) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  )
+    .bind(id, await sha256(key), prefix, label, Date.now(), limits.daily_request_limit, limits.max_active_users)
     .run();
-  return { id, label, key, ...limits, note: "Store this key now; it is not shown again." };
+  return { id, label, key, prefix, ...limits, note: "Store this key now; it is not shown again." };
 }
 
 async function issueKey(req: Request, env: Env) {
@@ -493,27 +511,191 @@ function requiredText(v: unknown, field: string, max: number): string {
   return text;
 }
 
-/** Public: the website's "Request an API key" form. Keys are issued by hand after review. */
-async function createKeyRequest(req: Request, env: Env) {
+// Self-serve key requests (the website's "Request an API key" form): limits on how fast keys can be minted.
+const KEY_REQUESTS_PER_EMAIL_PER_DAY = 3;
+const KEY_REQUESTS_PER_IP_PER_DAY = 5;
+const KEY_REQUESTS_PER_HOUR = 60; // across everyone: a ceiling on abuse
+const EXPECTED_USERS = new Set(["Under 50", "50 to 200", "200 to 1,000", "Not sure yet"]);
+const EMAIL_RE = /^[^\s@<>()",;:]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
+const invalidRequest = (message: string) => new HttpError(400, "invalid_key_request", message);
+
+/**
+ * Public: the website's "Request an API key" form. Issues a working key straight away, in the same table
+ * authenticate() reads, revokes any earlier key issued to the same email, and emails the key (Resend).
+ * The raw key is returned once in the response and in the requester's email; it is never stored or logged.
+ */
+async function createKeyRequest(req: Request, env: Env, ctx: ExecutionContext) {
   const body = await readJson(req);
+  // Honeypot: a field people never see. Anything in it means a bot filled the form.
+  if (typeof body?.website === "string" && body.website.trim()) throw invalidRequest("Request rejected.");
   const name = requiredText(body?.name, "name", 100);
-  const email = requiredText(body?.email, "email", 200).toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, "invalid_key_request", "`email` doesn't look like an email address.");
+  const email = requiredText(body?.email, "email", 254).toLowerCase();
+  if (!EMAIL_RE.test(email)) throw invalidRequest("Enter a valid email address.");
   const project = requiredText(body?.project, "project", 200);
-  const useCase = requiredText(body?.use_case, "use_case", 2_000);
-  const expectedUsers = optionalText(body?.expected_users, "expected_users", 50);
+  const organization = optionalText(typeof body?.organization === "string" ? body.organization.trim() : body?.organization, "organization", 200);
+  const building = requiredText(body?.use_case, "use_case", 2_000);
+  const expectedUsers = requiredText(body?.expected_users, "expected_users", 50);
+  if (!EXPECTED_USERS.has(expectedUsers)) throw invalidRequest("Choose how many end users you expect.");
   if (body?.accept_terms !== true) {
-    throw new HttpError(400, "invalid_key_request", "You must accept the N-ATLaS Terms of Use (non-commercial, 1,000 active users per 30 days).");
+    throw invalidRequest("You must accept the N-ATLaS Terms of Use (non-commercial, 1,000 active users per 30 days).");
   }
-  const pending = await env.DB.prepare("SELECT id FROM key_requests WHERE email = ? AND status = 'pending'").bind(email).first();
-  if (pending) throw new HttpError(409, "request_pending", "There is already a pending request for this email. You'll hear back once it's reviewed.");
+
+  // The client's address: set by Cloudflare's edge on a direct request, and passed on by the website Worker
+  // when the form comes through it. Only its hash is stored.
+  const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
+  const country = (req.headers.get("CF-IPCountry") ?? "").slice(0, 2) || null;
+  const ipHash = await sha256(`key-request|${ip}`);
+  const now = Date.now();
+  const since = now - DAY_MS;
+  const [byEmail, byIp, total] = await Promise.all([
+    env.DB.prepare("SELECT COUNT(*) AS n FROM key_requests WHERE email = ? AND created_at >= ?").bind(email, since).first<{ n: number }>(),
+    env.DB.prepare("SELECT COUNT(*) AS n FROM key_requests WHERE ip_hash = ? AND created_at >= ?").bind(ipHash, since).first<{ n: number }>(),
+    env.DB.prepare("SELECT COUNT(*) AS n FROM key_requests WHERE created_at >= ?").bind(now - 3_600_000).first<{ n: number }>(),
+  ]);
+  if ((byEmail?.n ?? 0) >= KEY_REQUESTS_PER_EMAIL_PER_DAY) {
+    throw new HttpError(429, "too_many_requests", "Too many keys requested for this email today. Use the most recent key we sent, or try again tomorrow.");
+  }
+  if ((byIp?.n ?? 0) >= KEY_REQUESTS_PER_IP_PER_DAY || (total?.n ?? 0) >= KEY_REQUESTS_PER_HOUR) {
+    throw new HttpError(429, "too_many_requests", "Too many key requests. Try again later.");
+  }
+
+  // One live key per email: a new request replaces (revokes) the keys issued to that email before.
+  const previous = await env.DB.prepare("SELECT key_id FROM key_requests WHERE email = ? AND key_id IS NOT NULL").bind(email).all<{ key_id: string }>();
+  const issued = await createKey(env, `${email} · ${project}`.slice(0, 100), {
+    daily_request_limit: Number(env.SELF_SERVE_DAILY_REQUEST_LIMIT) || null,
+    max_active_users: Number(env.SELF_SERVE_MAX_ACTIVE_USERS) || null,
+  }, true);
+  const replaced: string[] = [];
+  for (const { key_id } of previous.results) {
+    const r = await env.DB.prepare("UPDATE api_keys SET revoked_at = ?, revoked_reason = ? WHERE id = ? AND revoked_at IS NULL")
+      .bind(now, "replaced by a new request from the same email", key_id)
+      .run();
+    if (r.meta.changes) replaced.push(key_id);
+  }
   const id = crypto.randomUUID();
   await env.DB.prepare(
-    "INSERT INTO key_requests (id, created_at, name, email, project, use_case, expected_users) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    `INSERT INTO key_requests (id, created_at, name, email, project, organization, use_case, expected_users, status, key_id, decided_at, ip_hash, country)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'issued', ?, ?, ?, ?)`,
   )
-    .bind(id, Date.now(), name, email, project, useCase, expectedUsers)
+    .bind(id, now, name, email, project, organization, building, expectedUsers, issued.id, now, ipHash, country)
     .run();
-  return { id, status: "pending" };
+
+  const request = { name, email, project, organization, building, expectedUsers, country, at: new Date(now).toISOString() };
+  // The requester's email is awaited so the page can say whether it went; a failure doesn't lose the key.
+  const emailed = await sendEmail(env, keyEmail(env, request, issued.key)).then(
+    () => true,
+    (e) => (console.error(`key email to requester failed (${issued.prefix}…): ${e instanceof Error ? e.message : e}`), false),
+  );
+  if (env.ADMIN_EMAIL) {
+    ctx.waitUntil(
+      sendEmail(env, adminEmail(env, request, issued.prefix, replaced.length)).catch((e) =>
+        console.error(`admin copy failed (${issued.prefix}…): ${e instanceof Error ? e.message : e}`),
+      ),
+    );
+  }
+  return {
+    id,
+    key: issued.key,
+    key_prefix: issued.prefix,
+    emailed,
+    replaced_previous_key: replaced.length > 0,
+    daily_request_limit: issued.daily_request_limit,
+    max_active_users: issued.max_active_users,
+    base_url: env.PUBLIC_API_URL,
+  };
+}
+
+type KeyRequestDetails = {
+  name: string; email: string; project: string; organization: string | null; building: string; expectedUsers: string; country: string | null; at: string;
+};
+type Email = { to: string; subject: string; text: string; html: string; reply_to?: string };
+
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+/** Sends one email through Resend's REST API. Throws if Resend isn't configured or refuses it. */
+async function sendEmail(env: Env, email: Email): Promise<void> {
+  if (!env.RESEND_API_KEY || !env.FROM_EMAIL) throw new Error("email is not configured (RESEND_API_KEY / FROM_EMAIL)");
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ from: env.FROM_EMAIL, ...email }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) throw new Error(`Resend HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
+}
+
+function keyEmail(env: Env, r: KeyRequestDetails, key: string): Email {
+  const support = env.SUPPORT_EMAIL || env.FROM_EMAIL || "";
+  const base = env.PUBLIC_API_URL;
+  const usage = [
+    `import { OpenAtlas } from "@openatlas/sdk";`,
+    `const client = new OpenAtlas({ apiKey: "${key}" });`,
+    `const { content } = await client.chat({ messages: [{ role: "user", content: "Sannu!" }], language: "ha", user: "user-1" });`,
+  ].join("\n");
+  const text = [
+    `Hi ${r.name},`,
+    "",
+    "Here is your OpenAtlas API key. It is shown only once, so store it somewhere safe and keep it secret:",
+    "",
+    key,
+    "",
+    "What you submitted:",
+    `  Project: ${r.project}`,
+    `  Organization: ${r.organization ?? "(none given)"}`,
+    `  What you're building: ${r.building}`,
+    "",
+    "Quick start:",
+    "  npm install @openatlas/sdk",
+    "",
+    usage,
+    "",
+    `Gateway base URL: ${base} (the SDK uses it by default).`,
+    "Every call needs a `user`: a stable, opaque ID for your end user, used only for the N-ATLaS licence count.",
+    "",
+    "N-ATLaS is for non-commercial use, capped at 1,000 active end users per 30 days, and output must be shown with \"Powered by Awarri\".",
+    support ? `Questions? Reply to this email or write to ${support}.` : "Questions? Reply to this email.",
+    "",
+    "OpenAtlas",
+  ].join("\n");
+  const pre = "font-family:ui-monospace,Menlo,Consolas,monospace;background:#F1F2EC;border:1px solid #D9DCD4;border-radius:6px;padding:12px 14px;white-space:pre-wrap;word-break:break-all";
+  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:15px;line-height:1.55;color:#111411;max-width:620px">
+<p>Hi ${escapeHtml(r.name)},</p>
+<p>Here is your OpenAtlas API key. <b>It is shown only once</b>, so store it somewhere safe and keep it secret:</p>
+<pre style="${pre};font-size:14px">${escapeHtml(key)}</pre>
+<p><b>What you submitted</b><br>Project: ${escapeHtml(r.project)}<br>Organization: ${escapeHtml(r.organization ?? "(none given)")}<br>What you're building: ${escapeHtml(r.building)}</p>
+<p><b>Quick start</b></p>
+<pre style="${pre};font-size:13px">npm install @openatlas/sdk</pre>
+<pre style="${pre};font-size:13px">${escapeHtml(usage)}</pre>
+<p>Gateway base URL: <code>${escapeHtml(base)}</code> (the SDK uses it by default). Every call needs a <code>user</code>: a stable, opaque ID for your end user, used only for the N-ATLaS licence count.</p>
+<p style="color:#4A524C;font-size:14px">N-ATLaS is for non-commercial use, capped at 1,000 active end users per 30 days, and output must be shown with "Powered by Awarri".</p>
+<p>${support ? `Questions? Reply to this email or write to ${escapeHtml(support)}.` : "Questions? Reply to this email."}</p>
+<p>OpenAtlas</p>
+</div>`;
+  return { to: r.email, subject: "Your OpenAtlas API key", text, html, ...(support ? { reply_to: support } : {}) };
+}
+
+function adminEmail(env: Env, r: KeyRequestDetails, prefix: string, replaced: number): Email {
+  const rows: [string, string][] = [
+    ["Name", r.name],
+    ["Email", r.email],
+    ["Project", r.project],
+    ["Organization", r.organization ?? "(none)"],
+    ["What they're building", r.building],
+    ["Expected end users", r.expectedUsers],
+    ["Time (UTC)", r.at],
+    ["Country (from IP)", r.country ?? "unknown"],
+    ["Key prefix", `${prefix}…`],
+    ["Replaced earlier key", replaced ? "yes" : "no"],
+  ];
+  return {
+    to: env.ADMIN_EMAIL!,
+    subject: `OpenAtlas key issued: ${r.project} (${r.email})`,
+    text: rows.map(([k, v]) => `${k}: ${v}`).join("\n"),
+    html: `<table style="font-family:system-ui,sans-serif;font-size:14px;border-collapse:collapse">${rows
+      .map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#4A524C;vertical-align:top">${escapeHtml(k)}</td><td style="padding:4px 0">${escapeHtml(v)}</td></tr>`)
+      .join("")}</table>`,
+    reply_to: r.email,
+  };
 }
 
 async function listKeyRequests(req: Request, env: Env) {
@@ -698,7 +880,7 @@ export default {
           response = json(200, await setKeyLimits(req, env));
           break;
         case "POST /v1/key-requests":
-          response = json(201, await createKeyRequest(req, env));
+          response = json(201, await createKeyRequest(req, env, ctx));
           break;
         case "GET /v1/admin/key-requests":
           response = json(200, await listKeyRequests(req, env));

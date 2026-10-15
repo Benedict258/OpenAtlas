@@ -73,6 +73,8 @@ p{text-wrap:pretty}
 .wbody>.fld{flex:none}
 .check{display:flex;gap:10px;align-items:flex-start;font-size:15px;font-weight:400;color:var(--muted)}
 .check input{margin-top:5px;width:18px;height:18px;accent-color:var(--green)}
+.hp{position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden}
+.keybox{margin:6px 0 0;padding:12px 14px;background:#fff;border:1px solid #9AA297;border-radius:6px;color:var(--ink);font-size:14px;white-space:pre-wrap;word-break:break-all}
 
 </style>
 <link rel="stylesheet" href="/responsive.css">
@@ -112,7 +114,7 @@ OpenAtlas
 <div class="wrap" style="display:flex;flex-direction:column;gap:20px">
 <p class="eyebrow">API keys</p>
 <h1 style="font-size:clamp(40px,5vw,64px);line-height:1.04;letter-spacing:-.03em;font-weight:500;max-width:900px">Request an API key.</h1>
-<p class="lead">Keys are issued by hand while OpenAtlas is a non-commercial research resource. Tell us what you're building and we'll email you a key.</p>
+<p class="lead">Tell us what you're building and get a key straight away. It's shown on this page and emailed to you. OpenAtlas is a non-commercial developer and research resource.</p>
 </div>
 </section>
 
@@ -121,12 +123,13 @@ OpenAtlas
 <div class="kit">
 <div class="txt">
 <p class="eyebrow">What happens next</p>
-<h2>A person reads every request.</h2>
-<p>Approved keys are sent to the email address you give. Then follow the <a href="/docs#quickstart" style="font-weight:600;color:var(--green);border-bottom:1.5px solid var(--green)">quickstart</a>.</p>
+<h2>Your key arrives at once.</h2>
+<p>Your key works immediately. It is shown once below and emailed to the address you give, with a quick start. Then follow the <a href="/docs#quickstart" style="font-weight:600;color:var(--green);border-bottom:1.5px solid var(--green)">quickstart</a>.</p>
 <dl class="facts" style="margin:0">
 <div><dt>Licence</dt><span>N-ATLaS is non-commercial and capped at 1,000 active end users per rolling 30 days, across every app that uses OpenAtlas.</span></div>
-<div><dt>Your key</dt><span>Shown to you once and stored only as a hash. Every call also needs a user ID for each of your end users, used only for the licence count.</span></div>
-<div><dt>Your request</dt><span>Stored only to review it and reply to you.</span></div>
+<div><dt>Your key</dt><span>Shown to you once and stored only as a hash. Requesting again with the same email replaces your previous key. Every call also needs a user ID for each of your end users, used only for the licence count.</span></div>
+<div><dt>Limits</dt><span>200 requests a day and up to 10 of your end users per key. Ask us if you need more.</span></div>
+<div><dt>Your request</dt><span>Stored to run the service and contact you about your key.</span></div>
 </dl>
 </div>
 <div class="win">
@@ -134,14 +137,18 @@ OpenAtlas
 <form class="wbody" id="kr" novalidate>
 <div class="rowf">
 <div class="fld"><label for="kr-name">Name</label><input type="text" id="kr-name" autocomplete="name" maxlength="100" required></div>
-<div class="fld"><label for="kr-email">Email</label><input type="email" id="kr-email" autocomplete="email" maxlength="200" required></div>
+<div class="fld"><label for="kr-email">Email</label><input type="email" id="kr-email" autocomplete="email" maxlength="254" required></div>
 </div>
-<div class="fld"><label for="kr-project">Project or organisation</label><input type="text" id="kr-project" maxlength="200" required></div>
+<div class="rowf">
+<div class="fld"><label for="kr-project">Project</label><input type="text" id="kr-project" maxlength="200" required></div>
+<div class="fld"><label for="kr-org">Organization <span class="hint">(optional)</span></label><input type="text" id="kr-org" autocomplete="organization" maxlength="200"></div>
+</div>
 <div class="fld"><label for="kr-use">What are you building?</label><textarea id="kr-use" maxlength="2000" placeholder="Who it's for, and how it will use chat(), transcribe() or the other methods" required></textarea></div>
-<div class="fld"><label for="kr-users">Expected end users per month</label><select id="kr-users"><option>Under 50</option><option>50 to 200</option><option>200 to 1,000</option><option>Not sure yet</option></select></div>
+<div class="fld"><label for="kr-users">Expected end users per month</label><select id="kr-users" required><option value="" selected disabled>Choose one</option><option>Under 50</option><option>50 to 200</option><option>200 to 1,000</option><option>Not sure yet</option></select></div>
 <label class="check"><input type="checkbox" id="kr-terms"><span>I'll use OpenAtlas non-commercially, under the <a href="https://huggingface.co/NCAIR1/N-ATLaS" style="font-weight:600;color:var(--green);border-bottom:1.5px solid var(--green)">N-ATLaS Terms of Use</a>.</span></label>
-<button class="wbtn" type="submit" id="kr-send">Request a key</button>
-<div class="out" id="kr-out" hidden><b id="kr-out-title">Request received</b><span id="kr-out-text"></span></div>
+<div class="hp" aria-hidden="true"><label for="kr-website">Website</label><input type="text" id="kr-website" name="website" tabindex="-1" autocomplete="off"></div>
+<button class="wbtn" type="submit" id="kr-send">Get my API key</button>
+<div class="out" id="kr-out" role="status" hidden><b id="kr-out-title">Done</b><span id="kr-out-text"></span><div id="kr-key" hidden><pre class="mono keybox" id="kr-key-value"></pre><div class="rowf" style="align-items:center"><button class="wbtn sec" type="button" id="kr-copy">Copy key</button><span class="hint" id="kr-copy-status"></span></div></div></div>
 </form>
 </div>
 </div>
@@ -171,21 +178,52 @@ document.getElementById("kr").addEventListener("submit", async (e) => {
   const $ = (id) => document.getElementById(id);
   const btn = $("kr-send");
   const show = (title, text) => { $("kr-out").hidden = false; $("kr-out-title").textContent = title; $("kr-out-text").textContent = text; };
+  const missing = [
+    !$("kr-name").value.trim() && "your name",
+    !$("kr-email").value.trim() && "your email",
+    !$("kr-project").value.trim() && "your project",
+    !$("kr-use").value.trim() && "what you're building",
+    !$("kr-users").value && "expected end users",
+    !$("kr-terms").checked && "agreement to the N-ATLaS Terms of Use",
+  ].filter(Boolean);
+  if (missing.length) return show("Not sent yet", `Please fill in ${missing.join(", ")}.`);
   btn.disabled = true;
+  $("kr-key").hidden = true;
   try {
     const res = await fetch("/api/key-request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: $("kr-name").value, email: $("kr-email").value, project: $("kr-project").value,
-        use_case: $("kr-use").value, expected_users: $("kr-users").value, accept_terms: $("kr-terms").checked }),
+        organization: $("kr-org").value, use_case: $("kr-use").value, expected_users: $("kr-users").value,
+        accept_terms: $("kr-terms").checked, website: $("kr-website").value }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || `Request failed (HTTP ${res.status})`);
-    show("Request received", `Thanks. We'll email your key to ${$("kr-email").value} once it's reviewed. Reference: ${body.id.slice(0, 8)}.`);
-    $("kr").querySelectorAll("input,textarea,select,button").forEach((el) => (el.disabled = true));
+    show(body.emailed ? "Check your email for your API key" : "Here is your API key",
+      (body.emailed
+        ? `We've sent it to ${$("kr-email").value}, with a quick start. It's also below in case the email is slow to arrive.`
+        : "We couldn't send the email just now, so copy your key from here.") +
+      " It's shown only once: store it somewhere safe and keep it secret." +
+      (body.replaced_previous_key ? " Your previous key for this email no longer works." : ""));
+    $("kr-key-value").textContent = body.key;
+    $("kr-key").hidden = false;
+    $("kr").querySelectorAll("input,textarea,select,#kr-send").forEach((el) => (el.disabled = true));
   } catch (err) {
     show("Not sent", err.message);
     btn.disabled = false;
+  }
+});
+document.getElementById("kr-copy").addEventListener("click", async () => {
+  const status = document.getElementById("kr-copy-status");
+  try {
+    await navigator.clipboard.writeText(document.getElementById("kr-key-value").textContent);
+    status.textContent = "Copied.";
+  } catch {
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById("kr-key-value"));
+    getSelection().removeAllRanges();
+    getSelection().addRange(range);
+    status.textContent = "Selected: press Ctrl+C (or Cmd+C) to copy.";
   }
 });
 </script>

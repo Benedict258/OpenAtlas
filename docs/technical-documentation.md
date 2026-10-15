@@ -84,7 +84,7 @@ A Cloudflare Worker (TypeScript) with a Cloudflare D1 (SQLite) database, on Clou
 
 **Other public routes:**
 - `GET /v1/health` (no key);
-- `POST /v1/key-requests` (the website's request form).
+- `POST /v1/key-requests` (the website's request form: issues a key at once and emails it through Resend).
 
 **Admin routes (admin token):**
 - `GET/POST /v1/admin/keys`, `/v1/admin/keys/revoke`, `/v1/admin/keys/limits`;
@@ -100,7 +100,7 @@ A Cloudflare Worker (TypeScript) with a Cloudflare D1 (SQLite) database, on Clou
 | `active_users` | `subject_hash` = SHA-256(`key_id:user`), `key_id`, first/last seen. This is the license count; raw user IDs aren't stored. |
 | `request_log` | time, key, route, status, latency. **No request or response content.** |
 | `issue_reports` | corrections sent via `reportIssue()`: output, correction, optional input, note and audio; the user hashed |
-| `key_requests` | requests from the website form, pending/approved/declined |
+| `key_requests` | requests from the website form and the key each one issued; older rows pending/approved/declined |
 
 **Per request** (chat shown):
 1. authenticate the key;

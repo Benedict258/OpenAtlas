@@ -84,12 +84,16 @@ export default {
       const body = await req.json().catch(() => null);
       if (!body || typeof body !== "object") return json(400, { error: "Request body must be JSON." });
 
-      // Forms whose data the gateway stores (it owns the database); forwarded as-is.
-      const FORMS = { "/api/key-request": "/v1/key-requests" };
-      if (FORMS[pathname]) {
-        const res = await gatewayFetch(`${gateway}${FORMS[pathname]}`, {
+      // The API key form: the gateway issues the key (it owns the database). A tighter per-IP limit than the
+      // demos, and the visitor's address and country passed on for the gateway's own limits and admin email.
+      if (pathname === "/api/key-request") {
+        const ip = req.headers.get("CF-Connecting-IP") ?? "unknown";
+        if (env.KEY_LIMITER && !(await env.KEY_LIMITER.limit({ key: ip })).success) {
+          return json(429, { error: "Too many key requests from your network. Wait a minute and try again." });
+        }
+        const res = await gatewayFetch(`${gateway}/v1/key-requests`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "CF-Connecting-IP": ip, "CF-IPCountry": req.cf?.country ?? req.headers.get("CF-IPCountry") ?? "" },
           body: JSON.stringify(body),
         });
         const out = await res.json().catch(() => ({}));

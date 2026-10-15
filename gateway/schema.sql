@@ -3,10 +3,11 @@
 -- Developer keys. Only the SHA-256 hash is stored; the plaintext key is shown once at issue time.
 -- Limits (NULL = none): daily_request_limit counts requests in the last 24 h; max_active_users is this
 -- key's share of the N-ATLaS license cap, so one key can't use up every other key's headroom.
--- (Existing databases: migrations/0001_key_limits.sql adds the last three columns.)
+-- (Existing databases: migrations/0001_key_limits.sql adds the last three columns; 0003 adds key_prefix.)
 CREATE TABLE IF NOT EXISTS api_keys (
   id                   TEXT PRIMARY KEY,
   key_hash             TEXT NOT NULL UNIQUE,
+  key_prefix           TEXT,                   -- first characters of the key, for display (e.g. oa_live_1a2b3c)
   label                TEXT NOT NULL,
   created_at           INTEGER NOT NULL,
   revoked_at           INTEGER,
@@ -55,9 +56,10 @@ CREATE TABLE IF NOT EXISTS issue_reports (
 );
 CREATE INDEX IF NOT EXISTS idx_issue_reports_created ON issue_reports (created_at);
 
--- API key requests from the website form. Reviewed by hand: POST /v1/admin/key-requests/decide with
--- decision "approve" issues a key (api_keys) and marks the request approved; "decline" marks it declined.
--- The key itself is never stored here.
+-- API key requests from the website form. Each request issues a key at once (status 'issued', key_id set)
+-- and revokes any key issued to the same email before. Rows from before migration 0003 may be 'pending',
+-- decided by hand with POST /v1/admin/key-requests/decide. The key itself is never stored here.
+-- ip_hash = SHA-256 of the requester's address, used only for rate limiting.
 CREATE TABLE IF NOT EXISTS key_requests (
   id              TEXT PRIMARY KEY,
   created_at      INTEGER NOT NULL,
@@ -66,8 +68,13 @@ CREATE TABLE IF NOT EXISTS key_requests (
   project         TEXT NOT NULL,
   use_case        TEXT NOT NULL,
   expected_users  TEXT,
-  status          TEXT NOT NULL DEFAULT 'pending',   -- 'pending' | 'approved' | 'declined'
+  organization    TEXT,
+  status          TEXT NOT NULL DEFAULT 'pending',   -- 'issued' | 'pending' | 'approved' | 'declined'
   key_id          TEXT,
-  decided_at      INTEGER
+  decided_at      INTEGER,
+  ip_hash         TEXT,
+  country         TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_key_requests_status ON key_requests (status, created_at);
+CREATE INDEX IF NOT EXISTS idx_key_requests_email ON key_requests (email, created_at);
+CREATE INDEX IF NOT EXISTS idx_key_requests_ip ON key_requests (ip_hash, created_at);

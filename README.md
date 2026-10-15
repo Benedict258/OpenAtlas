@@ -23,7 +23,7 @@ curl https://api.getopenatlas.xyz/v1/health
 
 > The GPU backend runs on rented hardware and is not on around the clock. If health shows `"reachable": false`, the website demos and API calls return `503 backend_unavailable` until it's back; everything else in this section still works.
 
-**With a key** ([request one here](https://getopenatlas.xyz/request-key); keys are issued by hand). Node 18+:
+**With a key** ([request one here](https://getopenatlas.xyz/request-key); the key is shown at once and emailed to you). Node 18+:
 ```bash
 mkdir try-openatlas && cd try-openatlas && npm init -y && npm install @openatlas/sdk
 ```
