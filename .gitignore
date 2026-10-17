@@ -4,6 +4,14 @@
 !.env.example
 .dev.vars
 .npmrc
+# SSH keys, certificates and private keys (keep them in ~/.ssh, never in the repo)
+id_rsa*
+id_ed25519*
+id_ecdsa*
+*.pem
+*.key
+*.p12
+*.pfx
 
 node_modules/
 dist/

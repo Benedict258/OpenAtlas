@@ -34,6 +34,18 @@ docker inspect rocm >/dev/null 2>&1 || { echo "No 'rocm' container 5 min after f
 
 step "1/5 GPU container"
 docker start rocm >/dev/null
+# The image publishes the container's ports 8000, 8888 (Jupyter, behind only a token) and 30000 to the
+# internet, and Docker's published ports bypass UFW. Block them from outside at Docker's own hook: the
+# server listens on 127.0.0.1 and is reached only through the cloudflared tunnel inside the container.
+ext_if=$(ip route show default | awk '{print $5; exit}')
+for ipt in iptables ip6tables; do
+  "$ipt" -S DOCKER-USER >/dev/null 2>&1 || continue
+  for port in 8000 8888 30000; do
+    rule=(DOCKER-USER -i "$ext_if" -p tcp -m conntrack --ctorigdstport "$port" -j DROP)
+    "$ipt" -C "${rule[@]}" 2>/dev/null || "$ipt" -I "${rule[@]}"
+  done
+done
+echo "blocked from the internet: container ports 8000, 8888, 30000 (on $ext_if)"
 docker exec rocm python3 -c 'import torch; assert torch.cuda.is_available(), "PyTorch sees no GPU in the rocm container"; print("GPU:", torch.cuda.get_device_name(0), "| torch", torch.__version__)'
 
 step "2/5 Code"
